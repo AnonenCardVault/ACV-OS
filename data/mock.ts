@@ -109,7 +109,7 @@ export const inventoryItems = [
     status: "Listed",
     location: "Vault C2",
     purchaseCost: 32,
-    askingPrice: 74.99,
+    askingPrice: 19.99,
     marketValue: 69,
     quantity: 2,
     source: "eBay lot",
@@ -117,7 +117,7 @@ export const inventoryItems = [
     daysListed: 38,
     aiConfidence: 0.91,
     lastUpdated: "Jul 04, 6:04 PM",
-    notes: "Listed quantity is 2. Recheck price drift after stale listing review."
+    notes: "Auction start price is $19.99. Monitor current bid and watcher activity."
   },
   {
     id: "inv-000143",

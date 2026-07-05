@@ -30,9 +30,11 @@ type DataColumnKey =
   | "qty"
   | "cost"
   | "listedPrice"
+  | "currentBid"
   | "marketValue"
   | "views"
   | "watchers"
+  | "bids"
   | "daysListed"
   | "status"
   | "lot"
@@ -63,6 +65,9 @@ type InventoryOps = {
   watchers: number;
   soldMedian: number;
   activeLow: number;
+  currentBid?: number;
+  bids?: number;
+  auctionEndDate?: string;
   lastCompUpdate?: string;
   lastPriceChange?: string;
   promotionPct?: number;
@@ -85,9 +90,12 @@ type InventoryOps = {
 const views: ViewMode[] = ["Listings", "Drafts", "Unlisted / Inactive", "All Inventory"];
 const listingSubTabs: ListingSubTab[] = ["All Listings", "BIN", "Auctions"];
 const defaultVisibleDataColumns: DataColumnKey[] = ["qty", "cost", "listedPrice", "marketValue", "views", "watchers", "daysListed", "status"];
+const auctionVisibleDataColumns: DataColumnKey[] = ["qty", "cost", "listedPrice", "currentBid", "marketValue", "views", "watchers", "bids", "daysListed", "status"];
 
 const optionalDataColumns: Array<{ key: DataColumnKey; label: string }> = [
   { key: "lot", label: "Lot" },
+  { key: "currentBid", label: "Current bid" },
+  { key: "bids", label: "Bids" },
   { key: "soldMedian", label: "Sold median comp" },
   { key: "activeLow", label: "Active low" },
   { key: "listingType", label: "Listing type" },
@@ -194,6 +202,9 @@ const opsBySku: Record<string, InventoryOps> = {
     watchers: 9,
     soldMedian: 67.25,
     activeLow: 59.99,
+    currentBid: 42,
+    bids: 6,
+    auctionEndDate: "Jul 12, 8:30 PM",
     lastCompUpdate: "Jul 04",
     lastPriceChange: "Jun 29",
     promotionPct: 0,
@@ -205,9 +216,9 @@ const opsBySku: Record<string, InventoryOps> = {
     descriptionStatus: "Approved",
     photoStatus: "Reviewed",
     priceStatus: "Review",
-    suggestedPrice: 69.99,
-    nextAction: "Review comps",
-    compSummary: "Listed above current median. Consider repricing after stale listing review.",
+    suggestedPrice: 19.99,
+    nextAction: "Monitor auction",
+    compSummary: "Auction started at $19.99 and is currently bid to $42.00 with 6 bids.",
     skuHistory: ["Created ACV-MLB-000301", "Quantity changed to 2", "Price review staged"],
     lifecycleTimeline: ["Imported lot", "Priced", "Listed", "Stale review"],
     auditHistory: ["Price drift flagged Jul 04"]
@@ -667,7 +678,14 @@ function ItemDetailDrawer({
                   <DetailField label="Location" value={row.location || "Missing"} tone={row.location ? undefined : "pink"} />
                   <DetailField label="Lot" value={lotLabel(row)} />
                   <DetailField label="Purchase Cost" value={row.purchaseCost ? formatCurrency(row.purchaseCost) : "Missing"} tone={row.purchaseCost ? "pink" : "pink"} />
-                  <DetailField label="Ask / Listed" value={row.askingPrice ? formatCurrency(row.askingPrice) : "-"} tone="gold" />
+                  <DetailField label={row.ops.listingType === "Auction" ? "Listed / Start Price" : "Ask / Listed"} value={row.askingPrice ? formatCurrency(row.askingPrice) : "—"} tone="gold" />
+                  {row.ops.listingType === "Auction" && (
+                    <>
+                      <DetailField label="Current Bid" value={currentBidLabel(row)} tone="green" />
+                      <DetailField label="Bids" value={bidsLabel(row)} tone="teal" />
+                      <DetailField label="Auction End" value={auctionEndLabel(row)} tone="gold" />
+                    </>
+                  )}
                   <DetailField label="Market Value" value={formatCurrency(row.marketValue)} tone="green" />
                   <DetailField label="Quantity" value={row.quantity} />
                   <DetailField label="Source" value={row.source} />
@@ -814,6 +832,18 @@ function offersCount(row: Row) {
 
 function shippingMethod(row: Row) {
   return row.ops.shippingMethod || (row.status === "Listed" ? "Standard envelope" : "Not set");
+}
+
+function currentBidLabel(row: Row) {
+  return row.ops.listingType === "Auction" && typeof row.ops.currentBid === "number" ? formatCurrency(row.ops.currentBid) : "—";
+}
+
+function bidsLabel(row: Row) {
+  return row.ops.listingType === "Auction" && typeof row.ops.bids === "number" ? row.ops.bids : "—";
+}
+
+function auctionEndLabel(row: Row) {
+  return row.ops.listingType === "Auction" ? row.ops.auctionEndDate || "Not scheduled" : "—";
 }
 
 function needsReview(row: Row) {
@@ -963,9 +993,17 @@ export default function InventoryPage() {
       header: "Listed Price",
       cell: (row) => <span className={row.askingPrice ? "font-semibold text-acv-gold" : "font-semibold text-acv-muted"}>{row.askingPrice ? formatCurrency(row.askingPrice) : "—"}</span>
     },
+    currentBid: {
+      header: "Current Bid",
+      cell: (row) => <span className={row.ops.listingType === "Auction" ? "font-semibold text-acv-green" : "text-acv-muted"}>{currentBidLabel(row)}</span>
+    },
     marketValue: { header: "Market Value", cell: (row) => <span className="font-semibold text-acv-green">{formatCurrency(row.marketValue)}</span> },
     views: { header: "Views", cell: (row) => <span className="font-semibold text-acv-text">{row.ops.views}</span> },
     watchers: { header: "Watchers", cell: (row) => <span className="font-semibold text-acv-teal">{row.ops.watchers}</span> },
+    bids: {
+      header: "Bids",
+      cell: (row) => <span className={row.ops.listingType === "Auction" ? "font-semibold text-acv-text" : "text-acv-muted"}>{bidsLabel(row)}</span>
+    },
     daysListed: { header: "Days Listed", cell: (row) => <span className={row.daysListed ? "font-semibold text-acv-text" : "text-acv-muted"}>{row.daysListed ? `${row.daysListed}d` : "—"}</span> },
     status: { header: "Status", cell: (row) => <StatusPill tone={statusTone(row.ops.listingStatus)}>{row.ops.listingStatus}</StatusPill> },
     lot: { header: "Lot", cell: (row) => <span className="whitespace-nowrap text-acv-muted">{lotLabel(row)}</span> },
@@ -986,9 +1024,11 @@ export default function InventoryPage() {
     shippingMethod: { header: "Shipping Method", cell: (row) => <span className="whitespace-nowrap text-acv-muted">{shippingMethod(row)}</span> }
   };
 
+  const defaultDataColumnKeys = viewMode === "Listings" && listingSubTab === "Auctions" ? auctionVisibleDataColumns : defaultVisibleDataColumns;
+
   const activeDataColumnKeys = [
-    ...defaultVisibleDataColumns,
-    ...optionalDataColumns.filter(({ key }) => enabledOptionalColumns.has(key)).map(({ key }) => key)
+    ...defaultDataColumnKeys,
+    ...optionalDataColumns.filter(({ key }) => enabledOptionalColumns.has(key) && !defaultDataColumnKeys.includes(key)).map(({ key }) => key)
   ];
 
   const inventoryColumns = [
@@ -1144,12 +1184,14 @@ export default function InventoryPage() {
                   {["Checkbox", "Thumbnail", "SKU", "Title", "Actions"].map((label) => (
                     <ColumnToggleButton key={label} label={label} checked disabled />
                   ))}
-                  {defaultVisibleDataColumns.map((key) => (
+                  {defaultDataColumnKeys.map((key) => (
                     <ColumnToggleButton key={key} label={dataColumnDefinitions[key].header} checked disabled />
                   ))}
-                  {optionalDataColumns.map(({ key, label }) => (
-                    <ColumnToggleButton key={key} label={label} checked={enabledOptionalColumns.has(key)} onClick={() => toggleOptionalColumn(key)} />
-                  ))}
+                  {optionalDataColumns
+                    .filter(({ key }) => !defaultDataColumnKeys.includes(key))
+                    .map(({ key, label }) => (
+                      <ColumnToggleButton key={key} label={label} checked={enabledOptionalColumns.has(key)} onClick={() => toggleOptionalColumn(key)} />
+                    ))}
                 </div>
               </div>
             )}
