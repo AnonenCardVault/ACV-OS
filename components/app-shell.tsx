@@ -12,9 +12,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   return (
-    <div className="min-h-screen bg-acv-black text-acv-text">
+    <div className="min-h-screen overflow-x-clip bg-acv-black text-acv-text">
       <div className="fixed inset-0 -z-10 command-grid bg-[radial-gradient(circle_at_20%_0%,rgba(139,63,252,0.18),transparent_32%),radial-gradient(circle_at_85%_18%,rgba(242,184,75,0.12),transparent_30%),linear-gradient(180deg,#08080b,#050507)]" />
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 border-r border-acv-border bg-black/78 backdrop-blur xl:block">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-56 border-r border-acv-border bg-acv-black sm:block">
         <div className="flex h-full flex-col">
           <Link href="/dashboard" className="flex items-center gap-3 border-b border-acv-border px-4 py-4">
             <Image
@@ -83,10 +83,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      <div className="xl:pl-64">
-        <header className="sticky top-0 z-20 border-b border-acv-border bg-black/80 backdrop-blur">
-          <div className="flex h-14 items-center gap-3 px-4 md:px-6">
-            <Link href="/dashboard" className="flex items-center gap-2 xl:hidden">
+      <div className="min-w-0 sm:pl-56">
+        <header className="sticky top-0 z-20 border-b border-acv-border bg-acv-black">
+          <div className="flex h-14 min-w-0 items-center gap-3 px-4 md:px-5">
+            <Link href="/dashboard" className="flex items-center gap-2 sm:hidden">
               <Image
                 src="/acv-logo.jpeg"
                 alt="ACV AnonenCardVault logo"
@@ -111,7 +111,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </button>
             </div>
           </div>
-          <nav className="acv-scrollbar flex gap-2 overflow-x-auto border-t border-acv-border px-4 py-2 xl:hidden">
+          <nav className="acv-scrollbar flex gap-2 overflow-x-auto border-t border-acv-border px-4 py-2 sm:hidden">
             {navItems.map((item) => {
               const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
               const Icon = item.icon;
@@ -133,7 +133,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             })}
           </nav>
         </header>
-        <main>{children}</main>
+        <main className="min-w-0">{children}</main>
       </div>
     </div>
   );

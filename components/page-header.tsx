@@ -9,7 +9,7 @@ type PageHeaderProps = {
 
 export function PageHeader({ title, description, status = "Mock data", action }: PageHeaderProps) {
   return (
-    <div className="flex flex-col gap-4 border-b border-acv-border bg-acv-black/65 px-4 py-4 md:flex-row md:items-center md:justify-between md:px-6">
+    <div className="flex min-w-0 flex-col gap-4 border-b border-acv-border bg-acv-black/65 px-4 py-4 lg:flex-row lg:items-center lg:justify-between lg:px-5">
       <div className="min-w-0">
         <div className="mb-2 flex flex-wrap items-center gap-2">
           <StatusPill tone="purple">{status}</StatusPill>
@@ -18,7 +18,7 @@ export function PageHeader({ title, description, status = "Mock data", action }:
         <h1 className="text-xl font-semibold tracking-normal text-acv-text md:text-2xl">{title}</h1>
         <p className="mt-1 max-w-3xl text-sm text-acv-muted">{description}</p>
       </div>
-      {action}
+      {action && <div className="flex shrink-0 flex-wrap gap-2">{action}</div>}
     </div>
   );
 }

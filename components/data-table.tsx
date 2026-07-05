@@ -16,8 +16,8 @@ type DataTableProps<T> = {
 
 export function DataTable<T>({ columns, rows, getRowKey, className }: DataTableProps<T>) {
   return (
-    <div className={cn("acv-scrollbar overflow-x-auto", className)}>
-      <table className="min-w-full border-separate border-spacing-0 text-left text-xs">
+    <div className={cn("acv-scrollbar max-w-full overflow-x-auto", className)}>
+      <table className="w-max min-w-full border-separate border-spacing-0 text-left text-xs">
         <thead>
           <tr>
             {columns.map((column) => (

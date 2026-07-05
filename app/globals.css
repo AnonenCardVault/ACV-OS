@@ -15,6 +15,7 @@ html,
 body {
   min-height: 100%;
   background: #050507;
+  overflow-x: clip;
 }
 
 body {

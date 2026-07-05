@@ -123,7 +123,7 @@ function DraftDetailDrawer({
   const warnings = draft.warnings.length ? draft.warnings : ["No blocking warnings. Confirm final photos before staging."];
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/70 backdrop-blur-sm">
+    <div className="fixed inset-y-0 left-0 right-0 z-50 flex justify-end bg-black/70 backdrop-blur-sm sm:left-56">
       <button type="button" aria-label="Close draft drawer" className="absolute inset-0 cursor-default" onClick={onClose} />
       <aside className="relative z-10 flex h-full w-full max-w-2xl flex-col border-l border-acv-border bg-acv-black shadow-glow">
         <div className="flex items-center justify-between gap-3 border-b border-acv-border px-5 py-4">
@@ -272,128 +272,85 @@ export default function ListingsPage() {
         action={<ActionButton icon={<Send className="h-4 w-4" />}>Stage mock update</ActionButton>}
       />
 
-      <div className="space-y-4 p-4 md:p-6">
-        <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-4">
+      <div className="min-w-0 space-y-4 p-3 sm:p-4 md:p-5">
+        <div className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-3">
           {[
             ["Ready for Draft", String(listingDraftQueue.filter((row) => row.draftStatus === "Ready").length), "text-acv-teal"],
             ["Active Listings", String(activeListingRows.length), "text-acv-gold"],
             ["Drift Alerts", String(activeListingRows.filter((row) => row.driftStatus !== "In sync").length), "text-acv-pink"],
             ["Staged Updates", String(stagedListingUpdates.length), "text-acv-purple"]
           ].map(([label, value, color]) => (
-            <div key={label} className="rounded-lg border border-acv-border bg-acv-panel p-4">
-              <p className="text-xs uppercase tracking-[0.12em] text-acv-muted">{label}</p>
-              <p className={cn("mt-2 text-2xl font-semibold", color)}>{value}</p>
+            <div key={label} className="min-w-0 rounded-lg border border-acv-border bg-acv-panel px-3 py-2.5">
+              <p className="truncate text-[11px] uppercase tracking-[0.12em] text-acv-muted">{label}</p>
+              <p className={cn("mt-1 text-xl font-semibold", color)}>{value}</p>
             </div>
           ))}
         </div>
 
-        <div className="grid gap-4 2xl:grid-cols-[minmax(0,1fr)_380px]">
-          <SectionCard
-            title="Draft Builder Queue"
-            eyebrow="Ready for listing"
-            action={<StatusPill tone="teal">{listingDraftQueue.length} staged items</StatusPill>}
-          >
-            <DataTable<DraftRow>
-              rows={listingDraftQueue}
-              getRowKey={(row) => row.sku}
-              columns={[
-                {
-                  key: "image",
-                  header: "Image",
-                  cell: (row) => <CardImageTile label={row.name} category={row.category} />
-                },
-                { key: "sku", header: "SKU", cell: (row) => <span className="font-semibold text-acv-gold">{row.sku}</span> },
-                { key: "name", header: "Card Name", cell: (row) => <span className="line-clamp-1 min-w-64">{row.name}</span> },
-                { key: "category", header: "Category", cell: (row) => row.category },
-                { key: "location", header: "Location", cell: (row) => row.location },
-                { key: "cost", header: "Cost", cell: (row) => <span className="text-acv-pink">{formatCurrency(row.cost)}</span> },
-                { key: "market", header: "Market", cell: (row) => <span className="text-acv-green">{formatCurrency(row.marketValue)}</span> },
-                { key: "suggested", header: "Suggested", cell: (row) => <span className="font-semibold text-acv-gold">{formatCurrency(row.suggestedPrice)}</span> },
-                {
-                  key: "title",
-                  header: "Title",
-                  cell: (row) => <StatusPill tone={pillTone(row.titleStatus)}>{row.titleStatus}</StatusPill>
-                },
-                {
-                  key: "description",
-                  header: "Description",
-                  cell: (row) => <StatusPill tone={pillTone(row.descriptionStatus)}>{row.descriptionStatus}</StatusPill>
-                },
-                {
-                  key: "photo",
-                  header: "Photo",
-                  cell: (row) => <StatusPill tone={pillTone(row.photoStatus)}>{row.photoStatus}</StatusPill>
-                },
-                {
-                  key: "draft",
-                  header: "Draft",
-                  cell: (row) => <StatusPill tone={pillTone(row.draftStatus)}>{row.draftStatus}</StatusPill>
-                },
-                {
-                  key: "actions",
-                  header: "Actions",
-                  className: "min-w-72",
-                  cell: (row) => (
-                    <div className="grid grid-cols-2 gap-1.5">
-                      <MiniActionButton tone="teal" onClick={() => openDraft(row, "generate")}>
-                        Generate Draft
-                      </MiniActionButton>
-                      <MiniActionButton onClick={() => openDraft(row, "review")}>Review Draft</MiniActionButton>
-                      <MiniActionButton tone="gold">Approve Draft</MiniActionButton>
-                      <MiniActionButton>Stage to eBay</MiniActionButton>
-                    </div>
-                  )
-                }
-              ]}
-            />
-          </SectionCard>
-
-          <SectionCard title="Staged Updates" eyebrow="Awaiting eBay push">
-            <div className="space-y-3">
-              {stagedListingUpdates.map((update) => (
-                <div key={update.id} className="rounded-lg border border-acv-border bg-acv-panel2 p-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <StatusPill tone={pillTone(update.riskLevel)}>{update.riskLevel} risk</StatusPill>
-                        <StatusPill tone="purple">{update.changeType}</StatusPill>
-                      </div>
-                      <p className="mt-3 line-clamp-1 text-sm font-semibold text-acv-text">{update.item}</p>
-                    </div>
-                  </div>
-                  <div className="mt-3 grid gap-2 text-xs">
-                    <div className="rounded-md border border-acv-border bg-black/20 p-2">
-                      <p className="text-acv-muted">Current eBay value</p>
-                      <p className="mt-1 line-clamp-1 font-semibold text-acv-pink">{update.currentEbayValue}</p>
-                    </div>
-                    <div className="rounded-md border border-acv-border bg-black/20 p-2">
-                      <p className="text-acv-muted">ACV value</p>
-                      <p className="mt-1 line-clamp-1 font-semibold text-acv-teal">{update.acvValue}</p>
-                    </div>
-                  </div>
-                  <div className="mt-3 grid grid-cols-2 gap-2">
-                    <MiniActionButton tone="teal">
-                      <span className="inline-flex items-center gap-1.5">
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                        Approve
-                      </span>
+        <SectionCard
+          title="Draft Builder Queue"
+          eyebrow="Ready for listing"
+          action={<StatusPill tone="teal">{listingDraftQueue.length} staged items</StatusPill>}
+        >
+          <DataTable<DraftRow>
+            rows={listingDraftQueue}
+            getRowKey={(row) => row.sku}
+            columns={[
+              {
+                key: "image",
+                header: "Image",
+                cell: (row) => <CardImageTile label={row.name} category={row.category} />
+              },
+              { key: "sku", header: "SKU", cell: (row) => <span className="font-semibold text-acv-gold">{row.sku}</span> },
+              { key: "name", header: "Card Name", cell: (row) => <span className="line-clamp-1 min-w-56">{row.name}</span> },
+              { key: "category", header: "Category", cell: (row) => row.category },
+              { key: "location", header: "Location", cell: (row) => row.location },
+              { key: "cost", header: "Cost", cell: (row) => <span className="text-acv-pink">{formatCurrency(row.cost)}</span> },
+              { key: "market", header: "Market", cell: (row) => <span className="text-acv-green">{formatCurrency(row.marketValue)}</span> },
+              { key: "suggested", header: "Suggested", cell: (row) => <span className="font-semibold text-acv-gold">{formatCurrency(row.suggestedPrice)}</span> },
+              {
+                key: "title",
+                header: "Title",
+                cell: (row) => <StatusPill tone={pillTone(row.titleStatus)}>{row.titleStatus}</StatusPill>
+              },
+              {
+                key: "description",
+                header: "Description",
+                cell: (row) => <StatusPill tone={pillTone(row.descriptionStatus)}>{row.descriptionStatus}</StatusPill>
+              },
+              {
+                key: "photo",
+                header: "Photo",
+                cell: (row) => <StatusPill tone={pillTone(row.photoStatus)}>{row.photoStatus}</StatusPill>
+              },
+              {
+                key: "draft",
+                header: "Draft",
+                cell: (row) => <StatusPill tone={pillTone(row.draftStatus)}>{row.draftStatus}</StatusPill>
+              },
+              {
+                key: "actions",
+                header: "Actions",
+                className: "min-w-72",
+                cell: (row) => (
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <MiniActionButton tone="teal" onClick={() => openDraft(row, "generate")}>
+                      Generate Draft
                     </MiniActionButton>
-                    <MiniActionButton>
-                      <span className="inline-flex items-center gap-1.5">
-                        <XCircle className="h-3.5 w-3.5" />
-                        Reject
-                      </span>
-                    </MiniActionButton>
+                    <MiniActionButton onClick={() => openDraft(row, "review")}>Review Draft</MiniActionButton>
+                    <MiniActionButton tone="gold">Approve Draft</MiniActionButton>
+                    <MiniActionButton>Stage to eBay</MiniActionButton>
                   </div>
-                </div>
-              ))}
-            </div>
-          </SectionCard>
-        </div>
+                )
+              }
+            ]}
+          />
+        </SectionCard>
 
         <SectionCard
           title="Active Listings Monitor"
           eyebrow="Marketplace state"
+          className="border-acv-teal/30"
           action={
             <div className="hidden items-center gap-2 sm:flex">
               <StatusPill tone="pink">API offline</StatusPill>
@@ -413,7 +370,7 @@ export default function ListingsPage() {
                 cell: (row) => <CardImageTile label={row.title} category={row.category} />
               },
               { key: "sku", header: "SKU", cell: (row) => <span className="font-semibold text-acv-gold">{row.sku}</span> },
-              { key: "title", header: "Title", cell: (row) => <span className="line-clamp-1 min-w-96">{row.title}</span> },
+              { key: "title", header: "Title", cell: (row) => <span className="line-clamp-1 min-w-80">{row.title}</span> },
               { key: "status", header: "Status", cell: (row) => <StatusPill tone={pillTone(row.status)}>{row.status}</StatusPill> },
               { key: "listed", header: "Listed", cell: (row) => <span className="font-semibold text-acv-gold">{formatCurrency(row.listedPrice)}</span> },
               { key: "market", header: "Market", cell: (row) => <span className="text-acv-green">{formatCurrency(row.marketPrice)}</span> },
@@ -430,7 +387,47 @@ export default function ListingsPage() {
           />
         </SectionCard>
 
-        <div className="grid gap-4 xl:grid-cols-3">
+        <SectionCard title="Staged eBay Updates" eyebrow="Awaiting approval">
+          <div className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-3">
+            {stagedListingUpdates.map((update) => (
+              <div key={update.id} className="min-w-0 rounded-lg border border-acv-border bg-acv-panel2 p-3">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <StatusPill tone={pillTone(update.riskLevel)}>{update.riskLevel} risk</StatusPill>
+                    <StatusPill tone="purple">{update.changeType}</StatusPill>
+                  </div>
+                  <p className="mt-3 line-clamp-1 text-sm font-semibold text-acv-text">{update.item}</p>
+                </div>
+                <div className="mt-3 grid min-w-0 gap-2 text-xs sm:grid-cols-2">
+                  <div className="min-w-0 rounded-md border border-acv-border bg-black/20 p-2">
+                    <p className="text-acv-muted">Current eBay value</p>
+                    <p className="mt-1 truncate font-semibold text-acv-pink">{update.currentEbayValue}</p>
+                  </div>
+                  <div className="min-w-0 rounded-md border border-acv-border bg-black/20 p-2">
+                    <p className="text-acv-muted">ACV value</p>
+                    <p className="mt-1 truncate font-semibold text-acv-teal">{update.acvValue}</p>
+                  </div>
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <MiniActionButton tone="teal">
+                    <span className="inline-flex items-center gap-1.5">
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      Approve
+                    </span>
+                  </MiniActionButton>
+                  <MiniActionButton>
+                    <span className="inline-flex items-center gap-1.5">
+                      <XCircle className="h-3.5 w-3.5" />
+                      Reject
+                    </span>
+                  </MiniActionButton>
+                </div>
+              </div>
+            ))}
+          </div>
+        </SectionCard>
+
+        <div className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-4">
           <SectionCard title="Draft QA Rules" eyebrow="Confirmation gates">
             <div className="space-y-2 text-xs">
               {["SKU/custom label changes", "Price revisions", "Quantity revisions", "Title and description changes", "End listing actions"].map((item) => (
