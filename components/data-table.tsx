@@ -2,7 +2,7 @@ import { cn } from "@/lib/utils";
 
 type Column<T> = {
   key: string;
-  header: string;
+  header: React.ReactNode;
   cell: (row: T) => React.ReactNode;
   className?: string;
 };
