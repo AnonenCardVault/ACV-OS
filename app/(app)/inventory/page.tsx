@@ -5,22 +5,18 @@ import {
   Archive,
   CheckCircle2,
   FileClock,
-  History,
-  Layers3,
   Plus,
   RefreshCcw,
   Save,
   Search,
   Send,
-  ShieldCheck,
+  SlidersHorizontal,
   Tag,
   Upload,
   X
 } from "lucide-react";
 import { ActionButton } from "@/components/action-button";
 import { DataTable } from "@/components/data-table";
-import { PageHeader } from "@/components/page-header";
-import { SectionCard } from "@/components/section-card";
 import { StatusPill } from "@/components/status-pill";
 import { inventoryItems } from "@/data/mock";
 import { cn, formatCurrency, formatPercent } from "@/lib/utils";
@@ -354,8 +350,8 @@ function CardImageTile({ label, category, large = false }: { label: string; cate
   return (
     <div
       className={cn(
-        "relative flex shrink-0 flex-col justify-between overflow-hidden rounded border border-acv-border bg-gradient-to-br from-acv-purple/35 via-acv-panel2 to-acv-gold/20 p-2",
-        large ? "h-72 w-full max-w-56" : "h-12 w-9"
+        "relative flex shrink-0 flex-col justify-between overflow-hidden rounded border border-acv-border bg-gradient-to-br from-acv-purple/35 via-acv-panel2 to-acv-gold/20",
+        large ? "h-72 w-full max-w-56 p-2" : "h-10 w-8 p-1"
       )}
     >
       <span className={cn("font-bold uppercase text-acv-gold", large ? "text-xs" : "text-[8px]")}>{category.slice(0, 3)}</span>
@@ -394,24 +390,27 @@ function MiniActionButton({
   );
 }
 
-function FilterSelect({
+function ToolbarSelect({
   label,
   value,
   options,
-  onChange
+  onChange,
+  className
 }: {
   label: string;
   value: string;
   options: string[];
   onChange: (value: string) => void;
+  className?: string;
 }) {
   return (
-    <label className="min-w-0">
-      <span className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-acv-muted">{label}</span>
+    <label className={cn("min-w-0", className)}>
+      <span className="sr-only">{label}</span>
       <select
+        aria-label={label}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="h-9 w-full rounded-md border border-acv-border bg-acv-panel2 px-2 text-xs font-semibold text-acv-text outline-none transition hover:border-acv-teal/45"
+        className="h-8 w-full rounded-md border border-acv-border bg-acv-panel2 px-2 text-[11px] font-semibold text-acv-text outline-none transition hover:border-acv-teal/45"
       >
         {options.map((option) => (
           <option key={option} value={option}>
@@ -420,6 +419,45 @@ function FilterSelect({
         ))}
       </select>
     </label>
+  );
+}
+
+function CompactMetric({ label, value, tone }: { label: string; value: string; tone: "green" | "teal" | "gold" | "pink" | "neutral" }) {
+  const toneClass = tone === "green" ? "text-acv-green" : tone === "teal" ? "text-acv-teal" : tone === "gold" ? "text-acv-gold" : tone === "pink" ? "text-acv-pink" : "text-acv-text";
+  return (
+    <div className="min-w-0 rounded-md border border-acv-border bg-acv-panel px-2.5 py-2">
+      <p className="truncate text-[9px] font-semibold uppercase tracking-[0.12em] text-acv-muted">{label}</p>
+      <p className={cn("mt-0.5 truncate text-sm font-bold", toneClass)}>{value}</p>
+    </div>
+  );
+}
+
+function TableControlButton({
+  children,
+  active,
+  tone = "teal",
+  onClick
+}: {
+  children: React.ReactNode;
+  active?: boolean;
+  tone?: "teal" | "gold" | "purple";
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "h-8 whitespace-nowrap rounded-md border px-3 text-[11px] font-semibold transition",
+        active && tone === "gold"
+          ? "border-acv-gold/45 bg-acv-gold/10 text-acv-gold"
+          : active
+            ? "border-acv-teal/45 bg-acv-teal/10 text-acv-teal"
+            : "border-acv-border bg-white/[0.03] text-acv-muted hover:border-acv-teal/45 hover:text-acv-teal"
+      )}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -623,18 +661,61 @@ function ItemDetailDrawer({
 
 function ActionMenu({ row, onOpen }: { row: Row; onOpen: (row: Row) => void }) {
   return (
-    <button
-      type="button"
-      title="Open item details"
-      onClick={(event) => {
+    <select
+      aria-label={`Actions for ${row.sku}`}
+      defaultValue=""
+      onClick={(event) => event.stopPropagation()}
+      onChange={(event) => {
         event.stopPropagation();
-        onOpen(row);
+        if (event.target.value === "details") onOpen(row);
+        event.currentTarget.value = "";
       }}
-      className="inline-flex h-8 items-center justify-center rounded-md border border-acv-border px-2.5 text-[11px] font-semibold text-acv-muted transition hover:border-acv-teal/45 hover:text-acv-teal"
+      className="h-8 w-28 rounded-md border border-acv-border bg-acv-panel2 px-2 text-[11px] font-semibold text-acv-text outline-none transition hover:border-acv-teal/45"
     >
-      Details
-    </button>
+      <option value="">Actions</option>
+      <option value="details">Open details</option>
+      <option value="price">Edit price</option>
+      <option value="location">Update location</option>
+      <option value="comps">Refresh comps</option>
+      <option value="stage">Stage to eBay</option>
+      <option value="archive">Archive</option>
+    </select>
   );
+}
+
+function lotLabel(row: Row) {
+  if (row.source === "eBay lot") return "eBay lot";
+  if (row.source === "Local show") return "Show lot";
+  if (row.source === "Whatnot") return "Whatnot";
+  if (row.source === "Trade") return "Trade";
+  return row.source;
+}
+
+function tablePrice(row: Row) {
+  return row.askingPrice || row.ops.suggestedPrice || row.marketValue;
+}
+
+function listedDateLabel(row: Row) {
+  if (!row.daysListed) return "Not listed";
+  return `${row.lastUpdated.split(",")[0]} - ${row.daysListed}d`;
+}
+
+function needsReview(row: Row) {
+  return row.status === "Needs Review" || row.aiConfidence < 0.75 || row.ops.driftStatus === "Needs review" || row.ops.driftStatus.includes("drift");
+}
+
+function marketRangeMatches(row: Row, filter: string) {
+  if (filter === "All") return true;
+  if (filter === "Under $50") return row.marketValue < 50;
+  if (filter === "$50-$150") return row.marketValue >= 50 && row.marketValue <= 150;
+  return row.marketValue > 150;
+}
+
+function listedDateMatches(row: Row, filter: string) {
+  if (filter === "All") return true;
+  if (filter === "Live") return row.daysListed > 0;
+  if (filter === "Not listed") return row.daysListed === 0;
+  return row.daysListed >= 21;
 }
 
 export default function InventoryPage() {
@@ -651,6 +732,10 @@ export default function InventoryPage() {
   const [sourceFilter, setSourceFilter] = useState("All");
   const [confidenceFilter, setConfidenceFilter] = useState("All");
   const [driftFilter, setDriftFilter] = useState("All");
+  const [needsReviewFilter, setNeedsReviewFilter] = useState("All");
+  const [dateListedFilter, setDateListedFilter] = useState("All");
+  const [marketRangeFilter, setMarketRangeFilter] = useState("All");
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
 
   const listedRows = rows.filter((row) => row.status === "Listed");
@@ -662,10 +747,11 @@ export default function InventoryPage() {
     listedValue: listedRows.reduce((total, row) => total + row.marketValue * row.quantity, 0),
     draftValue: draftRows.reduce((total, row) => total + row.marketValue * row.quantity, 0),
     unlistedValue: unlistedRows.reduce((total, row) => total + row.marketValue * row.quantity, 0),
+    totalUnits: rows.reduce((total, row) => total + row.quantity, 0),
     activeListings: listedRows.length,
     drafts: draftRows.length,
     unlistedItems: unlistedRows.length,
-    needsReview: rows.filter((row) => row.status === "Needs Review" || row.aiConfidence < 0.75).length
+    needsReview: rows.filter(needsReview).length
   };
 
   const viewBaseRows = useMemo(() => {
@@ -688,9 +774,12 @@ export default function InventoryPage() {
       const matchesSource = sourceFilter === "All" || row.source === sourceFilter;
       const matchesConfidence = confidenceFilter === "All" || confidenceBand(row.aiConfidence) === confidenceFilter;
       const matchesDrift = driftFilter === "All" || row.ops.driftStatus === driftFilter;
-      return matchesQuery && matchesStatus && matchesCategory && matchesLocation && matchesListingType && matchesSource && matchesConfidence && matchesDrift;
+      const matchesNeedsReview = needsReviewFilter === "All" || (needsReviewFilter === "Needs Review" ? needsReview(row) : !needsReview(row));
+      const matchesListedDate = listedDateMatches(row, dateListedFilter);
+      const matchesMarketRange = marketRangeMatches(row, marketRangeFilter);
+      return matchesQuery && matchesStatus && matchesCategory && matchesLocation && matchesListingType && matchesSource && matchesConfidence && matchesDrift && matchesNeedsReview && matchesListedDate && matchesMarketRange;
     });
-  }, [categoryFilter, confidenceFilter, driftFilter, listingTypeFilter, locationFilter, query, sourceFilter, statusFilter, viewBaseRows]);
+  }, [categoryFilter, confidenceFilter, dateListedFilter, driftFilter, listingTypeFilter, locationFilter, marketRangeFilter, needsReviewFilter, query, sourceFilter, statusFilter, viewBaseRows]);
 
   const visibleIds = filteredRows.map((row) => row.id);
   const selectedVisibleCount = visibleIds.filter((id) => selectedIds.has(id)).length;
@@ -735,236 +824,203 @@ export default function InventoryPage() {
     cell: (row: Row) => <SelectCheckbox checked={selectedIds.has(row.id)} label={`Select ${row.sku}`} onChange={(checked) => toggleRow(row.id, checked)} />
   };
 
-  const listingColumns = [
+  const inventoryColumns = [
     checkboxColumn,
-    { key: "image", header: "Image", cell: (row: Row) => <CardImageTile label={row.name} category={row.category} /> },
+    { key: "thumbnail", header: "", className: "w-14", cell: (row: Row) => <CardImageTile label={row.name} category={row.category} /> },
     { key: "sku", header: "SKU", cell: (row: Row) => <span className="font-semibold text-acv-gold">{row.sku}</span> },
-    { key: "name", header: "Title / Card Name", cell: (row: Row) => <span className="line-clamp-1 min-w-72">{row.name}</span> },
-    { key: "listingType", header: "Listing Type", cell: (row: Row) => <StatusPill tone={statusTone(row.ops.listingType)}>{row.ops.listingType}</StatusPill> },
+    { key: "title", header: "Title", cell: (row: Row) => <span className="line-clamp-1 min-w-64 max-w-[360px] font-semibold text-acv-text">{row.name}</span> },
+    { key: "lot", header: "Lot", cell: (row: Row) => <span className="whitespace-nowrap text-acv-muted">{lotLabel(row)}</span> },
+    { key: "qty", header: "Qty", className: "text-center", cell: (row: Row) => <span className="font-semibold text-acv-text">{row.quantity}</span> },
+    { key: "price", header: "Price", cell: (row: Row) => <span className={row.askingPrice ? "font-semibold text-acv-gold" : "font-semibold text-acv-muted"}>{row.askingPrice ? formatCurrency(row.askingPrice) : formatCurrency(tablePrice(row))}</span> },
+    { key: "market", header: "Market", cell: (row: Row) => <span className="font-semibold text-acv-green">{formatCurrency(row.marketValue)}</span> },
+    { key: "sold", header: "Sold", cell: (row: Row) => <span className="text-acv-text">{formatCurrency(row.ops.soldMedian)}</span> },
+    { key: "listedDate", header: "Listed Date", cell: (row: Row) => <span className={row.daysListed ? "whitespace-nowrap text-acv-muted" : "whitespace-nowrap text-acv-muted/70"}>{listedDateLabel(row)}</span> },
     { key: "status", header: "Status", cell: (row: Row) => <StatusPill tone={statusTone(row.ops.listingStatus)}>{row.ops.listingStatus}</StatusPill> },
-    { key: "listedPrice", header: "Listed Price", cell: (row: Row) => <span className="font-semibold text-acv-gold">{formatCurrency(row.askingPrice)}</span> },
-    { key: "market", header: "Market Value", cell: (row: Row) => <span className="font-semibold text-acv-green">{formatCurrency(row.marketValue)}</span> },
-    { key: "soldMedian", header: "Sold Median", cell: (row: Row) => formatCurrency(row.ops.soldMedian) },
-    { key: "activeLow", header: "Active Low", cell: (row: Row) => <span className="text-acv-pink">{formatCurrency(row.ops.activeLow)}</span> },
-    { key: "views", header: "Views", cell: (row: Row) => row.ops.views },
-    { key: "watchers", header: "Watchers", cell: (row: Row) => <span className="font-semibold text-acv-teal">{row.ops.watchers}</span> },
-    { key: "qty", header: "Qty", cell: (row: Row) => row.quantity },
-    { key: "days", header: "Days Listed", cell: (row: Row) => row.daysListed },
-    { key: "location", header: "Location", cell: (row: Row) => row.location || <span className="font-semibold text-acv-pink">Missing</span> },
-    { key: "drift", header: "Drift", cell: (row: Row) => <StatusPill tone={statusTone(row.ops.driftStatus)}>{row.ops.driftStatus}</StatusPill> },
-    { key: "actions", header: "Actions", cell: (row: Row) => <ActionMenu row={row} onOpen={setSelectedRow} /> }
+    { key: "actions", header: "Actions", className: "text-right", cell: (row: Row) => <ActionMenu row={row} onOpen={setSelectedRow} /> }
   ];
 
-  const draftColumns = [
-    checkboxColumn,
-    { key: "image", header: "Image", cell: (row: Row) => <CardImageTile label={row.name} category={row.category} /> },
-    { key: "sku", header: "SKU", cell: (row: Row) => <span className="font-semibold text-acv-gold">{row.sku}</span> },
-    { key: "name", header: "Card Name", cell: (row: Row) => <span className="line-clamp-1 min-w-72">{row.name}</span> },
-    { key: "draftSource", header: "Draft Source", cell: (row: Row) => <StatusPill tone={statusTone(row.ops.draftSource)}>{row.ops.draftSource}</StatusPill> },
-    { key: "titleStatus", header: "Title", cell: (row: Row) => <StatusPill tone={statusTone(row.ops.titleStatus)}>{row.ops.titleStatus}</StatusPill> },
-    { key: "descriptionStatus", header: "Description", cell: (row: Row) => <StatusPill tone={statusTone(row.ops.descriptionStatus)}>{row.ops.descriptionStatus}</StatusPill> },
-    { key: "photoStatus", header: "Photo", cell: (row: Row) => <StatusPill tone={statusTone(row.ops.photoStatus)}>{row.ops.photoStatus}</StatusPill> },
-    { key: "priceStatus", header: "Price", cell: (row: Row) => <StatusPill tone={statusTone(row.ops.priceStatus)}>{row.ops.priceStatus}</StatusPill> },
-    { key: "suggestedPrice", header: "Suggested Price", cell: (row: Row) => <span className="font-semibold text-acv-gold">{formatCurrency(row.ops.suggestedPrice)}</span> },
-    { key: "lastUpdated", header: "Last Updated", cell: (row: Row) => <span className="whitespace-nowrap text-acv-muted">{row.lastUpdated}</span> },
-    { key: "actions", header: "Actions", cell: (row: Row) => <ActionMenu row={row} onOpen={setSelectedRow} /> }
-  ];
-
-  const unlistedColumns = [
-    checkboxColumn,
-    { key: "image", header: "Image", cell: (row: Row) => <CardImageTile label={row.name} category={row.category} /> },
-    { key: "sku", header: "SKU", cell: (row: Row) => <span className="font-semibold text-acv-gold">{row.sku}</span> },
-    { key: "name", header: "Card Name", cell: (row: Row) => <span className="line-clamp-1 min-w-72">{row.name}</span> },
-    { key: "category", header: "Category", cell: (row: Row) => row.category },
-    { key: "status", header: "Status", cell: (row: Row) => <StatusPill tone={statusTone(row.status)}>{row.status}</StatusPill> },
-    { key: "location", header: "Location", cell: (row: Row) => row.location || <span className="font-semibold text-acv-pink">Missing</span> },
-    { key: "cost", header: "Cost", cell: (row: Row) => (row.purchaseCost ? <span className="text-acv-pink">{formatCurrency(row.purchaseCost)}</span> : <span className="font-semibold text-acv-pink">Missing</span>) },
-    { key: "market", header: "Market Value", cell: (row: Row) => <span className="font-semibold text-acv-green">{formatCurrency(row.marketValue)}</span> },
-    { key: "suggested", header: "Suggested Price", cell: (row: Row) => <span className="font-semibold text-acv-gold">{formatCurrency(row.ops.suggestedPrice)}</span> },
-    { key: "confidence", header: "Confidence", cell: (row: Row) => <span className={confidenceBand(row.aiConfidence) === "Low" ? "font-semibold text-acv-pink" : confidenceBand(row.aiConfidence) === "Medium" ? "text-acv-gold" : "text-acv-teal"}>{formatPercent(row.aiConfidence)}</span> },
-    { key: "nextAction", header: "Next Action", cell: (row: Row) => <span className="whitespace-nowrap text-acv-muted">{row.ops.nextAction}</span> },
-    { key: "actions", header: "Actions", cell: (row: Row) => <ActionMenu row={row} onOpen={setSelectedRow} /> }
-  ];
-
-  const allColumns = [
-    checkboxColumn,
-    { key: "image", header: "Image", cell: (row: Row) => <CardImageTile label={row.name} category={row.category} /> },
-    { key: "sku", header: "SKU", cell: (row: Row) => <span className="font-semibold text-acv-gold">{row.sku}</span> },
-    { key: "name", header: "Card Name", cell: (row: Row) => <span className="line-clamp-1 min-w-72">{row.name}</span> },
-    { key: "category", header: "Category", cell: (row: Row) => row.category },
-    { key: "status", header: "Status", cell: (row: Row) => <StatusPill tone={statusTone(row.status)}>{row.status}</StatusPill> },
-    { key: "location", header: "Location", cell: (row: Row) => row.location || <span className="font-semibold text-acv-pink">Missing</span> },
-    { key: "cost", header: "Cost", cell: (row: Row) => (row.purchaseCost ? <span className="text-acv-pink">{formatCurrency(row.purchaseCost)}</span> : <span className="font-semibold text-acv-pink">Missing</span>) },
-    { key: "ask", header: "Ask / Listed", cell: (row: Row) => (row.askingPrice ? <span className="text-acv-gold">{formatCurrency(row.askingPrice)}</span> : "-") },
-    { key: "market", header: "Market Value", cell: (row: Row) => <span className="font-semibold text-acv-green">{formatCurrency(row.marketValue)}</span> },
-    { key: "qty", header: "Qty", cell: (row: Row) => row.quantity },
-    { key: "source", header: "Source", cell: (row: Row) => row.source },
-    { key: "confidence", header: "Confidence", cell: (row: Row) => <span className={confidenceBand(row.aiConfidence) === "Low" ? "font-semibold text-acv-pink" : confidenceBand(row.aiConfidence) === "Medium" ? "text-acv-gold" : "text-acv-teal"}>{formatPercent(row.aiConfidence)}</span> },
-    { key: "actions", header: "Actions", cell: (row: Row) => <ActionMenu row={row} onOpen={setSelectedRow} /> }
-  ];
-
-  const columns = viewMode === "Listings" ? listingColumns : viewMode === "Drafts" ? draftColumns : viewMode === "Unlisted / Inactive" ? unlistedColumns : allColumns;
+  const activeFilterCount = [
+    statusFilter,
+    categoryFilter,
+    locationFilter,
+    listingTypeFilter,
+    sourceFilter,
+    confidenceFilter,
+    driftFilter,
+    needsReviewFilter,
+    dateListedFilter,
+    marketRangeFilter
+  ].filter((value) => value !== "All").length + (query ? 1 : 0);
 
   return (
     <>
-      <PageHeader
-        title="Inventory Workstation"
-        description="Operational source-of-truth views for live listings, drafts, unlisted inventory, and complete ACV records."
-        action={
-          <>
+      <div className="min-w-0 space-y-2.5 p-3 sm:p-4">
+        <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 border-b border-acv-border pb-2">
+          <div className="min-w-0">
+            <div className="mb-1 flex flex-wrap items-center gap-2">
+              <StatusPill tone="purple">Mock data</StatusPill>
+              <StatusPill tone="teal">ACV OS v1 shell</StatusPill>
+            </div>
+            <h1 className="truncate text-lg font-semibold text-acv-text">Inventory Workstation</h1>
+          </div>
+          <div className="flex shrink-0 flex-wrap gap-2">
             <ActionButton variant="ghost" icon={<Upload className="h-4 w-4" />}>
               Import
             </ActionButton>
             <ActionButton icon={<Plus className="h-4 w-4" />}>Create item</ActionButton>
-          </>
-        }
-      />
+          </div>
+        </div>
 
-      <div className="min-w-0 space-y-4 p-3 sm:p-4 md:p-5">
-        <div className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(138px,1fr))] gap-3">
+        <div className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(94px,1fr))] gap-2">
           {[
-            ["Total inventory value", formatCurrency(summary.totalValue), "text-acv-green"],
-            ["Listed value", formatCurrency(summary.listedValue), "text-acv-teal"],
-            ["Draft value", formatCurrency(summary.draftValue), "text-acv-gold"],
-            ["Unlisted value", formatCurrency(summary.unlistedValue), "text-acv-text"],
-            ["Active listings", String(summary.activeListings), "text-acv-teal"],
-            ["Drafts", String(summary.drafts), "text-acv-gold"],
-            ["Unlisted items", String(summary.unlistedItems), "text-acv-muted"],
-            ["Needs review", String(summary.needsReview), "text-acv-pink"]
-          ].map(([label, value, color]) => (
-            <div key={label} className="min-w-0 rounded-lg border border-acv-border bg-acv-panel px-3 py-2.5">
-              <p className="truncate text-[11px] uppercase tracking-[0.12em] text-acv-muted">{label}</p>
-              <p className={cn("mt-1 truncate text-xl font-semibold", color)}>{value}</p>
-            </div>
+            ["Listed Value", formatCurrency(summary.listedValue), "teal"],
+            ["Market Value", formatCurrency(summary.totalValue), "green"],
+            ["Total Units", String(summary.totalUnits), "gold"],
+            ["Active Listings", String(summary.activeListings), "teal"],
+            ["Drafts", String(summary.drafts), "gold"],
+            ["Unlisted", String(summary.unlistedItems), "neutral"],
+            ["Needs Review", String(summary.needsReview), "pink"]
+          ].map(([label, value, tone]) => (
+            <CompactMetric key={label} label={label} value={value} tone={tone as "green" | "teal" | "gold" | "pink" | "neutral"} />
           ))}
         </div>
 
-        <SectionCard title="Inventory Views" eyebrow="Operational lanes" action={<StatusPill tone="teal">{filteredRows.length} visible</StatusPill>}>
-          <div className="flex min-w-0 flex-wrap gap-2">
-            {views.map((view) => (
+        <section className="min-w-0 overflow-hidden rounded-lg border border-acv-border bg-acv-panel/88 shadow-glow">
+          <div className="space-y-2 border-b border-acv-border bg-acv-black/45 px-3 py-2.5">
+            <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+              <div className="flex min-w-0 flex-wrap gap-2">
+                {views.map((view) => (
+                  <TableControlButton key={view} active={viewMode === view} onClick={() => switchView(view)}>
+                    {view}
+                  </TableControlButton>
+                ))}
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                {activeFilterCount > 0 && <StatusPill tone="gold">{activeFilterCount} filters</StatusPill>}
+                <StatusPill tone="teal">{filteredRows.length} visible</StatusPill>
+              </div>
+            </div>
+
+            {viewMode === "Listings" && (
+              <div className="flex min-w-0 flex-wrap gap-2">
+                {listingSubTabs.map((tab) => (
+                  <TableControlButton
+                    key={tab}
+                    active={listingSubTab === tab}
+                    tone="gold"
+                    onClick={() => {
+                      setListingSubTab(tab);
+                      setSelectedIds(new Set());
+                    }}
+                  >
+                    {tab}
+                  </TableControlButton>
+                ))}
+              </div>
+            )}
+
+            <div className="flex min-w-0 items-center gap-2">
+              <div className="acv-scrollbar contained-x-scroll flex min-w-0 flex-1 items-center gap-2 pb-1">
+                <label className="w-56 shrink-0">
+                  <span className="sr-only">Search inventory</span>
+                  <div className="flex h-8 min-w-0 items-center gap-2 rounded-md border border-acv-border bg-acv-panel2 px-2.5">
+                    <Search className="h-3.5 w-3.5 shrink-0 text-acv-muted" />
+                    <input
+                      value={query}
+                      onChange={(event) => setQuery(event.target.value)}
+                      placeholder="Search title or SKU..."
+                      className="min-w-0 flex-1 bg-transparent text-[11px] font-semibold text-acv-text outline-none placeholder:text-acv-muted"
+                    />
+                  </div>
+                </label>
+                <ToolbarSelect label="Status" value={statusFilter} options={["All", ...uniqueValues([...rows.map((row) => row.status), ...rows.map((row) => row.ops.listingStatus)])]} onChange={setStatusFilter} className="w-28 shrink-0" />
+                <ToolbarSelect label="Category" value={categoryFilter} options={["All", ...uniqueValues(rows.map((row) => row.category))]} onChange={setCategoryFilter} className="w-28 shrink-0" />
+                <ToolbarSelect label="Location" value={locationFilter} options={["All", ...uniqueValues(rows.map((row) => row.location || "Missing"))]} onChange={setLocationFilter} className="w-28 shrink-0" />
+                <ToolbarSelect label="Listing Type" value={listingTypeFilter} options={["All", "BIN", "Auction", "None"]} onChange={setListingTypeFilter} className="w-28 shrink-0" />
+                <ToolbarSelect label="Source" value={sourceFilter} options={["All", ...uniqueValues(rows.map((row) => row.source))]} onChange={setSourceFilter} className="w-28 shrink-0" />
+              </div>
               <button
-                key={view}
                 type="button"
-                onClick={() => switchView(view)}
+                onClick={() => setShowMoreFilters((current) => !current)}
                 className={cn(
-                  "h-9 rounded-md border px-3 text-xs font-semibold transition",
-                  viewMode === view ? "border-acv-teal/45 bg-acv-teal/10 text-acv-teal" : "border-acv-border bg-acv-panel2 text-acv-muted hover:border-acv-teal/45 hover:text-acv-teal"
+                  "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border px-2.5 text-[11px] font-semibold transition",
+                  showMoreFilters ? "border-acv-teal/45 bg-acv-teal/10 text-acv-teal" : "border-acv-border bg-white/[0.03] text-acv-muted hover:border-acv-teal/45 hover:text-acv-teal"
                 )}
               >
-                {view}
+                <SlidersHorizontal className="h-3.5 w-3.5" />
+                More Filters
               </button>
-            ))}
-          </div>
-
-          {viewMode === "Listings" && (
-            <div className="mt-3 flex flex-wrap gap-2 border-t border-acv-border pt-3">
-              {listingSubTabs.map((tab) => (
-                <button
-                  key={tab}
-                  type="button"
-                  onClick={() => {
-                    setListingSubTab(tab);
-                    setSelectedIds(new Set());
-                  }}
-                  className={cn(
-                    "h-8 rounded-md border px-3 text-[11px] font-semibold transition",
-                    listingSubTab === tab ? "border-acv-gold/45 bg-acv-gold/10 text-acv-gold" : "border-acv-border bg-white/[0.03] text-acv-muted hover:border-acv-gold/40 hover:text-acv-gold"
-                  )}
-                >
-                  {tab}
-                </button>
-              ))}
             </div>
-          )}
-        </SectionCard>
 
-        <SectionCard title="Filters" eyebrow="Fast narrowing">
-          <div className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-3">
-            <label className="min-w-0 sm:col-span-2">
-              <span className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-acv-muted">Search</span>
-              <div className="flex h-9 min-w-0 items-center gap-2 rounded-md border border-acv-border bg-acv-panel2 px-3">
-                <Search className="h-4 w-4 shrink-0 text-acv-muted" />
-                <input
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  placeholder="SKU, player, set, team"
-                  className="min-w-0 flex-1 bg-transparent text-xs text-acv-text outline-none placeholder:text-acv-muted"
-                />
+            {showMoreFilters && (
+              <div className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(120px,1fr))] gap-2 rounded-md border border-acv-border bg-black/25 p-2">
+                <ToolbarSelect label="Confidence" value={confidenceFilter} options={["All", "Low", "Medium", "High"]} onChange={setConfidenceFilter} />
+                <ToolbarSelect label="Drift" value={driftFilter} options={["All", ...uniqueValues(rows.map((row) => row.ops.driftStatus))]} onChange={setDriftFilter} />
+                <ToolbarSelect label="Needs Review" value={needsReviewFilter} options={["All", "Needs Review", "Clean"]} onChange={setNeedsReviewFilter} />
+                <ToolbarSelect label="Date Listed" value={dateListedFilter} options={["All", "Live", "Not listed", "Stale 21d+"]} onChange={setDateListedFilter} />
+                <ToolbarSelect label="Market Value Range" value={marketRangeFilter} options={["All", "Under $50", "$50-$150", "$150+"]} onChange={setMarketRangeFilter} />
               </div>
-            </label>
-            <FilterSelect label="Status" value={statusFilter} options={["All", ...uniqueValues(rows.map((row) => row.status)), ...uniqueValues(rows.map((row) => row.ops.listingStatus))]} onChange={setStatusFilter} />
-            <FilterSelect label="Category" value={categoryFilter} options={["All", ...uniqueValues(rows.map((row) => row.category))]} onChange={setCategoryFilter} />
-            <FilterSelect label="Location" value={locationFilter} options={["All", ...uniqueValues(rows.map((row) => row.location || "Missing"))]} onChange={setLocationFilter} />
-            <FilterSelect label="Listing Type" value={listingTypeFilter} options={["All", "BIN", "Auction", "None"]} onChange={setListingTypeFilter} />
-            <FilterSelect label="Source" value={sourceFilter} options={["All", ...uniqueValues(rows.map((row) => row.source))]} onChange={setSourceFilter} />
-            <FilterSelect label="Confidence" value={confidenceFilter} options={["All", "Low", "Medium", "High"]} onChange={setConfidenceFilter} />
-            <FilterSelect label="Drift" value={driftFilter} options={["All", ...uniqueValues(rows.map((row) => row.ops.driftStatus))]} onChange={setDriftFilter} />
-          </div>
-        </SectionCard>
+            )}
 
-        {selectedIds.size > 0 && (
-          <div className="sticky top-14 z-10 rounded-lg border border-acv-teal/35 bg-acv-panel2 p-3 shadow-glow">
-            <div className="flex flex-wrap items-center gap-2">
-              <StatusPill tone="teal">{selectedIds.size} selected</StatusPill>
-              {["Edit selected", "Update location", "Refresh comps", "Send to pricing", "Generate drafts", "Stage to eBay"].map((action) => (
-                <MiniActionButton key={action}>{action}</MiniActionButton>
-              ))}
-              <MiniActionButton tone="pink">
-                <Archive className="h-3.5 w-3.5" />
-                Archive
-              </MiniActionButton>
-              <MiniActionButton tone="gold" onClick={() => setSelectedIds(new Set())}>
-                <X className="h-3.5 w-3.5" />
-                Clear selection
-              </MiniActionButton>
-            </div>
-          </div>
-        )}
+            {selectedIds.size > 0 && (
+              <div className="flex flex-wrap items-center gap-2 rounded-md border border-acv-teal/35 bg-acv-teal/10 p-2">
+                <StatusPill tone="teal">{selectedIds.size} selected</StatusPill>
+                {["Edit Selected", "Refresh Comps", "Generate Drafts", "Update Location", "Stage to eBay"].map((action) => (
+                  <MiniActionButton key={action}>{action}</MiniActionButton>
+                ))}
+                <MiniActionButton tone="pink">
+                  <Archive className="h-3.5 w-3.5" />
+                  Archive
+                </MiniActionButton>
+                <MiniActionButton tone="gold" onClick={() => setSelectedIds(new Set())}>
+                  <X className="h-3.5 w-3.5" />
+                  Clear
+                </MiniActionButton>
+              </div>
+            )}
 
-        {saveMessage && (
-          <div className="flex items-center gap-2 rounded-lg border border-acv-teal/35 bg-acv-teal/10 px-4 py-3 text-sm font-semibold text-acv-teal">
-            <CheckCircle2 className="h-4 w-4" />
-            {saveMessage}
+            {saveMessage && (
+              <div className="flex items-center gap-2 rounded-md border border-acv-teal/35 bg-acv-teal/10 px-3 py-2 text-xs font-semibold text-acv-teal">
+                <CheckCircle2 className="h-4 w-4" />
+                {saveMessage}
+              </div>
+            )}
           </div>
-        )}
 
-        <SectionCard
-          title={viewMode === "Listings" ? "Listings Inventory" : viewMode === "Drafts" ? "Draft Inventory" : viewMode === "Unlisted / Inactive" ? "Unlisted / Inactive Inventory" : "All Inventory"}
-          eyebrow="Clean operational table"
-          action={<StatusPill tone={viewMode === "Listings" ? "teal" : viewMode === "Drafts" ? "gold" : "purple"}>{viewMode}</StatusPill>}
-        >
           <DataTable<Row>
             rows={filteredRows}
             getRowKey={(row) => row.id}
             onRowClick={(row) => setSelectedRow(row)}
-            columns={columns}
+            columns={inventoryColumns}
           />
-        </SectionCard>
 
-        <div className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-4">
-          <SectionCard title="Source of Truth Rules" eyebrow="ACV-owned">
-            <div className="space-y-2 text-xs">
-              {["SKU", "Purchase cost", "Location", "Internal notes", "Workflow status", "AI confidence"].map((item) => (
-                <div key={item} className="flex min-w-0 items-center justify-between gap-3 rounded-md border border-acv-border bg-acv-panel2 px-3 py-2">
-                  <span className="truncate text-acv-muted">{item}</span>
-                  <StatusPill tone="teal">ACV owns</StatusPill>
-                </div>
-              ))}
-            </div>
-          </SectionCard>
-          <SectionCard title="Operational Notes" eyebrow="Mock only">
-            <div className="space-y-3 text-xs leading-5 text-acv-muted">
-              <div className="flex items-start gap-3 rounded-md border border-acv-border bg-acv-panel2 p-3">
-                <Layers3 className="mt-0.5 h-4 w-4 text-acv-gold" />
-                <span>Detailed card attributes live in the drawer so the tables stay clean.</span>
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-acv-border px-3 py-2 text-[11px] text-acv-muted">
+            <span>
+              {filteredRows.length ? `1-${filteredRows.length} of ${filteredRows.length}` : "No records match the current controls"}
+            </span>
+            <span>Mock inventory data - no live eBay sync</span>
+          </div>
+        </section>
+
+        <details className="min-w-0 rounded-lg border border-acv-border bg-acv-panel/60 px-3 py-2 text-xs text-acv-muted">
+          <summary className="cursor-pointer select-none text-[11px] font-semibold uppercase tracking-[0.12em] text-acv-gold">Secondary ACV notes</summary>
+          <div className="mt-3 grid min-w-0 grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3">
+            <div className="rounded-md border border-acv-border bg-acv-panel2 p-3">
+              <p className="font-semibold text-acv-text">Source of Truth</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {["SKU", "Purchase cost", "Location", "Internal notes", "Workflow status", "AI confidence"].map((item) => (
+                  <StatusPill key={item} tone="teal">
+                    {item}
+                  </StatusPill>
+                ))}
               </div>
-              <div className="flex items-start gap-3 rounded-md border border-acv-border bg-acv-panel2 p-3">
-                <ShieldCheck className="mt-0.5 h-4 w-4 text-acv-teal" />
-                <span>Bulk actions and SKU pushes are staged mock controls only.</span>
-              </div>
             </div>
-          </SectionCard>
-        </div>
+            <div className="rounded-md border border-acv-border bg-acv-panel2 p-3">
+              <p className="font-semibold text-acv-text">Mock Mode</p>
+              <p className="mt-2 leading-5">Detailed card attributes live in the drawer. Bulk actions and SKU pushes are staged mock controls only.</p>
+            </div>
+          </div>
+        </details>
       </div>
 
       {selectedRow && <ItemDetailDrawer row={selectedRow} onClose={() => setSelectedRow(null)} onMockSave={mockSave} />}

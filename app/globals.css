@@ -15,7 +15,7 @@ html,
 body {
   min-height: 100%;
   background: #050507;
-  overflow-x: clip;
+  overflow-x: hidden;
 }
 
 body {
@@ -55,4 +55,11 @@ textarea {
 .acv-scrollbar::-webkit-scrollbar-thumb {
   background: #363a4d;
   border-radius: 999px;
+}
+
+.contained-x-scroll {
+  contain: layout paint;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
 }

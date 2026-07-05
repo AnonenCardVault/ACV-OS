@@ -17,7 +17,7 @@ type DataTableProps<T> = {
 
 export function DataTable<T>({ columns, rows, getRowKey, className, onRowClick }: DataTableProps<T>) {
   return (
-    <div className={cn("acv-scrollbar max-w-full overflow-x-auto", className)}>
+    <div className={cn("acv-scrollbar contained-x-scroll w-full", className)}>
       <table className="w-max min-w-full border-separate border-spacing-0 text-left text-xs">
         <thead>
           <tr>

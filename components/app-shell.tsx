@@ -83,7 +83,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      <div className="min-w-0 sm:pl-56">
+      <div className="min-w-0 overflow-x-hidden sm:pl-56">
         <header className="sticky top-0 z-20 border-b border-acv-border bg-acv-black">
           <div className="flex h-14 min-w-0 items-center gap-3 px-4 md:px-5">
             <Link href="/dashboard" className="flex items-center gap-2 sm:hidden">
@@ -133,7 +133,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             })}
           </nav>
         </header>
-        <main className="min-w-0">{children}</main>
+        <main className="min-w-0 overflow-x-hidden">{children}</main>
       </div>
     </div>
   );
