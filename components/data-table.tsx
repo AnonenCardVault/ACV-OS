@@ -12,9 +12,10 @@ type DataTableProps<T> = {
   rows: T[];
   getRowKey: (row: T) => string;
   className?: string;
+  onRowClick?: (row: T) => void;
 };
 
-export function DataTable<T>({ columns, rows, getRowKey, className }: DataTableProps<T>) {
+export function DataTable<T>({ columns, rows, getRowKey, className, onRowClick }: DataTableProps<T>) {
   return (
     <div className={cn("acv-scrollbar max-w-full overflow-x-auto", className)}>
       <table className="w-max min-w-full border-separate border-spacing-0 text-left text-xs">
@@ -35,7 +36,11 @@ export function DataTable<T>({ columns, rows, getRowKey, className }: DataTableP
         </thead>
         <tbody>
           {rows.map((row) => (
-            <tr key={getRowKey(row)} className="group">
+            <tr
+              key={getRowKey(row)}
+              onClick={onRowClick ? () => onRowClick(row) : undefined}
+              className={cn("group", onRowClick && "cursor-pointer")}
+            >
               {columns.map((column) => (
                 <td
                   key={column.key}
