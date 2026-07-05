@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, Bolt, Search } from "lucide-react";
+import { Bell, Search } from "lucide-react";
 import { navItems } from "@/data/mock";
 import { cn } from "@/lib/utils";
 import { StatusPill } from "@/components/status-pill";
@@ -51,13 +51,33 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               );
             })}
           </nav>
-          <div className="border-t border-acv-border p-4">
+          <div className="border-t border-acv-border p-3">
             <div className="rounded-lg border border-acv-border bg-acv-panel2 p-3">
-              <div className="flex items-center justify-between gap-2">
-                <StatusPill tone="teal">Mock mode</StatusPill>
-                <Bolt className="h-4 w-4 text-acv-gold" />
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-acv-gold">System Status</p>
+                <StatusPill tone="teal">Shell</StatusPill>
               </div>
-              <p className="mt-3 text-xs leading-5 text-acv-muted">Integrations are staged offline for this shell.</p>
+              <div className="space-y-2 text-xs">
+                {[
+                  ["eBay", "Mock / Not connected", "pink"],
+                  ["Database", "Mock", "purple"],
+                  ["Images", "Mock", "purple"],
+                  ["AI", "Mock", "purple"]
+                ].map(([label, value, tone]) => (
+                  <div key={label} className="flex items-center justify-between gap-3">
+                    <span className="text-acv-muted">{label}</span>
+                    <StatusPill tone={tone as "pink" | "purple"} className="max-w-32 justify-center truncate">
+                      {value}
+                    </StatusPill>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-3 border-t border-acv-border pt-3">
+                <div className="flex items-center justify-between gap-3 text-xs">
+                  <span className="text-acv-muted">Last sync</span>
+                  <span className="font-semibold text-acv-teal">Jul 05, 12:14 PM mock</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>

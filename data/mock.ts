@@ -212,6 +212,263 @@ export const listingRows = [
   }
 ];
 
+export const listingDraftQueue = [
+  {
+    sku: "ACV-NBA-000511",
+    name: "2020 Optic Anthony Edwards Rated Rookie",
+    category: "Basketball",
+    location: "Photo Queue",
+    cost: 18,
+    marketValue: 49,
+    suggestedPrice: 54.99,
+    titleStatus: "Generated",
+    descriptionStatus: "Generated",
+    photoStatus: "Reviewed",
+    draftStatus: "Ready",
+    aiConfidence: 0.88,
+    details: {
+      year: "2020",
+      brand: "Donruss Optic",
+      set: "Rated Rookie",
+      player: "Anthony Edwards",
+      team: "Minnesota Timberwolves",
+      cardNumber: "151",
+      parallel: "Base"
+    },
+    suggestedTitle: "2020 Donruss Optic Anthony Edwards Rated Rookie RC #151 Timberwolves",
+    suggestedDescription:
+      "Sharp 2020 Donruss Optic Anthony Edwards Rated Rookie card. Card ships sleeved, top loaded, and protected for transit. Please review photos for condition.",
+    specifics: [
+      { label: "Sport", value: "Basketball", complete: true },
+      { label: "Player", value: "Anthony Edwards", complete: true },
+      { label: "Card Number", value: "151", complete: true },
+      { label: "Parallel", value: "Base", complete: true },
+      { label: "Condition", value: "Ungraded", complete: true }
+    ],
+    warnings: ["Confirm corners in photo review before staging."]
+  },
+  {
+    sku: "ACV-POK-000382",
+    name: "1999 Pokemon Base Charizard Holo",
+    category: "Pokemon",
+    location: "Vault B1",
+    cost: 210,
+    marketValue: 345,
+    suggestedPrice: 379.99,
+    titleStatus: "Needs Review",
+    descriptionStatus: "Generated",
+    photoStatus: "Missing Back",
+    draftStatus: "Review",
+    aiConfidence: 0.81,
+    details: {
+      year: "1999",
+      brand: "Pokemon",
+      set: "Base Set",
+      player: "Charizard",
+      team: "Pokemon",
+      cardNumber: "4/102",
+      parallel: "Holo"
+    },
+    suggestedTitle: "1999 Pokemon Base Set Charizard Holo #4/102 Vintage WOTC",
+    suggestedDescription:
+      "Vintage Pokemon Base Set Charizard holo card. AI draft is staged for manual condition review before listing. Ships protected with tracking.",
+    specifics: [
+      { label: "Game", value: "Pokemon TCG", complete: true },
+      { label: "Character", value: "Charizard", complete: true },
+      { label: "Card Number", value: "4/102", complete: true },
+      { label: "Finish", value: "Holo", complete: true },
+      { label: "Condition", value: "Needs manual review", complete: false }
+    ],
+    warnings: ["Back image missing.", "Condition must be manually reviewed before approval."]
+  },
+  {
+    sku: "ACV-TCG-000143",
+    name: "One Piece OP05 Manga Luffy",
+    category: "TCG",
+    location: "Intake Bin",
+    cost: 98,
+    marketValue: 142,
+    suggestedPrice: 154.99,
+    titleStatus: "Generated",
+    descriptionStatus: "Needs AI",
+    photoStatus: "Needs Review",
+    draftStatus: "Blocked",
+    aiConfidence: 0.62,
+    details: {
+      year: "2023",
+      brand: "Bandai",
+      set: "OP05",
+      player: "Monkey D. Luffy",
+      team: "Straw Hat Crew",
+      cardNumber: "OP05-119",
+      parallel: "Manga"
+    },
+    suggestedTitle: "One Piece Card Game OP05 Monkey D. Luffy Manga Rare OP05-119",
+    suggestedDescription:
+      "One Piece Card Game OP05 Monkey D. Luffy Manga Rare. Draft requires manual verification because confidence is below listing threshold.",
+    specifics: [
+      { label: "Game", value: "One Piece Card Game", complete: true },
+      { label: "Character", value: "Monkey D. Luffy", complete: true },
+      { label: "Card Number", value: "OP05-119", complete: true },
+      { label: "Rarity", value: "Manga Rare", complete: true },
+      { label: "Condition", value: "Unconfirmed", complete: false }
+    ],
+    warnings: ["AI confidence below 70%.", "Confirm card number and condition before staging."]
+  },
+  {
+    sku: "ACV-NFL-000612",
+    name: "2024 Bowman Chrome Caleb Williams Refractor",
+    category: "Football",
+    location: "Vault A1",
+    cost: 26,
+    marketValue: 64,
+    suggestedPrice: 69.99,
+    titleStatus: "Generated",
+    descriptionStatus: "Generated",
+    photoStatus: "Reviewed",
+    draftStatus: "Ready",
+    aiConfidence: 0.9,
+    details: {
+      year: "2024",
+      brand: "Bowman Chrome",
+      set: "Prospect",
+      player: "Caleb Williams",
+      team: "Chicago Bears",
+      cardNumber: "BC-12",
+      parallel: "Refractor"
+    },
+    suggestedTitle: "2024 Bowman Chrome Caleb Williams Refractor Rookie Bears RC",
+    suggestedDescription:
+      "Clean 2024 Bowman Chrome Caleb Williams Refractor. Card ships sleeved and top loaded with reinforced protection.",
+    specifics: [
+      { label: "Sport", value: "Football", complete: true },
+      { label: "Player", value: "Caleb Williams", complete: true },
+      { label: "Team", value: "Chicago Bears", complete: true },
+      { label: "Parallel", value: "Refractor", complete: true },
+      { label: "Condition", value: "Ungraded", complete: true }
+    ],
+    warnings: []
+  }
+];
+
+export const activeListingRows = [
+  {
+    sku: "ACV-NFL-000421",
+    title: "2023 Panini Prizm CJ Stroud Silver Rookie RC Texans",
+    category: "Football",
+    status: "Active",
+    listedPrice: 129.99,
+    marketPrice: 118,
+    soldMedian: 122.5,
+    activeLow: 109.99,
+    views: 214,
+    watchers: 18,
+    quantity: 1,
+    daysListed: 12,
+    location: "Vault A3",
+    driftStatus: "In sync"
+  },
+  {
+    sku: "ACV-MLB-000301",
+    title: "2018 Topps Update Shohei Ohtani Rookie Card US1",
+    category: "Baseball",
+    status: "Active",
+    listedPrice: 74.99,
+    marketPrice: 69,
+    soldMedian: 67.25,
+    activeLow: 59.99,
+    views: 88,
+    watchers: 9,
+    quantity: 2,
+    daysListed: 38,
+    location: "Vault C2",
+    driftStatus: "Price drift"
+  },
+  {
+    sku: "ACV-POK-000208",
+    title: "Pokemon Umbreon VMAX TG23 Brilliant Stars Trainer Gallery",
+    category: "Pokemon",
+    status: "Active",
+    listedPrice: 34.99,
+    marketPrice: 31,
+    soldMedian: 32.5,
+    activeLow: 28.99,
+    views: 141,
+    watchers: 15,
+    quantity: 1,
+    daysListed: 7,
+    location: "Vault B2",
+    driftStatus: "SKU drift"
+  },
+  {
+    sku: "ACV-NBA-000440",
+    title: "2019 Panini Mosaic Ja Morant Rookie RC Grizzlies",
+    category: "Basketball",
+    status: "Active",
+    listedPrice: 24.99,
+    marketPrice: 21,
+    soldMedian: 22,
+    activeLow: 19.5,
+    views: 62,
+    watchers: 3,
+    quantity: 1,
+    daysListed: 44,
+    location: "Vault A4",
+    driftStatus: "Review comps"
+  },
+  {
+    sku: "ACV-TCG-000098",
+    title: "Lorcana Elsa Spirit of Winter Enchanted Rare",
+    category: "TCG",
+    status: "Paused",
+    listedPrice: 189.99,
+    marketPrice: 174,
+    soldMedian: 179.5,
+    activeLow: 169,
+    views: 301,
+    watchers: 27,
+    quantity: 1,
+    daysListed: 21,
+    location: "Vault D1",
+    driftStatus: "Quantity drift"
+  }
+];
+
+export const stagedListingUpdates = [
+  {
+    id: "STG-001",
+    item: "ACV-POK-000208 Umbreon VMAX TG23",
+    changeType: "SKU update staged",
+    currentEbayValue: "POK-208",
+    acvValue: "ACV-POK-000208",
+    riskLevel: "High"
+  },
+  {
+    id: "STG-002",
+    item: "ACV-MLB-000301 Shohei Ohtani RC",
+    changeType: "price update staged",
+    currentEbayValue: "$74.99",
+    acvValue: "$69.99",
+    riskLevel: "Medium"
+  },
+  {
+    id: "STG-003",
+    item: "ACV-TCG-000098 Elsa Enchanted",
+    changeType: "quantity update staged",
+    currentEbayValue: "2",
+    acvValue: "1",
+    riskLevel: "High"
+  },
+  {
+    id: "STG-004",
+    item: "ACV-NFL-000421 CJ Stroud Silver",
+    changeType: "title revision staged",
+    currentEbayValue: "CJ Stroud Prizm Silver RC",
+    acvValue: "2023 Panini Prizm CJ Stroud Silver Rookie RC Texans",
+    riskLevel: "Low"
+  }
+];
+
 export const shippingQueue = [
   { order: "1048", sku: "ACV-NFL-000388", method: "Ground Advantage", package: "Rigid mailer", status: "Pick" },
   { order: "1047", sku: "ACV-POK-000208", method: "PWE", package: "Toploader + sleeve", status: "Pack" },
