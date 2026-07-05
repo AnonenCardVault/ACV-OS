@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import {
   Archive,
   CheckCircle2,
+  Columns3,
   FileClock,
   Plus,
   RefreshCcw,
@@ -25,6 +26,28 @@ type InventoryItem = (typeof inventoryItems)[number];
 type ViewMode = "Listings" | "Drafts" | "Unlisted / Inactive" | "All Inventory";
 type ListingSubTab = "All Listings" | "BIN" | "Auctions";
 type ConfidenceBand = "Low" | "Medium" | "High";
+type DataColumnKey =
+  | "qty"
+  | "cost"
+  | "listedPrice"
+  | "marketValue"
+  | "views"
+  | "watchers"
+  | "daysListed"
+  | "status"
+  | "lot"
+  | "soldMedian"
+  | "activeLow"
+  | "listingType"
+  | "platform"
+  | "source"
+  | "confidence"
+  | "drift"
+  | "lastCompUpdate"
+  | "lastPriceChange"
+  | "promotionPct"
+  | "offers"
+  | "shippingMethod";
 type Row = InventoryItem & { ops: InventoryOps };
 
 type InventoryOps = {
@@ -32,12 +55,19 @@ type InventoryOps = {
   team: string;
   autoRelicFlags: string;
   conditionNotes: string;
+  lotName?: string;
   listingType: "BIN" | "Auction" | "None";
   listingStatus: string;
+  platform?: string;
   views: number;
   watchers: number;
   soldMedian: number;
   activeLow: number;
+  lastCompUpdate?: string;
+  lastPriceChange?: string;
+  promotionPct?: number;
+  offers?: number;
+  shippingMethod?: string;
   driftStatus: string;
   draftSource: "ACV Draft" | "Future eBay Draft" | "None";
   titleStatus: string;
@@ -54,6 +84,23 @@ type InventoryOps = {
 
 const views: ViewMode[] = ["Listings", "Drafts", "Unlisted / Inactive", "All Inventory"];
 const listingSubTabs: ListingSubTab[] = ["All Listings", "BIN", "Auctions"];
+const defaultVisibleDataColumns: DataColumnKey[] = ["qty", "cost", "listedPrice", "marketValue", "views", "watchers", "daysListed", "status"];
+
+const optionalDataColumns: Array<{ key: DataColumnKey; label: string }> = [
+  { key: "lot", label: "Lot" },
+  { key: "soldMedian", label: "Sold median comp" },
+  { key: "activeLow", label: "Active low" },
+  { key: "listingType", label: "Listing type" },
+  { key: "platform", label: "Platform" },
+  { key: "source", label: "Source" },
+  { key: "confidence", label: "Confidence" },
+  { key: "drift", label: "Drift" },
+  { key: "lastCompUpdate", label: "Last comp update" },
+  { key: "lastPriceChange", label: "Last price change" },
+  { key: "promotionPct", label: "Promotion %" },
+  { key: "offers", label: "Offers" },
+  { key: "shippingMethod", label: "Shipping method" }
+];
 
 const opsBySku: Record<string, InventoryOps> = {
   "ACV-NFL-000421": {
@@ -61,12 +108,18 @@ const opsBySku: Record<string, InventoryOps> = {
     team: "Houston Texans",
     autoRelicFlags: "No auto / no relic",
     conditionNotes: "Clean front, minor edge review complete.",
+    platform: "eBay",
     listingType: "BIN",
     listingStatus: "Active",
     views: 214,
     watchers: 18,
     soldMedian: 122.5,
     activeLow: 109.99,
+    lastCompUpdate: "Jul 05",
+    lastPriceChange: "Jul 03",
+    promotionPct: 2,
+    offers: 3,
+    shippingMethod: "Standard envelope",
     driftStatus: "In sync",
     draftSource: "None",
     titleStatus: "Approved",
@@ -133,12 +186,19 @@ const opsBySku: Record<string, InventoryOps> = {
     team: "Los Angeles Angels",
     autoRelicFlags: "No auto / no relic",
     conditionNotes: "Quantity 2. Recheck both copies before relist.",
+    lotName: "LOT-EBAY-US1-2018",
+    platform: "eBay",
     listingType: "Auction",
     listingStatus: "Active",
     views: 88,
     watchers: 9,
     soldMedian: 67.25,
     activeLow: 59.99,
+    lastCompUpdate: "Jul 04",
+    lastPriceChange: "Jun 29",
+    promotionPct: 0,
+    offers: 1,
+    shippingMethod: "BMWT",
     driftStatus: "Price drift",
     draftSource: "None",
     titleStatus: "Approved",
@@ -205,6 +265,7 @@ const opsBySku: Record<string, InventoryOps> = {
     team: "Pokemon",
     autoRelicFlags: "No auto / no relic",
     conditionNotes: "Sold. Keep record for reconciliation and shipping.",
+    platform: "eBay",
     listingType: "BIN",
     listingStatus: "Sold",
     views: 141,
@@ -229,12 +290,18 @@ const opsBySku: Record<string, InventoryOps> = {
     team: "Lorcana",
     autoRelicFlags: "No auto / no relic",
     conditionNotes: "Missing location. Confirm before next pick list.",
+    platform: "eBay",
     listingType: "BIN",
     listingStatus: "Paused",
     views: 301,
     watchers: 27,
     soldMedian: 179.5,
     activeLow: 169,
+    lastCompUpdate: "Jul 03",
+    lastPriceChange: "Jul 01",
+    promotionPct: 4,
+    offers: 6,
+    shippingMethod: "BMWT",
     driftStatus: "Quantity drift",
     draftSource: "None",
     titleStatus: "Approved",
@@ -351,7 +418,7 @@ function CardImageTile({ label, category, large = false }: { label: string; cate
     <div
       className={cn(
         "relative flex shrink-0 flex-col justify-between overflow-hidden rounded border border-acv-border bg-gradient-to-br from-acv-purple/35 via-acv-panel2 to-acv-gold/20",
-        large ? "h-72 w-full max-w-56 p-2" : "h-10 w-8 p-1"
+        large ? "h-72 w-full max-w-56 p-2" : "h-9 w-7 p-1"
       )}
     >
       <span className={cn("font-bold uppercase text-acv-gold", large ? "text-xs" : "text-[8px]")}>{category.slice(0, 3)}</span>
@@ -405,19 +472,21 @@ function ToolbarSelect({
 }) {
   return (
     <label className={cn("min-w-0", className)}>
-      <span className="sr-only">{label}</span>
-      <select
-        aria-label={label}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="h-8 w-full rounded-md border border-acv-border bg-acv-panel2 px-2 text-[11px] font-semibold text-acv-text outline-none transition hover:border-acv-teal/45"
-      >
-        {options.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
+      <div className="flex h-8 w-full min-w-0 items-center gap-1.5 rounded-md border border-acv-border bg-acv-panel2 px-2 transition hover:border-acv-teal/45">
+        <span className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.1em] text-acv-muted">{label}:</span>
+        <select
+          aria-label={label}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          className="min-w-0 flex-1 bg-transparent text-[11px] font-semibold text-acv-text outline-none"
+        >
+          {options.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+      </div>
     </label>
   );
 }
@@ -457,6 +526,36 @@ function TableControlButton({
       )}
     >
       {children}
+    </button>
+  );
+}
+
+function ColumnToggleButton({
+  label,
+  checked,
+  disabled,
+  onClick
+}: {
+  label: string;
+  checked: boolean;
+  disabled?: boolean;
+  onClick?: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={checked}
+      disabled={disabled}
+      onClick={onClick}
+      className={cn(
+        "flex h-8 min-w-0 items-center gap-2 rounded-md border px-2 text-left text-[11px] font-semibold transition",
+        checked ? "border-acv-teal/35 bg-acv-teal/10 text-acv-teal" : "border-acv-border bg-white/[0.03] text-acv-muted hover:border-acv-teal/40 hover:text-acv-teal",
+        disabled && "cursor-not-allowed opacity-70"
+      )}
+    >
+      <span className={cn("h-3 w-3 shrink-0 rounded-[3px] border", checked ? "border-acv-teal bg-acv-teal" : "border-acv-border bg-acv-panel2")} />
+      <span className="truncate">{label}</span>
     </button>
   );
 }
@@ -566,6 +665,7 @@ function ItemDetailDrawer({
                   <DetailField label="Auto / Relic" value={row.ops.autoRelicFlags} />
                   <DetailField label="Status" value={row.status} tone={statusTone(row.status) === "pink" ? "pink" : "teal"} />
                   <DetailField label="Location" value={row.location || "Missing"} tone={row.location ? undefined : "pink"} />
+                  <DetailField label="Lot" value={lotLabel(row)} />
                   <DetailField label="Purchase Cost" value={row.purchaseCost ? formatCurrency(row.purchaseCost) : "Missing"} tone={row.purchaseCost ? "pink" : "pink"} />
                   <DetailField label="Ask / Listed" value={row.askingPrice ? formatCurrency(row.askingPrice) : "-"} tone="gold" />
                   <DetailField label="Market Value" value={formatCurrency(row.marketValue)} tone="green" />
@@ -574,6 +674,11 @@ function ItemDetailDrawer({
                   <DetailField label="AI Confidence" value={formatPercent(row.aiConfidence)} tone={confidenceBand(row.aiConfidence) === "Low" ? "pink" : confidenceBand(row.aiConfidence) === "Medium" ? "gold" : "teal"} />
                   <DetailField label="Listing Type" value={row.ops.listingType} tone={row.ops.listingType === "None" ? undefined : "gold"} />
                   <DetailField label="eBay Item ID" value={row.ebayId} />
+                  <DetailField label="Sold Median Comp" value={formatCurrency(row.ops.soldMedian)} />
+                  <DetailField label="Active Low" value={formatCurrency(row.ops.activeLow)} tone="pink" />
+                  <DetailField label="Views" value={row.ops.views} />
+                  <DetailField label="Watchers" value={row.ops.watchers} tone="teal" />
+                  <DetailField label="Days Listed" value={row.daysListed ? `${row.daysListed} days` : "Not listed"} />
                   <DetailField label="Comp Summary" value={row.ops.compSummary} tone="teal" />
                 </div>
               </section>
@@ -684,20 +789,31 @@ function ActionMenu({ row, onOpen }: { row: Row; onOpen: (row: Row) => void }) {
 }
 
 function lotLabel(row: Row) {
-  if (row.source === "eBay lot") return "eBay lot";
-  if (row.source === "Local show") return "Show lot";
-  if (row.source === "Whatnot") return "Whatnot";
-  if (row.source === "Trade") return "Trade";
-  return row.source;
+  return row.ops.lotName || "—";
 }
 
-function tablePrice(row: Row) {
-  return row.askingPrice || row.ops.suggestedPrice || row.marketValue;
+function platformLabel(row: Row) {
+  return row.ops.platform || (row.status === "Listed" || row.status === "Sold" ? "eBay" : "ACV");
 }
 
-function listedDateLabel(row: Row) {
-  if (!row.daysListed) return "Not listed";
-  return `${row.lastUpdated.split(",")[0]} - ${row.daysListed}d`;
+function lastCompUpdate(row: Row) {
+  return row.ops.lastCompUpdate || "Mock pending";
+}
+
+function lastPriceChange(row: Row) {
+  return row.ops.lastPriceChange || "No change";
+}
+
+function promotionPct(row: Row) {
+  return row.ops.promotionPct ?? 0;
+}
+
+function offersCount(row: Row) {
+  return row.ops.offers ?? 0;
+}
+
+function shippingMethod(row: Row) {
+  return row.ops.shippingMethod || (row.status === "Listed" ? "Standard envelope" : "Not set");
 }
 
 function needsReview(row: Row) {
@@ -736,6 +852,8 @@ export default function InventoryPage() {
   const [dateListedFilter, setDateListedFilter] = useState("All");
   const [marketRangeFilter, setMarketRangeFilter] = useState("All");
   const [showMoreFilters, setShowMoreFilters] = useState(false);
+  const [showColumnsMenu, setShowColumnsMenu] = useState(false);
+  const [enabledOptionalColumns, setEnabledOptionalColumns] = useState<Set<DataColumnKey>>(new Set());
   const [saveMessage, setSaveMessage] = useState("");
 
   const listedRows = rows.filter((row) => row.status === "Listed");
@@ -743,8 +861,9 @@ export default function InventoryPage() {
   const unlistedRows = rows.filter((row) => row.status !== "Listed" && row.ops.draftSource === "None");
 
   const summary = {
-    totalValue: rows.reduce((total, row) => total + row.marketValue * row.quantity, 0),
-    listedValue: listedRows.reduce((total, row) => total + row.marketValue * row.quantity, 0),
+    inventoryCost: rows.reduce((total, row) => total + row.purchaseCost * row.quantity, 0),
+    marketValue: rows.reduce((total, row) => total + row.marketValue * row.quantity, 0),
+    listedValue: listedRows.reduce((total, row) => total + row.askingPrice * row.quantity, 0),
     draftValue: draftRows.reduce((total, row) => total + row.marketValue * row.quantity, 0),
     unlistedValue: unlistedRows.reduce((total, row) => total + row.marketValue * row.quantity, 0),
     totalUnits: rows.reduce((total, row) => total + row.quantity, 0),
@@ -814,6 +933,15 @@ export default function InventoryPage() {
     setSaveMessage(`${sku || "Inventory item"} saved locally in mock mode.`);
   }
 
+  function toggleOptionalColumn(key: DataColumnKey) {
+    setEnabledOptionalColumns((current) => {
+      const next = new Set(current);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
   const checkboxHeader = (
     <SelectCheckbox checked={allVisibleSelected} label="Select all visible inventory rows" onChange={toggleVisible} />
   );
@@ -821,22 +949,65 @@ export default function InventoryPage() {
   const checkboxColumn = {
     key: "select",
     header: checkboxHeader,
+    className: "sticky left-0 z-30 w-8 min-w-8 bg-acv-panel2 px-2",
     cell: (row: Row) => <SelectCheckbox checked={selectedIds.has(row.id)} label={`Select ${row.sku}`} onChange={(checked) => toggleRow(row.id, checked)} />
   };
 
+  const dataColumnDefinitions: Record<DataColumnKey, { header: string; className?: string; cell: (row: Row) => React.ReactNode }> = {
+    qty: { header: "Qty", className: "text-center", cell: (row) => <span className="font-semibold text-acv-text">{row.quantity}</span> },
+    cost: {
+      header: "Cost",
+      cell: (row) => (row.purchaseCost ? <span className="font-semibold text-acv-pink">{formatCurrency(row.purchaseCost)}</span> : <span className="text-acv-muted">—</span>)
+    },
+    listedPrice: {
+      header: "Listed Price",
+      cell: (row) => <span className={row.askingPrice ? "font-semibold text-acv-gold" : "font-semibold text-acv-muted"}>{row.askingPrice ? formatCurrency(row.askingPrice) : "—"}</span>
+    },
+    marketValue: { header: "Market Value", cell: (row) => <span className="font-semibold text-acv-green">{formatCurrency(row.marketValue)}</span> },
+    views: { header: "Views", cell: (row) => <span className="font-semibold text-acv-text">{row.ops.views}</span> },
+    watchers: { header: "Watchers", cell: (row) => <span className="font-semibold text-acv-teal">{row.ops.watchers}</span> },
+    daysListed: { header: "Days Listed", cell: (row) => <span className={row.daysListed ? "font-semibold text-acv-text" : "text-acv-muted"}>{row.daysListed ? `${row.daysListed}d` : "—"}</span> },
+    status: { header: "Status", cell: (row) => <StatusPill tone={statusTone(row.ops.listingStatus)}>{row.ops.listingStatus}</StatusPill> },
+    lot: { header: "Lot", cell: (row) => <span className="whitespace-nowrap text-acv-muted">{lotLabel(row)}</span> },
+    soldMedian: { header: "Sold Median Comp", cell: (row) => <span className="text-acv-text">{formatCurrency(row.ops.soldMedian)}</span> },
+    activeLow: { header: "Active Low", cell: (row) => <span className="font-semibold text-acv-pink">{formatCurrency(row.ops.activeLow)}</span> },
+    listingType: { header: "Listing Type", cell: (row) => <StatusPill tone={statusTone(row.ops.listingType)}>{row.ops.listingType}</StatusPill> },
+    platform: { header: "Platform", cell: (row) => <span className="whitespace-nowrap text-acv-muted">{platformLabel(row)}</span> },
+    source: { header: "Source", cell: (row) => <span className="whitespace-nowrap text-acv-muted">{row.source}</span> },
+    confidence: {
+      header: "Confidence",
+      cell: (row) => <span className={confidenceBand(row.aiConfidence) === "Low" ? "font-semibold text-acv-pink" : confidenceBand(row.aiConfidence) === "Medium" ? "font-semibold text-acv-gold" : "font-semibold text-acv-teal"}>{formatPercent(row.aiConfidence)}</span>
+    },
+    drift: { header: "Drift", cell: (row) => <StatusPill tone={statusTone(row.ops.driftStatus)}>{row.ops.driftStatus}</StatusPill> },
+    lastCompUpdate: { header: "Last Comp Update", cell: (row) => <span className="whitespace-nowrap text-acv-muted">{lastCompUpdate(row)}</span> },
+    lastPriceChange: { header: "Last Price Change", cell: (row) => <span className="whitespace-nowrap text-acv-muted">{lastPriceChange(row)}</span> },
+    promotionPct: { header: "Promotion %", cell: (row) => <span className="font-semibold text-acv-gold">{promotionPct(row)}%</span> },
+    offers: { header: "Offers", cell: (row) => <span className="font-semibold text-acv-text">{offersCount(row)}</span> },
+    shippingMethod: { header: "Shipping Method", cell: (row) => <span className="whitespace-nowrap text-acv-muted">{shippingMethod(row)}</span> }
+  };
+
+  const activeDataColumnKeys = [
+    ...defaultVisibleDataColumns,
+    ...optionalDataColumns.filter(({ key }) => enabledOptionalColumns.has(key)).map(({ key }) => key)
+  ];
+
   const inventoryColumns = [
     checkboxColumn,
-    { key: "thumbnail", header: "", className: "w-14", cell: (row: Row) => <CardImageTile label={row.name} category={row.category} /> },
-    { key: "sku", header: "SKU", cell: (row: Row) => <span className="font-semibold text-acv-gold">{row.sku}</span> },
-    { key: "title", header: "Title", cell: (row: Row) => <span className="line-clamp-1 min-w-64 max-w-[360px] font-semibold text-acv-text">{row.name}</span> },
-    { key: "lot", header: "Lot", cell: (row: Row) => <span className="whitespace-nowrap text-acv-muted">{lotLabel(row)}</span> },
-    { key: "qty", header: "Qty", className: "text-center", cell: (row: Row) => <span className="font-semibold text-acv-text">{row.quantity}</span> },
-    { key: "price", header: "Price", cell: (row: Row) => <span className={row.askingPrice ? "font-semibold text-acv-gold" : "font-semibold text-acv-muted"}>{row.askingPrice ? formatCurrency(row.askingPrice) : formatCurrency(tablePrice(row))}</span> },
-    { key: "market", header: "Market", cell: (row: Row) => <span className="font-semibold text-acv-green">{formatCurrency(row.marketValue)}</span> },
-    { key: "sold", header: "Sold", cell: (row: Row) => <span className="text-acv-text">{formatCurrency(row.ops.soldMedian)}</span> },
-    { key: "listedDate", header: "Listed Date", cell: (row: Row) => <span className={row.daysListed ? "whitespace-nowrap text-acv-muted" : "whitespace-nowrap text-acv-muted/70"}>{listedDateLabel(row)}</span> },
-    { key: "status", header: "Status", cell: (row: Row) => <StatusPill tone={statusTone(row.ops.listingStatus)}>{row.ops.listingStatus}</StatusPill> },
-    { key: "actions", header: "Actions", className: "text-right", cell: (row: Row) => <ActionMenu row={row} onOpen={setSelectedRow} /> }
+    { key: "thumbnail", header: "", className: "sticky left-8 z-30 w-12 min-w-12 bg-acv-panel2 px-1.5", cell: (row: Row) => <CardImageTile label={row.name} category={row.category} /> },
+    { key: "sku", header: "SKU", className: "sticky left-20 z-30 w-32 min-w-32 bg-acv-panel2", cell: (row: Row) => <span className="font-semibold text-acv-gold">{row.sku}</span> },
+    {
+      key: "title",
+      header: "Title",
+      className: "sticky left-52 z-30 w-44 min-w-44 bg-acv-panel2 md:w-64 md:min-w-64",
+      cell: (row: Row) => <span className="line-clamp-1 font-semibold text-acv-text">{row.name}</span>
+    },
+    ...activeDataColumnKeys.map((key) => ({
+      key,
+      header: dataColumnDefinitions[key].header,
+      className: dataColumnDefinitions[key].className,
+      cell: dataColumnDefinitions[key].cell
+    })),
+    { key: "actions", header: "Actions", className: "sticky right-0 z-30 w-28 min-w-28 bg-acv-panel2 text-right", cell: (row: Row) => <ActionMenu row={row} onOpen={setSelectedRow} /> }
   ];
 
   const activeFilterCount = [
@@ -873,9 +1044,9 @@ export default function InventoryPage() {
 
         <div className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(94px,1fr))] gap-2">
           {[
+            ["Inventory Cost", formatCurrency(summary.inventoryCost), "pink"],
             ["Listed Value", formatCurrency(summary.listedValue), "teal"],
-            ["Market Value", formatCurrency(summary.totalValue), "green"],
-            ["Total Units", String(summary.totalUnits), "gold"],
+            ["Market Value", formatCurrency(summary.marketValue), "green"],
             ["Active Listings", String(summary.activeListings), "teal"],
             ["Drafts", String(summary.drafts), "gold"],
             ["Unlisted", String(summary.unlistedItems), "neutral"],
@@ -933,12 +1104,23 @@ export default function InventoryPage() {
                     />
                   </div>
                 </label>
-                <ToolbarSelect label="Status" value={statusFilter} options={["All", ...uniqueValues([...rows.map((row) => row.status), ...rows.map((row) => row.ops.listingStatus)])]} onChange={setStatusFilter} className="w-28 shrink-0" />
-                <ToolbarSelect label="Category" value={categoryFilter} options={["All", ...uniqueValues(rows.map((row) => row.category))]} onChange={setCategoryFilter} className="w-28 shrink-0" />
-                <ToolbarSelect label="Location" value={locationFilter} options={["All", ...uniqueValues(rows.map((row) => row.location || "Missing"))]} onChange={setLocationFilter} className="w-28 shrink-0" />
-                <ToolbarSelect label="Listing Type" value={listingTypeFilter} options={["All", "BIN", "Auction", "None"]} onChange={setListingTypeFilter} className="w-28 shrink-0" />
-                <ToolbarSelect label="Source" value={sourceFilter} options={["All", ...uniqueValues(rows.map((row) => row.source))]} onChange={setSourceFilter} className="w-28 shrink-0" />
+                <ToolbarSelect label="Status" value={statusFilter} options={["All", ...uniqueValues([...rows.map((row) => row.status), ...rows.map((row) => row.ops.listingStatus)])]} onChange={setStatusFilter} className="w-40 shrink-0" />
+                <ToolbarSelect label="Category" value={categoryFilter} options={["All", ...uniqueValues(rows.map((row) => row.category))]} onChange={setCategoryFilter} className="w-40 shrink-0" />
+                <ToolbarSelect label="Location" value={locationFilter} options={["All", ...uniqueValues(rows.map((row) => row.location || "Missing"))]} onChange={setLocationFilter} className="w-40 shrink-0" />
+                <ToolbarSelect label="Listing Type" value={listingTypeFilter} options={["All", "BIN", "Auction", "None"]} onChange={setListingTypeFilter} className="w-44 shrink-0" />
+                <ToolbarSelect label="Source" value={sourceFilter} options={["All", ...uniqueValues(rows.map((row) => row.source))]} onChange={setSourceFilter} className="w-40 shrink-0" />
               </div>
+              <button
+                type="button"
+                onClick={() => setShowColumnsMenu((current) => !current)}
+                className={cn(
+                  "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border px-2.5 text-[11px] font-semibold transition",
+                  showColumnsMenu ? "border-acv-gold/45 bg-acv-gold/10 text-acv-gold" : "border-acv-border bg-white/[0.03] text-acv-muted hover:border-acv-gold/45 hover:text-acv-gold"
+                )}
+              >
+                <Columns3 className="h-3.5 w-3.5" />
+                Columns
+              </button>
               <button
                 type="button"
                 onClick={() => setShowMoreFilters((current) => !current)}
@@ -951,6 +1133,26 @@ export default function InventoryPage() {
                 More Filters
               </button>
             </div>
+
+            {showColumnsMenu && (
+              <div className="rounded-md border border-acv-border bg-black/25 p-2">
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-acv-gold">Visible Columns</p>
+                  <span className="text-[11px] text-acv-muted">Identity + Actions stay frozen</span>
+                </div>
+                <div className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(132px,1fr))] gap-2">
+                  {["Checkbox", "Thumbnail", "SKU", "Title", "Actions"].map((label) => (
+                    <ColumnToggleButton key={label} label={label} checked disabled />
+                  ))}
+                  {defaultVisibleDataColumns.map((key) => (
+                    <ColumnToggleButton key={key} label={dataColumnDefinitions[key].header} checked disabled />
+                  ))}
+                  {optionalDataColumns.map(({ key, label }) => (
+                    <ColumnToggleButton key={key} label={label} checked={enabledOptionalColumns.has(key)} onClick={() => toggleOptionalColumn(key)} />
+                  ))}
+                </div>
+              </div>
+            )}
 
             {showMoreFilters && (
               <div className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(120px,1fr))] gap-2 rounded-md border border-acv-border bg-black/25 p-2">
@@ -965,7 +1167,7 @@ export default function InventoryPage() {
             {selectedIds.size > 0 && (
               <div className="flex flex-wrap items-center gap-2 rounded-md border border-acv-teal/35 bg-acv-teal/10 p-2">
                 <StatusPill tone="teal">{selectedIds.size} selected</StatusPill>
-                {["Edit Selected", "Refresh Comps", "Generate Drafts", "Update Location", "Stage to eBay"].map((action) => (
+                {["Edit Selected", "Refresh Comps", "Update Location", "Generate Drafts", "Stage to eBay"].map((action) => (
                   <MiniActionButton key={action}>{action}</MiniActionButton>
                 ))}
                 <MiniActionButton tone="pink">
