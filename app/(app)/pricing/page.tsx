@@ -56,15 +56,15 @@ function PricingScrollTable<T>({
   className?: string;
 }) {
   return (
-    <div className={cn("acv-scrollbar max-h-64 overflow-auto rounded-md border border-acv-border/70", className)}>
-      <table className="w-max min-w-full border-separate border-spacing-0 text-left text-xs">
+    <div className={cn("acv-scrollbar max-h-64 overflow-x-hidden overflow-y-auto rounded-md border border-acv-border/70", className)}>
+      <table className="w-full table-fixed border-separate border-spacing-0 text-left text-[11px]">
         <thead>
           <tr>
             {columns.map((column) => (
               <th
                 key={column.key}
                 className={cn(
-                  "sticky top-0 z-10 border-b border-acv-border bg-acv-panel2 px-3 py-2 font-semibold uppercase tracking-[0.09em] text-acv-muted",
+                  "sticky top-0 z-10 overflow-hidden border-b border-acv-border bg-acv-panel2 px-2 py-2 align-bottom font-semibold uppercase leading-3 tracking-[0.07em] text-acv-muted",
                   column.className
                 )}
               >
@@ -80,7 +80,7 @@ function PricingScrollTable<T>({
                 <td
                   key={column.key}
                   className={cn(
-                    "border-b border-acv-border/70 px-3 py-2 align-middle text-acv-text group-hover:bg-white/[0.025]",
+                    "overflow-hidden border-b border-acv-border/70 px-2 py-2 align-middle text-acv-text group-hover:bg-white/[0.025]",
                     column.className
                   )}
                 >
@@ -109,115 +109,152 @@ export default function PricingPage() {
         description="Workbench for comps, market estimates, confidence, AI price recommendations, and approval gates."
         action={<ActionButton icon={<Check className="h-4 w-4" />}>Approve price</ActionButton>}
       />
-      <div className="grid gap-4 p-4 md:p-6 xl:grid-cols-[360px_1fr]">
-        <SectionCard title="Selected Card" eyebrow="Pricing case">
-          <div className="rounded-md border border-acv-border bg-gradient-to-br from-acv-purple/20 via-acv-panel2 to-acv-gold/10 p-4">
-            <p className="text-lg font-semibold text-acv-text">2023 Prizm CJ Stroud Silver Rookie</p>
-            <p className="mt-1 text-xs text-acv-muted">ACV-NFL-000421</p>
-            <div className="mt-5 grid grid-cols-2 gap-3">
-              <div>
-                <p className="text-xs text-acv-muted">Current ask</p>
-                <p className="text-xl font-semibold text-acv-gold">{formatCurrency(currentAsk)}</p>
-              </div>
-              <div>
-                <p className="text-xs text-acv-muted">Market est.</p>
-                <p className="text-xl font-semibold text-acv-green">{formatCurrency(marketEstimate)}</p>
-              </div>
-              <div>
-                <p className="text-xs text-acv-muted">Sold low / median / high</p>
-                <p className="text-sm font-semibold text-acv-text">
-                  {formatCurrency(soldLow)} / {formatCurrency(soldMedian)} / {formatCurrency(soldHigh)}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-acv-muted">Confidence</p>
-                <p className="text-sm font-semibold text-acv-teal">{formatPercent(pricingConfidence)}</p>
+      <div className="grid min-w-0 gap-4 p-4 md:p-6 xl:grid-cols-[360px_minmax(0,1fr)]">
+        <div className="min-w-0 space-y-4">
+          <SectionCard title="Selected Card" eyebrow="Pricing case">
+            <div className="rounded-md border border-acv-border bg-gradient-to-br from-acv-purple/20 via-acv-panel2 to-acv-gold/10 p-4">
+              <p className="text-lg font-semibold text-acv-text">2023 Prizm CJ Stroud Silver Rookie</p>
+              <p className="mt-1 text-xs text-acv-muted">ACV-NFL-000421</p>
+              <div className="mt-5 grid grid-cols-2 gap-3">
+                <div>
+                  <p className="text-xs text-acv-muted">Current ask</p>
+                  <p className="text-xl font-semibold text-acv-gold">{formatCurrency(currentAsk)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-acv-muted">Market est.</p>
+                  <p className="text-xl font-semibold text-acv-green">{formatCurrency(marketEstimate)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-acv-muted">Sold low / median / high</p>
+                  <p className="text-sm font-semibold text-acv-text">
+                    {formatCurrency(soldLow)} / {formatCurrency(soldMedian)} / {formatCurrency(soldHigh)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-acv-muted">Confidence</p>
+                  <p className="text-sm font-semibold text-acv-teal">{formatPercent(pricingConfidence)}</p>
+                </div>
               </div>
             </div>
-          </div>
-          <div className="mt-4 space-y-2">
-            {[
-              ["Recommendation", "Keep price", "teal"],
-              ["Source mix", sourceMix, "purple"],
-              ["Last updated", "Mock timestamp", "gold"]
-            ].map(([label, value, tone]) => (
-              <div key={label} className="flex items-center justify-between rounded-md border border-acv-border bg-acv-panel2 px-3 py-2 text-xs">
-                <span className="text-acv-muted">{label}</span>
-                <StatusPill tone={tone as "teal" | "purple" | "gold"} className="max-w-48 truncate">
-                  {value}
-                </StatusPill>
-              </div>
-            ))}
-          </div>
-        </SectionCard>
+            <div className="mt-4 space-y-2">
+              {[
+                ["Recommendation", "Keep price", "teal"],
+                ["Source mix", sourceMix, "purple"],
+                ["Last updated", "Mock timestamp", "gold"]
+              ].map(([label, value, tone]) => (
+                <div key={label} className="flex items-center justify-between gap-3 rounded-md border border-acv-border bg-acv-panel2 px-3 py-2 text-xs">
+                  <span className="shrink-0 text-acv-muted">{label}</span>
+                  <StatusPill tone={tone as "teal" | "purple" | "gold"} className="min-w-0 max-w-48 truncate">
+                    {value}
+                  </StatusPill>
+                </div>
+              ))}
+            </div>
+          </SectionCard>
 
-        <div className="space-y-4">
-          <div className="grid min-w-0 gap-4 xl:grid-cols-2">
-            <SectionCard
-              title="Sold Comps"
-              eyebrow="Completed sales · target 5+ · mock 12-month lookback"
-              action={<ActionButton variant="ghost" icon={<RefreshCcw className="h-4 w-4" />}>Refresh comps</ActionButton>}
-            >
-              <PricingScrollTable<SoldCompRow>
-                rows={pricingSoldComps}
-                getRowKey={(row) => `${row.source}-${row.title}-${row.saleDate}`}
-                columns={[
-                  { key: "source", header: "Source", cell: (row) => <StatusPill tone={getSourceTone(row.source)}>{row.source}</StatusPill> },
-                  { key: "title", header: "Title", cell: (row) => <span className="line-clamp-1 block min-w-72 max-w-[420px]">{row.title}</span> },
-                  { key: "soldPrice", header: "Sold Price", cell: (row) => <span className="font-semibold text-acv-green">{formatCurrency(row.soldPrice)}</span> },
-                  { key: "saleDate", header: "Sale Date", cell: (row) => row.saleDate },
-                  { key: "condition", header: "Condition", cell: (row) => row.condition },
-                  { key: "confidence", header: "Confidence", cell: (row) => <span className="font-semibold text-acv-teal">{formatPercent(row.confidence)}</span> }
-                ]}
-              />
-              {pricingSoldComps.length < SOLD_COMP_TARGET && (
-                <p className="mt-3 rounded-md border border-acv-gold/30 bg-acv-gold/10 px-3 py-2 text-xs font-semibold text-acv-gold">
-                  Fewer than 5 sold comps found.
+          <SectionCard title="AI Recommendation">
+            <div className="flex items-start gap-3">
+              <TrendingUp className="mt-1 h-5 w-5 text-acv-green" />
+              <div>
+                <p className="text-sm font-semibold text-acv-text">Hold at $129.99</p>
+                <p className="mt-2 text-xs leading-5 text-acv-muted">
+                  Strong watch activity and recent sold comps support the current ask.
                 </p>
-              )}
-            </SectionCard>
-
-            <SectionCard title="Active Listings" eyebrow="Current marketplace supply · mock scan">
-              <PricingScrollTable<ActiveListingRow>
-                rows={pricingActiveListings}
-                getRowKey={(row) => `${row.source}-${row.title}-${row.timeLeftOrAge}`}
-                columns={[
-                  { key: "source", header: "Source", cell: (row) => <StatusPill tone={getSourceTone(row.source)}>{row.source}</StatusPill> },
-                  { key: "title", header: "Title", cell: (row) => <span className="line-clamp-1 block min-w-72 max-w-[420px]">{row.title}</span> },
-                  { key: "askingPrice", header: "Asking Price", cell: (row) => <span className="font-semibold text-acv-gold">{formatCurrency(row.askingPrice)}</span> },
-                  { key: "listingType", header: "Listing Type", cell: (row) => row.listingType },
-                  { key: "timeLeftOrAge", header: "Time Left / Listed Age", cell: (row) => row.timeLeftOrAge },
-                  { key: "condition", header: "Condition", cell: (row) => row.condition },
-                  { key: "confidence", header: "Confidence", cell: (row) => <span className="font-semibold text-acv-teal">{formatPercent(row.confidence)}</span> }
-                ]}
-              />
-            </SectionCard>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <SectionCard title="AI Recommendation">
-              <div className="flex items-start gap-3">
-                <TrendingUp className="mt-1 h-5 w-5 text-acv-green" />
-                <div>
-                  <p className="text-sm font-semibold text-acv-text">Hold at $129.99</p>
-                  <p className="mt-2 text-xs leading-5 text-acv-muted">
-                    Strong watch activity and recent sold comps support the current ask.
-                  </p>
-                </div>
               </div>
-            </SectionCard>
-            <SectionCard title="Risk Notes">
-              <div className="flex items-start gap-3">
-                <TrendingDown className="mt-1 h-5 w-5 text-acv-pink" />
-                <div>
-                  <p className="text-sm font-semibold text-acv-text">Review if no sale in 7 days</p>
-                  <p className="mt-2 text-xs leading-5 text-acv-muted">
-                    Competition below $115 could trigger a lower-price recommendation.
-                  </p>
-                </div>
+            </div>
+          </SectionCard>
+
+          <SectionCard title="Risk Notes">
+            <div className="flex items-start gap-3">
+              <TrendingDown className="mt-1 h-5 w-5 text-acv-pink" />
+              <div>
+                <p className="text-sm font-semibold text-acv-text">Review if no sale in 7 days</p>
+                <p className="mt-2 text-xs leading-5 text-acv-muted">
+                  Competition below $115 could trigger a lower-price recommendation.
+                </p>
               </div>
-            </SectionCard>
-          </div>
+            </div>
+          </SectionCard>
+        </div>
+
+        <div className="min-w-0 space-y-4">
+          <SectionCard
+            title="Completed Sales / Sold Comps"
+            eyebrow="Completed sales / target 5+ / mock 12-month lookback"
+            action={<ActionButton variant="ghost" icon={<RefreshCcw className="h-4 w-4" />}>Refresh comps</ActionButton>}
+          >
+            <PricingScrollTable<SoldCompRow>
+              rows={pricingSoldComps}
+              getRowKey={(row) => `${row.source}-${row.title}-${row.saleDate}`}
+              columns={[
+                {
+                  key: "source",
+                  header: "Source",
+                  className: "w-[13%]",
+                  cell: (row) => (
+                    <StatusPill tone={getSourceTone(row.source)} className="max-w-full truncate tracking-[0.04em]">
+                      {row.source}
+                    </StatusPill>
+                  )
+                },
+                { key: "title", header: "Title", className: "w-[34%]", cell: (row) => <span className="block truncate">{row.title}</span> },
+                {
+                  key: "soldPrice",
+                  header: "Sold Price",
+                  className: "w-[13%]",
+                  cell: (row) => <span className="block truncate font-semibold text-acv-green">{formatCurrency(row.soldPrice)}</span>
+                },
+                { key: "saleDate", header: "Sale Date", className: "w-[12%]", cell: (row) => <span className="block truncate">{row.saleDate}</span> },
+                { key: "condition", header: "Condition", className: "w-[13%]", cell: (row) => <span className="block truncate">{row.condition}</span> },
+                {
+                  key: "confidence",
+                  header: "Confidence",
+                  className: "w-[15%]",
+                  cell: (row) => <span className="block truncate font-semibold text-acv-teal">{formatPercent(row.confidence)}</span>
+                }
+              ]}
+            />
+            {pricingSoldComps.length < SOLD_COMP_TARGET && (
+              <p className="mt-3 rounded-md border border-acv-gold/30 bg-acv-gold/10 px-3 py-2 text-xs font-semibold text-acv-gold">
+                Fewer than 5 sold comps found.
+              </p>
+            )}
+          </SectionCard>
+
+          <SectionCard title="Active Listings" eyebrow="Current marketplace supply / mock scan">
+            <PricingScrollTable<ActiveListingRow>
+              rows={pricingActiveListings}
+              getRowKey={(row) => `${row.source}-${row.title}-${row.timeLeftOrAge}`}
+              columns={[
+                {
+                  key: "source",
+                  header: "Source",
+                  className: "w-[12%]",
+                  cell: (row) => (
+                    <StatusPill tone={getSourceTone(row.source)} className="max-w-full truncate tracking-[0.04em]">
+                      {row.source}
+                    </StatusPill>
+                  )
+                },
+                { key: "title", header: "Title", className: "w-[30%]", cell: (row) => <span className="block truncate">{row.title}</span> },
+                {
+                  key: "askingPrice",
+                  header: "Asking Price",
+                  className: "w-[12%]",
+                  cell: (row) => <span className="block truncate font-semibold text-acv-gold">{formatCurrency(row.askingPrice)}</span>
+                },
+                { key: "listingType", header: "Listing Type", className: "w-[11%]", cell: (row) => <span className="block truncate">{row.listingType}</span> },
+                { key: "timeLeftOrAge", header: "Time Left / Listed Age", className: "w-[15%]", cell: (row) => <span className="block truncate">{row.timeLeftOrAge}</span> },
+                { key: "condition", header: "Condition", className: "w-[10%]", cell: (row) => <span className="block truncate">{row.condition}</span> },
+                {
+                  key: "confidence",
+                  header: "Confidence",
+                  className: "w-[10%]",
+                  cell: (row) => <span className="block truncate font-semibold text-acv-teal">{formatPercent(row.confidence)}</span>
+                }
+              ]}
+            />
+          </SectionCard>
         </div>
       </div>
     </>
