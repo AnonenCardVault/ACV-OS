@@ -129,6 +129,19 @@ function stagedConfidence(update: StagedUpdateRow) {
   return "68%";
 }
 
+function updateTypeTone(changeType: string): Tone {
+  const normalized = changeType.toLowerCase();
+  if (normalized.includes("sku")) return "purple";
+  if (normalized.includes("price")) return "gold";
+  if (normalized.includes("quantity")) return "teal";
+  if (normalized.includes("title")) return "green";
+  if (normalized.includes("description")) return "purple";
+  if (normalized.includes("photo")) return "teal";
+  if (normalized.includes("shipping")) return "gold";
+  if (normalized.includes("promotion")) return "green";
+  return "purple";
+}
+
 function detailLabel(label: string) {
   return label.replace(/([A-Z])/g, " $1").replace(/^./, (char) => char.toUpperCase());
 }
@@ -801,7 +814,7 @@ export default function ListingsPage() {
               },
               { key: "sku", header: "SKU", cell: (row) => <span className="font-semibold text-acv-gold">{stagedSku(row)}</span> },
               { key: "title", header: "Title", className: "min-w-56", cell: (row) => <span className="font-semibold text-acv-text">{stagedTitle(row)}</span> },
-              { key: "type", header: "Update Type", cell: (row) => <StatusPill tone="purple">{row.changeType}</StatusPill> },
+              { key: "type", header: "Update Type", cell: (row) => <StatusPill tone={updateTypeTone(row.changeType)}>{row.changeType}</StatusPill> },
               { key: "current", header: "Current Value", cell: (row) => <span className="font-semibold text-acv-pink">{row.currentEbayValue}</span> },
               { key: "proposed", header: "Proposed Value", cell: (row) => <span className="font-semibold text-acv-teal">{row.acvValue}</span> },
               { key: "risk", header: "Risk", cell: (row) => <StatusPill tone={pillTone(row.riskLevel)}>{row.riskLevel}</StatusPill> },
@@ -809,6 +822,7 @@ export default function ListingsPage() {
               {
                 key: "approve",
                 header: "Approve",
+                className: "sticky right-28 z-30 w-28 min-w-28 bg-acv-panel2 text-right",
                 cell: () => (
                   <MiniActionButton tone="teal">
                     <CheckCircle2 className="h-3.5 w-3.5" />
@@ -819,6 +833,7 @@ export default function ListingsPage() {
               {
                 key: "reject",
                 header: "Reject",
+                className: "sticky right-0 z-30 w-28 min-w-28 bg-acv-panel2 text-right",
                 cell: () => (
                   <MiniActionButton tone="pink">
                     <XCircle className="h-3.5 w-3.5" />
