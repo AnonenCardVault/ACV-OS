@@ -29,6 +29,7 @@ type ImageCountMode = "2 images/card" | "3 images/card" | "Custom" | "Auto-detec
 type ImageRole = "Front" | "Back" | "Detail / Closeup" | "Serial Closeup" | "Holo / Surface" | "Auto Closeup" | "Patch / Relic Closeup" | "Other";
 type RouteStatus = "Ready to Approve" | "Review" | "Needs Research" | "Blocked";
 type QueueStatus = RouteStatus | "Approved Mock" | "Rejected";
+type SkuStatus = "Pending Approval" | "SKU Assigned" | "Needs Review";
 type StatusTone = "green" | "teal" | "gold" | "pink" | "purple" | "neutral";
 
 type IntakeImage = {
@@ -86,6 +87,13 @@ const imageRoles: ImageRole[] = [
   "Patch / Relic Closeup",
   "Other"
 ];
+
+const mockAssignedSkus: Record<string, string> = {
+  "G-001": "ACV-NFL-000421",
+  "G-002": "ACV-TCG-000143",
+  "G-003": "ACV-POK-000382",
+  "G-004": "ACV-MLB-000301"
+};
 
 const intakeGroups: IntakeGroup[] = [
   {
@@ -226,6 +234,12 @@ function toneForStatus(status: QueueStatus): StatusTone {
   if (status === "Review") return "gold";
   if (status === "Needs Research" || status === "Blocked" || status === "Rejected") return "pink";
   return "neutral";
+}
+
+function toneForSkuStatus(status: SkuStatus): StatusTone {
+  if (status === "SKU Assigned") return "green";
+  if (status === "Needs Review") return "gold";
+  return "purple";
 }
 
 function confidenceTone(confidence: number): "teal" | "gold" | "pink" {
@@ -374,18 +388,24 @@ function SelectCheckbox({
 
 function ReviewDrawer({
   group,
+  skuStatus,
+  assignedSku,
   onClose,
   onApprove,
   onResearch,
   onReject
 }: {
   group: IntakeGroup;
+  skuStatus: SkuStatus;
+  assignedSku: string;
   onClose: () => void;
   onApprove: (id: string) => void;
   onResearch: (id: string) => void;
   onReject: (id: string) => void;
 }) {
   const routeStatus = statusForGroup(group);
+  const skuDisplay = skuStatus === "SKU Assigned" ? `${assignedSku} mock` : "Pending Approval";
+  const drawerSkuTone = skuStatus === "SKU Assigned" ? "green" : "purple";
 
   return (
     <div className="fixed inset-y-0 left-0 right-0 z-50 flex justify-end bg-black/70 backdrop-blur-sm sm:left-56">
@@ -394,12 +414,14 @@ function ReviewDrawer({
         <div className="flex items-center justify-between gap-3 border-b border-acv-border px-5 py-4">
           <div className="min-w-0">
             <div className="mb-2 flex flex-wrap gap-2">
-              <StatusPill tone="purple">{group.batch}</StatusPill>
+              <StatusPill tone="purple">Batch: {group.batch}</StatusPill>
+              <StatusPill tone="gold">Group: {group.id}</StatusPill>
+              <StatusPill tone={drawerSkuTone}>SKU: {skuDisplay}</StatusPill>
               <StatusPill tone={toneForStatus(routeStatus)}>{routeStatus}</StatusPill>
               <StatusPill tone={confidenceTone(group.confidence)}>{group.confidence}% confidence</StatusPill>
             </div>
             <h2 className="truncate text-lg font-semibold text-acv-text">{group.proposed.cardName}</h2>
-            <p className="mt-1 text-xs text-acv-muted">{group.id} review drawer - mock only</p>
+            <p className="mt-1 text-xs text-acv-muted">Temporary intake references only - permanent SKU assignment happens after approval.</p>
           </div>
           <button
             type="button"
@@ -411,100 +433,110 @@ function ReviewDrawer({
           </button>
         </div>
 
-        <div className="acv-scrollbar flex-1 overflow-y-auto p-5">
-          <div className="grid min-w-0 gap-5 xl:grid-cols-[0.85fr_1.15fr]">
-            <section className="min-w-0 rounded-lg border border-acv-border bg-acv-panel p-4">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-acv-gold">Group Images</p>
-                  <p className="mt-1 text-xs text-acv-muted">Role controls are staged for future approved image ordering.</p>
-                </div>
-                <StatusPill tone="teal">{group.images.length} images</StatusPill>
-              </div>
-              <div className="grid min-w-0 gap-3 sm:grid-cols-2">
-                {group.images.map((image) => (
-                  <div key={image.id} className="min-w-0 space-y-2">
-                    <ImagePlaceholder image={image} large />
-                    <select
-                      aria-label={`Role for ${image.label}`}
-                      defaultValue={image.role}
-                      className="h-8 w-full rounded-md border border-acv-border bg-acv-panel2 px-2 text-xs font-semibold text-acv-text outline-none"
-                    >
-                      {imageRoles.map((role) => (
-                        <option key={role} value={role}>
-                          {role}
-                        </option>
-                      ))}
-                    </select>
+        <div className="flex min-h-0 flex-1 flex-col">
+          <div className="acv-scrollbar min-h-0 flex-1 overflow-y-auto p-5 pb-4">
+            <div className="grid min-w-0 gap-5 xl:grid-cols-[0.85fr_1.15fr]">
+              <section className="min-w-0 rounded-lg border border-acv-border bg-acv-panel p-4">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-acv-gold">Group Images</p>
+                    <p className="mt-1 text-xs text-acv-muted">Role controls are staged for future approved image ordering.</p>
                   </div>
-                ))}
-              </div>
-            </section>
-
-            <section className="min-w-0 rounded-lg border border-acv-border bg-acv-panel p-4">
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-acv-gold">AI Extraction Review</p>
-                  <p className="mt-1 text-xs text-acv-muted">Proposed inventory record remains staged until approved.</p>
+                  <StatusPill tone="teal">{group.images.length} images</StatusPill>
                 </div>
-                <StatusPill tone={toneForStatus(routeStatus)}>{routeStatus}</StatusPill>
-              </div>
-              <div className="grid min-w-0 gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                <FieldRow label="Proposed card" value={group.proposed.cardName} tone="gold" />
-                <FieldRow label="Player / Character" value={group.proposed.playerCharacter} />
-                <FieldRow label="Team" value={group.proposed.team} />
-                <FieldRow label="Sport / Category" value={group.proposed.category} />
-                <FieldRow label="Year" value={group.proposed.year} />
-                <FieldRow label="Brand" value={group.proposed.brand} />
-                <FieldRow label="Set" value={group.proposed.set} />
-                <FieldRow label="Card Number" value={group.proposed.cardNumber} />
-                <FieldRow label="Parallel" value={group.proposed.parallel} />
-                <FieldRow label="Serial Number" value={group.proposed.serialNumber} />
-                <FieldRow label="Rookie" value={flagLabel(group.proposed.rookieFlag)} tone={group.proposed.rookieFlag ? "teal" : undefined} />
-                <FieldRow label="Auto" value={flagLabel(group.proposed.autoFlag)} />
-                <FieldRow label="Relic" value={flagLabel(group.proposed.relicFlag)} />
-                <FieldRow label="Variation" value={flagLabel(group.proposed.variationFlag)} tone={group.proposed.variationFlag ? "gold" : undefined} />
-                <FieldRow label="Confidence" value={`${group.confidence}%`} tone={confidenceTone(group.confidence)} />
-              </div>
-              <div className="mt-3 grid min-w-0 gap-3 lg:grid-cols-2">
-                <div className="rounded-md border border-acv-border bg-acv-panel2 p-3">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-acv-muted">Condition Notes</p>
-                  <p className="mt-2 text-xs leading-5 text-acv-text">{group.proposed.conditionNotes}</p>
-                </div>
-                <div className="rounded-md border border-acv-border bg-acv-panel2 p-3">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-acv-muted">Uncertainty Notes</p>
-                  <p className="mt-2 text-xs leading-5 text-acv-text">{group.proposed.uncertaintyNotes}</p>
-                </div>
-              </div>
-              {group.warnings.length > 0 && (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {group.warnings.map((warning) => (
-                    <StatusPill key={warning} tone="pink">
-                      {warning}
-                    </StatusPill>
+                <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+                  {group.images.map((image) => (
+                    <div key={image.id} className="min-w-0 space-y-2">
+                      <ImagePlaceholder image={image} large />
+                      <select
+                        aria-label={`Role for ${image.label}`}
+                        defaultValue={image.role}
+                        className="h-8 w-full rounded-md border border-acv-border bg-acv-panel2 px-2 text-xs font-semibold text-acv-text outline-none"
+                      >
+                        {imageRoles.map((role) => (
+                          <option key={role} value={role}>
+                            {role}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   ))}
                 </div>
-              )}
-            </section>
-          </div>
-        </div>
+              </section>
 
-        <div className="grid gap-2 border-t border-acv-border bg-black/70 p-4 sm:grid-cols-2 xl:grid-cols-5">
-          <MiniButton tone="teal" icon={<Save className="h-3.5 w-3.5" />}>
-            Save Group
-          </MiniButton>
-          <MiniButton tone="gold" icon={<ArrowLeftRight className="h-3.5 w-3.5" />}>
-            Swap Front/Back
-          </MiniButton>
-          <MiniButton tone="teal" icon={<BadgeCheck className="h-3.5 w-3.5" />} onClick={() => onApprove(group.id)}>
-            Approve Record
-          </MiniButton>
-          <MiniButton icon={<FileSearch className="h-3.5 w-3.5" />} onClick={() => onResearch(group.id)}>
-            Send to Research
-          </MiniButton>
-          <MiniButton tone="pink" icon={<XCircle className="h-3.5 w-3.5" />} onClick={() => onReject(group.id)}>
-            Reject Group
-          </MiniButton>
+              <section className="min-w-0 rounded-lg border border-acv-border bg-acv-panel p-4">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-acv-gold">AI Extraction Review</p>
+                    <p className="mt-1 text-xs text-acv-muted">Proposed inventory record remains staged until approved.</p>
+                  </div>
+                  <StatusPill tone={toneForStatus(routeStatus)}>{routeStatus}</StatusPill>
+                </div>
+                <div className="grid min-w-0 gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                  <FieldRow label="Proposed card" value={group.proposed.cardName} tone="gold" />
+                  <FieldRow label="Player / Character" value={group.proposed.playerCharacter} />
+                  <FieldRow label="Team" value={group.proposed.team} />
+                  <FieldRow label="Sport / Category" value={group.proposed.category} />
+                  <FieldRow label="Year" value={group.proposed.year} />
+                  <FieldRow label="Brand" value={group.proposed.brand} />
+                  <FieldRow label="Set" value={group.proposed.set} />
+                  <FieldRow label="Card Number" value={group.proposed.cardNumber} />
+                  <FieldRow label="Parallel" value={group.proposed.parallel} />
+                  <FieldRow label="Serial Number" value={group.proposed.serialNumber} />
+                  <FieldRow label="Rookie" value={flagLabel(group.proposed.rookieFlag)} tone={group.proposed.rookieFlag ? "teal" : undefined} />
+                  <FieldRow label="Auto" value={flagLabel(group.proposed.autoFlag)} />
+                  <FieldRow label="Relic" value={flagLabel(group.proposed.relicFlag)} />
+                  <FieldRow label="Variation" value={flagLabel(group.proposed.variationFlag)} tone={group.proposed.variationFlag ? "gold" : undefined} />
+                  <FieldRow label="Confidence" value={`${group.confidence}%`} tone={confidenceTone(group.confidence)} />
+                </div>
+                <div className="mt-3 grid min-w-0 gap-3 lg:grid-cols-2">
+                  <div className="rounded-md border border-acv-border bg-acv-panel2 p-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-acv-muted">Condition Notes</p>
+                    <p className="mt-2 text-xs leading-5 text-acv-text">{group.proposed.conditionNotes}</p>
+                  </div>
+                  <div className="rounded-md border border-acv-border bg-acv-panel2 p-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-acv-muted">Uncertainty Notes</p>
+                    <p className="mt-2 text-xs leading-5 text-acv-text">{group.proposed.uncertaintyNotes}</p>
+                  </div>
+                </div>
+                {group.warnings.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {group.warnings.map((warning) => (
+                      <StatusPill key={warning} tone="pink">
+                        {warning}
+                      </StatusPill>
+                    ))}
+                  </div>
+                )}
+              </section>
+            </div>
+          </div>
+
+          <div className="sticky bottom-0 z-20 border-t border-acv-border bg-acv-black px-5 pb-8 pt-3">
+            <div className="rounded-lg border border-acv-border bg-acv-panel/95 p-3 shadow-glow">
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-acv-gold">Review Actions</p>
+                <span className="text-[11px] text-acv-muted">Mock only - approval stages an ACV-format SKU example.</span>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+                <MiniButton tone="teal" icon={<Save className="h-3.5 w-3.5" />}>
+                  Save Group
+                </MiniButton>
+                <MiniButton tone="gold" icon={<ArrowLeftRight className="h-3.5 w-3.5" />}>
+                  Swap Front/Back
+                </MiniButton>
+                <MiniButton tone="teal" icon={<BadgeCheck className="h-3.5 w-3.5" />} onClick={() => onApprove(group.id)}>
+                  Approve Record
+                </MiniButton>
+                <MiniButton icon={<FileSearch className="h-3.5 w-3.5" />} onClick={() => onResearch(group.id)}>
+                  Send to Research
+                </MiniButton>
+                <MiniButton tone="pink" icon={<XCircle className="h-3.5 w-3.5" />} onClick={() => onReject(group.id)}>
+                  Reject Group
+                </MiniButton>
+              </div>
+            </div>
+          </div>
         </div>
       </aside>
     </div>
@@ -541,6 +573,16 @@ export default function PhotoIntakePage() {
     if (rejectedIds.has(group.id)) return "Rejected";
     if (researchIds.has(group.id)) return "Needs Research";
     return statusForGroup(group);
+  }
+
+  function skuStatusForGroup(group: IntakeGroup): SkuStatus {
+    if (approvedIds.has(group.id)) return "SKU Assigned";
+    if (rejectedIds.has(group.id) || researchIds.has(group.id) || statusForGroup(group) !== "Ready to Approve") return "Needs Review";
+    return "Pending Approval";
+  }
+
+  function assignedSkuForGroup(group: IntakeGroup) {
+    return mockAssignedSkus[group.id] || "ACV-NFL-000421";
   }
 
   function setQueueSelection(id: string, checked: boolean) {
@@ -636,6 +678,9 @@ export default function PhotoIntakePage() {
                 <StatusPill tone={source.tone}>{source.key === "Computer Upload" ? "Now" : "Mock"}</StatusPill>
               </button>
             ))}
+          </div>
+          <div className="mt-3 rounded-md border border-acv-border bg-acv-panel2 px-3 py-2 text-xs leading-5 text-acv-muted">
+            <span className="font-semibold text-acv-gold">ID note:</span> Batch and Group IDs are temporary intake references. Permanent ACV SKUs are assigned only after approval into inventory.
           </div>
         </SectionCard>
 
@@ -752,7 +797,10 @@ export default function PhotoIntakePage() {
                     <button type="button" onClick={() => setSelectedGroupId(group.id)} className="block w-full min-w-0 text-left">
                       <div className="mb-3 flex min-w-0 flex-wrap items-center justify-between gap-2">
                         <div className="min-w-0">
-                          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-acv-gold">{group.id}</p>
+                          <div className="mb-1 flex flex-wrap gap-1.5">
+                            <StatusPill tone="purple">Batch: {group.batch}</StatusPill>
+                            <StatusPill tone="gold">Group: {group.id}</StatusPill>
+                          </div>
                           <p className="truncate text-xs font-semibold text-acv-text">{group.pairingStatus}</p>
                         </div>
                         <div className="flex shrink-0 flex-wrap gap-1.5">
@@ -872,6 +920,20 @@ export default function PhotoIntakePage() {
               { key: "batch", header: "Batch", cell: (group) => <span className="font-semibold text-acv-gold">{group.batch}</span> },
               { key: "group", header: "Group", cell: (group) => <span className="font-semibold text-acv-text">{group.id}</span> },
               {
+                key: "skuStatus",
+                header: "SKU Status",
+                className: "min-w-44",
+                cell: (group) => {
+                  const status = skuStatusForGroup(group);
+                  return (
+                    <div className="space-y-1">
+                      <StatusPill tone={toneForSkuStatus(status)}>{status}</StatusPill>
+                      {status === "SKU Assigned" && <p className="text-[11px] font-semibold text-acv-green">{assignedSkuForGroup(group)} mock</p>}
+                    </div>
+                  );
+                }
+              },
+              {
                 key: "front",
                 header: "Front",
                 cell: (group) => <ImagePlaceholder image={group.images.find((image) => image.role === "Front")} emptyLabel="Front" compact />
@@ -950,7 +1012,9 @@ export default function PhotoIntakePage() {
           {approvedIds.size > 0 && (
             <div className="mt-3 flex items-center gap-2 rounded-md border border-acv-green/35 bg-acv-green/10 px-3 py-2 text-xs font-semibold text-acv-green">
               <CheckCircle2 className="h-4 w-4" />
-              {approvedIds.size} record{approvedIds.size === 1 ? "" : "s"} approved locally in mock mode.
+              {approvedIds.size} record{approvedIds.size === 1 ? "" : "s"} approved locally. SKU would be assigned during approval: {Array.from(approvedIds)
+                .map((id) => mockAssignedSkus[id] || "ACV-NFL-000421")
+                .join(", ")}. Mock only, not permanent yet.
             </div>
           )}
         </SectionCard>
@@ -980,6 +1044,8 @@ export default function PhotoIntakePage() {
       {drawerGroup && (
         <ReviewDrawer
           group={drawerGroup}
+          skuStatus={skuStatusForGroup(drawerGroup)}
+          assignedSku={assignedSkuForGroup(drawerGroup)}
           onClose={() => setDrawerGroup(null)}
           onApprove={(id) => {
             approveGroup(id);
