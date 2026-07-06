@@ -331,6 +331,148 @@ export const recentComps = [
   { source: "Manual comp", title: "Card show confirmed sale", price: 125, date: "Jun 28", confidence: 0.72 }
 ];
 
+export const pricingSoldComps = [
+  {
+    source: "eBay sold",
+    title: "2023 Prizm CJ Stroud Silver Rookie RC Texans",
+    soldPrice: 132.5,
+    saleDate: "Jul 03",
+    condition: "Raw NM",
+    confidence: 0.88
+  },
+  {
+    source: "eBay sold",
+    title: "CJ Stroud Prizm Silver Rookie raw",
+    soldPrice: 118.25,
+    saleDate: "Jul 01",
+    condition: "Raw EX/NM",
+    confidence: 0.82
+  },
+  {
+    source: "Terapeak sold",
+    title: "2023 Panini Prizm Silver CJ Stroud RC",
+    soldPrice: 125,
+    saleDate: "Jun 28",
+    condition: "Raw NM",
+    confidence: 0.8
+  },
+  {
+    source: "eBay sold",
+    title: "CJ Stroud Silver Prizm Rookie PSA 9",
+    soldPrice: 141,
+    saleDate: "Jun 12",
+    condition: "PSA 9",
+    confidence: 0.76
+  },
+  {
+    source: "eBay sold",
+    title: "CJ Stroud 2023 Prizm Silver RC",
+    soldPrice: 109.99,
+    saleDate: "May 29",
+    condition: "Raw VG/EX",
+    confidence: 0.71
+  },
+  {
+    source: "Card Ladder",
+    title: "CJ Stroud Prizm Silver Rookie Texans",
+    soldPrice: 136.5,
+    saleDate: "Apr 18",
+    condition: "PSA 9",
+    confidence: 0.69
+  },
+  {
+    source: "Manual comp",
+    title: "Card show confirmed sale - Stroud Silver RC",
+    soldPrice: 120,
+    saleDate: "Dec 14",
+    condition: "Raw NM",
+    confidence: 0.64
+  },
+  {
+    source: "eBay sold",
+    title: "2023 Panini Prizm CJ Stroud Silver Rookie RC",
+    soldPrice: 112.75,
+    saleDate: "Sep 22",
+    condition: "Raw",
+    confidence: 0.61
+  }
+];
+
+export const pricingActiveListings = [
+  {
+    source: "eBay active",
+    title: "2023 Panini Prizm CJ Stroud Silver Rookie",
+    askingPrice: 139.99,
+    listingType: "BIN",
+    timeLeftOrAge: "Listed 3d",
+    condition: "Raw NM",
+    confidence: 0.84
+  },
+  {
+    source: "eBay active",
+    title: "CJ Stroud Silver Prizm RC Texans",
+    askingPrice: 129.99,
+    listingType: "BIN",
+    timeLeftOrAge: "Listed 9d",
+    condition: "Raw NM",
+    confidence: 0.82
+  },
+  {
+    source: "eBay auction",
+    title: "2023 Prizm Silver CJ Stroud Rookie Card",
+    askingPrice: 42,
+    listingType: "Auction",
+    timeLeftOrAge: "2d 4h left",
+    condition: "Raw",
+    confidence: 0.78
+  },
+  {
+    source: "eBay active",
+    title: "CJ Stroud Silver Prizm Rookie PSA 9",
+    askingPrice: 159.99,
+    listingType: "BIN",
+    timeLeftOrAge: "Listed 14d",
+    condition: "PSA 9",
+    confidence: 0.74
+  },
+  {
+    source: "eBay active",
+    title: "2023 Panini Prizm Football CJ Stroud Silver",
+    askingPrice: 119.5,
+    listingType: "Offer",
+    timeLeftOrAge: "Listed 5d",
+    condition: "Raw EX/NM",
+    confidence: 0.72
+  },
+  {
+    source: "eBay auction",
+    title: "CJ Stroud RC Silver Prizm no reserve",
+    askingPrice: 57,
+    listingType: "Auction",
+    timeLeftOrAge: "16h left",
+    condition: "Raw NM",
+    confidence: 0.7
+  },
+  {
+    source: "COMC",
+    title: "CJ Stroud 2023 Prizm Silver Rookie",
+    askingPrice: 145,
+    listingType: "Fixed",
+    timeLeftOrAge: "Listed 28d",
+    condition: "Raw NM",
+    confidence: 0.67
+  },
+  {
+    source: "eBay active",
+    title: "2023 Prizm CJ Stroud Silver Rookie Texans",
+    askingPrice: 114.99,
+    listingType: "BIN",
+    timeLeftOrAge: "Listed 1d",
+    condition: "Raw",
+    confidence: 0.63
+  }
+];
+
 export const listingRows = [
   {
     sku: "ACV-NFL-000421",

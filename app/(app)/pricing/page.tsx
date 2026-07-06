@@ -1,15 +1,107 @@
+import type { ReactNode } from "react";
 import { Check, RefreshCcw, TrendingDown, TrendingUp } from "lucide-react";
 import { ActionButton } from "@/components/action-button";
-import { DataTable } from "@/components/data-table";
 import { PageHeader } from "@/components/page-header";
 import { SectionCard } from "@/components/section-card";
 import { StatusPill } from "@/components/status-pill";
-import { recentComps } from "@/data/mock";
-import { formatCurrency, formatPercent } from "@/lib/utils";
+import { pricingActiveListings, pricingSoldComps } from "@/data/mock";
+import { cn, formatCurrency, formatPercent } from "@/lib/utils";
 
-type CompRow = (typeof recentComps)[number];
+type SoldCompRow = (typeof pricingSoldComps)[number];
+type ActiveListingRow = (typeof pricingActiveListings)[number];
+type PricingColumn<T> = {
+  key: string;
+  header: ReactNode;
+  cell: (row: T) => ReactNode;
+  className?: string;
+};
+
+const SOLD_COMP_TARGET = 5;
+const currentAsk = 129.99;
+const marketEstimate = 128;
+const pricingConfidence = 0.84;
+
+function getMedian(values: number[]) {
+  if (values.length === 0) {
+    return 0;
+  }
+
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+
+  return sorted.length % 2 === 0 ? (sorted[middle - 1] + sorted[middle]) / 2 : sorted[middle];
+}
+
+function getSourceTone(source: string): "teal" | "gold" | "purple" | "neutral" {
+  if (source.toLowerCase().includes("auction")) {
+    return "gold";
+  }
+
+  if (source.toLowerCase().includes("manual")) {
+    return "purple";
+  }
+
+  return source.toLowerCase().includes("card ladder") ? "neutral" : "teal";
+}
+
+function PricingScrollTable<T>({
+  rows,
+  columns,
+  getRowKey,
+  className
+}: {
+  rows: T[];
+  columns: Array<PricingColumn<T>>;
+  getRowKey: (row: T) => string;
+  className?: string;
+}) {
+  return (
+    <div className={cn("acv-scrollbar max-h-64 overflow-auto rounded-md border border-acv-border/70", className)}>
+      <table className="w-max min-w-full border-separate border-spacing-0 text-left text-xs">
+        <thead>
+          <tr>
+            {columns.map((column) => (
+              <th
+                key={column.key}
+                className={cn(
+                  "sticky top-0 z-10 border-b border-acv-border bg-acv-panel2 px-3 py-2 font-semibold uppercase tracking-[0.09em] text-acv-muted",
+                  column.className
+                )}
+              >
+                {column.header}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={getRowKey(row)} className="group">
+              {columns.map((column) => (
+                <td
+                  key={column.key}
+                  className={cn(
+                    "border-b border-acv-border/70 px-3 py-2 align-middle text-acv-text group-hover:bg-white/[0.025]",
+                    column.className
+                  )}
+                >
+                  {column.cell(row)}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
 export default function PricingPage() {
+  const soldPrices = pricingSoldComps.map((comp) => comp.soldPrice);
+  const soldLow = Math.min(...soldPrices);
+  const soldMedian = getMedian(soldPrices);
+  const soldHigh = Math.max(...soldPrices);
+  const sourceMix = ["eBay", "Terapeak", "Card Ladder", "COMC", "Manual"].join(" / ");
+
   return (
     <>
       <PageHeader
@@ -25,54 +117,82 @@ export default function PricingPage() {
             <div className="mt-5 grid grid-cols-2 gap-3">
               <div>
                 <p className="text-xs text-acv-muted">Current ask</p>
-                <p className="text-xl font-semibold text-acv-gold">$129.99</p>
+                <p className="text-xl font-semibold text-acv-gold">{formatCurrency(currentAsk)}</p>
               </div>
               <div>
                 <p className="text-xs text-acv-muted">Market est.</p>
-                <p className="text-xl font-semibold text-acv-green">$118.00</p>
+                <p className="text-xl font-semibold text-acv-green">{formatCurrency(marketEstimate)}</p>
               </div>
               <div>
-                <p className="text-xs text-acv-muted">Low / median / high</p>
-                <p className="text-sm font-semibold text-acv-text">$102 / $122 / $148</p>
+                <p className="text-xs text-acv-muted">Sold low / median / high</p>
+                <p className="text-sm font-semibold text-acv-text">
+                  {formatCurrency(soldLow)} / {formatCurrency(soldMedian)} / {formatCurrency(soldHigh)}
+                </p>
               </div>
               <div>
                 <p className="text-xs text-acv-muted">Confidence</p>
-                <p className="text-sm font-semibold text-acv-teal">84%</p>
+                <p className="text-sm font-semibold text-acv-teal">{formatPercent(pricingConfidence)}</p>
               </div>
             </div>
           </div>
           <div className="mt-4 space-y-2">
             {[
               ["Recommendation", "Keep price", "teal"],
-              ["Source mix", "Sold + active + manual", "purple"],
+              ["Source mix", sourceMix, "purple"],
               ["Last updated", "Mock timestamp", "gold"]
             ].map(([label, value, tone]) => (
               <div key={label} className="flex items-center justify-between rounded-md border border-acv-border bg-acv-panel2 px-3 py-2 text-xs">
                 <span className="text-acv-muted">{label}</span>
-                <StatusPill tone={tone as "teal" | "purple" | "gold"}>{value}</StatusPill>
+                <StatusPill tone={tone as "teal" | "purple" | "gold"} className="max-w-48 truncate">
+                  {value}
+                </StatusPill>
               </div>
             ))}
           </div>
         </SectionCard>
 
         <div className="space-y-4">
-          <SectionCard
-            title="Recent Sales and Active Competition"
-            eyebrow="Comps"
-            action={<ActionButton variant="ghost" icon={<RefreshCcw className="h-4 w-4" />}>Refresh comps</ActionButton>}
-          >
-            <DataTable<CompRow>
-              rows={recentComps}
-              getRowKey={(row) => `${row.source}-${row.title}`}
-              columns={[
-                { key: "source", header: "Source", cell: (row) => <StatusPill tone={row.source === "Active listing" ? "gold" : "teal"}>{row.source}</StatusPill> },
-                { key: "title", header: "Title", cell: (row) => <span className="line-clamp-1 min-w-72">{row.title}</span> },
-                { key: "price", header: "Price", cell: (row) => <span className="font-semibold text-acv-green">{formatCurrency(row.price)}</span> },
-                { key: "date", header: "Date", cell: (row) => row.date },
-                { key: "confidence", header: "Confidence", cell: (row) => formatPercent(row.confidence) }
-              ]}
-            />
-          </SectionCard>
+          <div className="grid min-w-0 gap-4 xl:grid-cols-2">
+            <SectionCard
+              title="Sold Comps"
+              eyebrow="Completed sales · target 5+ · mock 12-month lookback"
+              action={<ActionButton variant="ghost" icon={<RefreshCcw className="h-4 w-4" />}>Refresh comps</ActionButton>}
+            >
+              <PricingScrollTable<SoldCompRow>
+                rows={pricingSoldComps}
+                getRowKey={(row) => `${row.source}-${row.title}-${row.saleDate}`}
+                columns={[
+                  { key: "source", header: "Source", cell: (row) => <StatusPill tone={getSourceTone(row.source)}>{row.source}</StatusPill> },
+                  { key: "title", header: "Title", cell: (row) => <span className="line-clamp-1 block min-w-72 max-w-[420px]">{row.title}</span> },
+                  { key: "soldPrice", header: "Sold Price", cell: (row) => <span className="font-semibold text-acv-green">{formatCurrency(row.soldPrice)}</span> },
+                  { key: "saleDate", header: "Sale Date", cell: (row) => row.saleDate },
+                  { key: "condition", header: "Condition", cell: (row) => row.condition },
+                  { key: "confidence", header: "Confidence", cell: (row) => <span className="font-semibold text-acv-teal">{formatPercent(row.confidence)}</span> }
+                ]}
+              />
+              {pricingSoldComps.length < SOLD_COMP_TARGET && (
+                <p className="mt-3 rounded-md border border-acv-gold/30 bg-acv-gold/10 px-3 py-2 text-xs font-semibold text-acv-gold">
+                  Fewer than 5 sold comps found.
+                </p>
+              )}
+            </SectionCard>
+
+            <SectionCard title="Active Listings" eyebrow="Current marketplace supply · mock scan">
+              <PricingScrollTable<ActiveListingRow>
+                rows={pricingActiveListings}
+                getRowKey={(row) => `${row.source}-${row.title}-${row.timeLeftOrAge}`}
+                columns={[
+                  { key: "source", header: "Source", cell: (row) => <StatusPill tone={getSourceTone(row.source)}>{row.source}</StatusPill> },
+                  { key: "title", header: "Title", cell: (row) => <span className="line-clamp-1 block min-w-72 max-w-[420px]">{row.title}</span> },
+                  { key: "askingPrice", header: "Asking Price", cell: (row) => <span className="font-semibold text-acv-gold">{formatCurrency(row.askingPrice)}</span> },
+                  { key: "listingType", header: "Listing Type", cell: (row) => row.listingType },
+                  { key: "timeLeftOrAge", header: "Time Left / Listed Age", cell: (row) => row.timeLeftOrAge },
+                  { key: "condition", header: "Condition", cell: (row) => row.condition },
+                  { key: "confidence", header: "Confidence", cell: (row) => <span className="font-semibold text-acv-teal">{formatPercent(row.confidence)}</span> }
+                ]}
+              />
+            </SectionCard>
+          </div>
 
           <div className="grid gap-4 md:grid-cols-2">
             <SectionCard title="AI Recommendation">
