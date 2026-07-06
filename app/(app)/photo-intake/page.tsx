@@ -1344,25 +1344,23 @@ export default function PhotoIntakePage() {
       return next;
     });
     setApprovedInventory((current) => {
-      if (current.some((item) => item.group === id)) return current;
       const primaryImage = group.images.find((image) => image.role === "Front") || group.images[0];
-      return [
-        ...current,
-        {
-          sku: nextSku,
-          batch: group.batch,
-          group: group.id,
-          source: group.source,
-          primaryImageUrl: primaryImage?.dataUrl || primaryImage?.url || "",
-          needsImageReupload: Boolean(primaryImage?.needsReupload || !(primaryImage?.dataUrl || primaryImage?.url)),
-          images: group.images,
-          proposed: group.proposed,
-          approvedAt: new Date().toLocaleString()
-        }
-      ];
+      const approvedItem = {
+        sku: nextSku,
+        batch: group.batch,
+        group: group.id,
+        source: group.source,
+        primaryImageUrl: primaryImage?.dataUrl || primaryImage?.url || "",
+        needsImageReupload: Boolean(primaryImage?.needsReupload || !(primaryImage?.dataUrl || primaryImage?.url)),
+        images: group.images,
+        proposed: group.proposed,
+        approvedAt: new Date().toLocaleString()
+      };
+
+      return current.some((item) => item.group === id) ? current.map((item) => (item.group === id ? approvedItem : item)) : [...current, approvedItem];
     });
     const nextId = advanceAfterProcessed(id, keepDrawerOpen);
-    setStatusMessage(`${group.id} approved locally. Mock SKU assigned: ${nextSku}.${nextId ? ` Next group: ${nextId}.` : " Batch review complete."}`);
+    setStatusMessage(`Approved to Inventory: ${nextSku}.${nextId ? ` Next group: ${nextId}.` : " Batch review complete."}`);
     return nextId;
   }
 
