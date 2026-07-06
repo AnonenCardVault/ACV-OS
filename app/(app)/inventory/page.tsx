@@ -20,6 +20,7 @@ import { ActionButton } from "@/components/action-button";
 import { DataTable } from "@/components/data-table";
 import { StatusPill } from "@/components/status-pill";
 import { inventoryItems } from "@/data/mock";
+import { useAcvLocalState, type ApprovedInventoryItem, type IntakeImage } from "@/lib/acv-local-state";
 import { cn, formatCurrency, formatPercent } from "@/lib/utils";
 
 type InventoryItem = (typeof inventoryItems)[number];
@@ -50,7 +51,14 @@ type DataColumnKey =
   | "promotionPct"
   | "offers"
   | "shippingMethod";
-type Row = InventoryItem & { ops: InventoryOps };
+type Row = InventoryItem & {
+  ops: InventoryOps;
+  localImages?: IntakeImage[];
+  localPrimaryImageUrl?: string;
+  localNeedsImageReupload?: boolean;
+  localBatch?: string;
+  localGroup?: string;
+};
 
 type InventoryOps = {
   playerCharacter: string;
@@ -407,6 +415,58 @@ function rowWithOps(item: InventoryItem): Row {
   return { ...item, ops: opsBySku[item.sku] || defaultOps(item) };
 }
 
+function approvedItemToRow(item: ApprovedInventoryItem): Row {
+  const inventoryItem: InventoryItem = {
+    id: `local-${item.sku}`,
+    sku: item.sku,
+    name: item.proposed.cardName,
+    category: item.proposed.category,
+    year: item.proposed.year,
+    brandSet: `${item.proposed.brand} ${item.proposed.set}`.trim() || "Pending",
+    parallel: item.proposed.parallel || "-",
+    cardNumber: item.proposed.cardNumber || "-",
+    serialNumber: item.proposed.serialNumber || "-",
+    status: "Needs Pricing",
+    location: "Photo Intake",
+    purchaseCost: 0,
+    askingPrice: 0,
+    marketValue: 0,
+    quantity: 1,
+    source: "Photo Intake",
+    ebayId: "-",
+    daysListed: 0,
+    aiConfidence: 0.72,
+    lastUpdated: item.approvedAt,
+    notes: item.needsImageReupload
+      ? "Approved locally from Photo Intake. Images need to be re-uploaded after refresh."
+      : "Approved locally from Photo Intake. Mock item awaiting pricing."
+  };
+  const baseRow = rowWithOps(inventoryItem);
+
+  return {
+    ...baseRow,
+    localImages: item.images,
+    localPrimaryImageUrl: item.primaryImageUrl,
+    localNeedsImageReupload: item.needsImageReupload,
+    localBatch: item.batch,
+    localGroup: item.group,
+    ops: {
+      ...baseRow.ops,
+      playerCharacter: item.proposed.playerCharacter,
+      team: item.proposed.team,
+      conditionNotes: item.proposed.conditionNotes,
+      listingStatus: "Internal",
+      photoStatus: item.needsImageReupload ? "Needs Reupload" : "Reviewed",
+      priceStatus: "Needs Comps",
+      nextAction: "Send to pricing",
+      compSummary: "Approved locally from Photo Intake. Pricing comps have not been run.",
+      skuHistory: [`Assigned ${item.sku} from Photo Intake local approval`, `Batch ${item.batch} / Group ${item.group}`],
+      lifecycleTimeline: ["Uploaded in Photo Intake", "Approved locally", "Needs pricing"],
+      auditHistory: [`Mock approval ${item.approvedAt}`, "No database write yet"]
+    }
+  };
+}
+
 function statusTone(status: string): "green" | "teal" | "gold" | "pink" | "purple" | "neutral" {
   if (["Active", "Listed", "Ready for Draft", "Sold", "Approved", "Reviewed", "Generated", "In sync", "BIN"].includes(status)) return "teal";
   if (["Auction", "Draft", "Future eBay Draft", "ACV Draft", "Review", "Paused", "Suggested", "Medium"].includes(status)) return "gold";
@@ -424,17 +484,36 @@ function uniqueValues<T extends string>(values: T[]) {
   return Array.from(new Set(values.map((value) => value || "Missing"))).sort();
 }
 
-function CardImageTile({ label, category, large = false }: { label: string; category: string; large?: boolean }) {
+function CardImageTile({
+  label,
+  category,
+  large = false,
+  imageUrl,
+  needsReupload
+}: {
+  label: string;
+  category: string;
+  large?: boolean;
+  imageUrl?: string;
+  needsReupload?: boolean;
+}) {
   return (
     <div
       className={cn(
         "relative flex shrink-0 flex-col justify-between overflow-hidden rounded border border-acv-border bg-gradient-to-br from-acv-purple/35 via-acv-panel2 to-acv-gold/20",
-        large ? "h-72 w-full max-w-56 p-2" : "h-9 w-7 p-1"
+        large ? "h-72 w-full max-w-56 p-2" : "h-9 w-7 p-1",
+        imageUrl && "bg-acv-panel2"
       )}
     >
-      <span className={cn("font-bold uppercase text-acv-gold", large ? "text-xs" : "text-[8px]")}>{category.slice(0, 3)}</span>
-      <span className={cn("font-semibold leading-tight text-acv-text", large ? "text-sm" : "text-[7px]")}>{large ? label : "ACV"}</span>
+      {imageUrl && <img src={imageUrl} alt={label} className="absolute inset-0 h-full w-full object-cover" />}
+      <span className={cn("relative z-10 font-bold uppercase text-acv-gold drop-shadow", large ? "text-xs" : "text-[8px]")}>{category.slice(0, 3)}</span>
+      <span className={cn("relative z-10 font-semibold leading-tight text-acv-text drop-shadow", large ? "text-sm" : "text-[7px]")}>{large ? label : "ACV"}</span>
       <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-acv-teal shadow-[0_0_14px_#26d4c7]" />
+      {needsReupload && (
+        <span className="absolute inset-x-1 bottom-1 rounded border border-acv-pink/40 bg-black/75 px-1 text-center text-[8px] font-semibold uppercase tracking-[0.08em] text-acv-pink">
+          Re-upload
+        </span>
+      )}
     </div>
   );
 }
@@ -646,14 +725,32 @@ function ItemDetailDrawer({
         <div className="acv-scrollbar flex-1 overflow-y-auto p-5">
           <div className="grid min-w-0 gap-5 lg:grid-cols-[224px_1fr]">
             <div className="space-y-3">
-              <CardImageTile label={row.name} category={row.category} large />
+              <CardImageTile label={row.name} category={row.category} large imageUrl={row.localPrimaryImageUrl} needsReupload={row.localNeedsImageReupload} />
               <div className="grid grid-cols-3 gap-2">
-                {["Front", "Back", "Crop"].map((label) => (
-                  <div key={label} className="rounded-md border border-acv-border bg-acv-panel2 px-2 py-2 text-center text-[11px] font-semibold text-acv-muted">
-                    {label}
-                  </div>
-                ))}
+                {row.localImages?.length
+                  ? row.localImages.slice(0, 6).map((image) => (
+                      <div key={image.id} className="overflow-hidden rounded-md border border-acv-border bg-acv-panel2">
+                        {image.url ? (
+                          <img src={image.url} alt={image.label} className="h-16 w-full object-cover" />
+                        ) : (
+                          <div className="flex h-16 items-center justify-center px-2 text-center text-[10px] font-semibold text-acv-muted">
+                            {image.needsReupload ? "Re-upload" : image.role}
+                          </div>
+                        )}
+                        <div className="truncate border-t border-acv-border px-2 py-1 text-center text-[10px] font-semibold text-acv-muted">{image.role}</div>
+                      </div>
+                    ))
+                  : ["Front", "Back", "Crop"].map((label) => (
+                      <div key={label} className="rounded-md border border-acv-border bg-acv-panel2 px-2 py-2 text-center text-[11px] font-semibold text-acv-muted">
+                        {label}
+                      </div>
+                    ))}
               </div>
+              {row.localNeedsImageReupload && (
+                <div className="rounded-md border border-acv-pink/35 bg-acv-pink/10 px-3 py-2 text-xs font-semibold text-acv-pink">
+                  Images need to be re-uploaded after refresh.
+                </div>
+              )}
             </div>
 
             <div className="min-w-0 space-y-4">
@@ -689,6 +786,8 @@ function ItemDetailDrawer({
                   <DetailField label="Market Value" value={formatCurrency(row.marketValue)} tone="green" />
                   <DetailField label="Quantity" value={row.quantity} />
                   <DetailField label="Source" value={row.source} />
+                  {row.localBatch && <DetailField label="Intake Batch" value={row.localBatch} tone="gold" />}
+                  {row.localGroup && <DetailField label="Intake Group" value={row.localGroup} tone="gold" />}
                   <DetailField label="AI Confidence" value={formatPercent(row.aiConfidence)} tone={confidenceBand(row.aiConfidence) === "Low" ? "pink" : confidenceBand(row.aiConfidence) === "Medium" ? "gold" : "teal"} />
                   <DetailField label="Listing Type" value={row.ops.listingType} tone={row.ops.listingType === "None" ? undefined : "gold"} />
                   <DetailField label="eBay Item ID" value={row.ebayId} />
@@ -865,7 +964,8 @@ function listedDateMatches(row: Row, filter: string) {
 }
 
 export default function InventoryPage() {
-  const rows = useMemo(() => inventoryItems.map(rowWithOps), []);
+  const { approvedInventory } = useAcvLocalState();
+  const rows = useMemo(() => [...inventoryItems.map(rowWithOps), ...approvedInventory.map(approvedItemToRow)], [approvedInventory]);
   const [selectedRow, setSelectedRow] = useState<Row | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("Listings");
   const [listingSubTab, setListingSubTab] = useState<ListingSubTab>("All Listings");
@@ -1033,7 +1133,12 @@ export default function InventoryPage() {
 
   const inventoryColumns = [
     checkboxColumn,
-    { key: "thumbnail", header: "", className: "sticky left-8 z-30 w-12 min-w-12 bg-acv-panel2 px-1.5", cell: (row: Row) => <CardImageTile label={row.name} category={row.category} /> },
+    {
+      key: "thumbnail",
+      header: "",
+      className: "sticky left-8 z-30 w-12 min-w-12 bg-acv-panel2 px-1.5",
+      cell: (row: Row) => <CardImageTile label={row.name} category={row.category} imageUrl={row.localPrimaryImageUrl} needsReupload={row.localNeedsImageReupload} />
+    },
     { key: "sku", header: "SKU", className: "sticky left-20 z-30 w-32 min-w-32 bg-acv-panel2", cell: (row: Row) => <span className="font-semibold text-acv-gold">{row.sku}</span> },
     {
       key: "title",

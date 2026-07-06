@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   ArrowLeftRight,
@@ -22,6 +22,7 @@ import { DataTable } from "@/components/data-table";
 import { PageHeader } from "@/components/page-header";
 import { SectionCard } from "@/components/section-card";
 import { StatusPill } from "@/components/status-pill";
+import { useAcvLocalState } from "@/lib/acv-local-state";
 import { cn } from "@/lib/utils";
 
 type SourceKey = "Computer Upload" | "eBay Active Listings" | "eBay Drafts" | "Future Sources";
@@ -38,6 +39,7 @@ type UploadedImage = {
   url: string;
   type: string;
   order: number;
+  needsReupload?: boolean;
 };
 
 type IntakeImage = {
@@ -47,6 +49,7 @@ type IntakeImage = {
   fileName: string;
   url: string;
   order: number;
+  needsReupload?: boolean;
 };
 
 type ProposedRecord = {
@@ -88,6 +91,7 @@ type ApprovedInventoryItem = {
   images: IntakeImage[];
   proposed: ProposedRecord;
   approvedAt: string;
+  needsImageReupload?: boolean;
 };
 
 const sourceOptions: Array<{ key: SourceKey; status: string; tone: StatusTone }> = [
@@ -338,6 +342,11 @@ function ImagePlaceholder({
         <span className={cn("block truncate font-semibold text-acv-text", compact ? "text-[7px]" : "text-[11px]")}>{compact ? "ACV" : image?.label || "Awaiting image"}</span>
       </div>
       {image && <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-acv-teal shadow-[0_0_14px_#26d4c7]" />}
+      {image?.needsReupload && (
+        <span className="absolute left-1.5 top-6 rounded border border-acv-pink/40 bg-black/75 px-1 text-[8px] font-semibold uppercase tracking-[0.08em] text-acv-pink">
+          Re-upload
+        </span>
+      )}
     </div>
   );
 }
@@ -366,18 +375,21 @@ function MiniButton({
   icon,
   tone = "neutral",
   onClick,
+  disabled,
   className
 }: {
   children: React.ReactNode;
   icon?: React.ReactNode;
   tone?: "neutral" | "teal" | "gold" | "pink";
   onClick?: (event: React.MouseEvent<HTMLButtonElement>) => void;
+  disabled?: boolean;
   className?: string;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
       className={cn(
         "inline-flex h-8 items-center justify-center gap-1.5 whitespace-nowrap rounded-md border px-2.5 text-[11px] font-semibold transition",
         tone === "teal"
@@ -387,6 +399,7 @@ function MiniButton({
             : tone === "pink"
               ? "border-acv-pink/40 bg-acv-pink/10 text-acv-pink hover:bg-acv-pink/15"
               : "border-acv-border bg-white/[0.03] text-acv-muted hover:border-acv-teal/45 hover:text-acv-teal",
+        disabled && "cursor-not-allowed opacity-45 hover:border-acv-border hover:text-acv-muted",
         className
       )}
     >
@@ -459,19 +472,25 @@ function DecisionSummaryItem({ state, children }: { state: "ready" | "warning" |
 function ApprovalDecisionCard({
   group,
   routeStatus,
+  isApproved,
+  isRejected,
   onSave,
   onSwapFrontBack,
   onApprove,
   onResearch,
-  onReject
+  onReject,
+  onUndoReject
 }: {
   group: IntakeGroup;
   routeStatus: RouteStatus;
+  isApproved: boolean;
+  isRejected: boolean;
   onSave: (id: string) => void;
   onSwapFrontBack: (id: string) => void;
   onApprove: (id: string) => void;
   onResearch: (id: string) => void;
   onReject: (id: string) => void;
+  onUndoReject: (id: string) => void;
 }) {
   const warnings = warningsForGroup(group);
   const missingImage = warnings.find((warning) => warning.toLowerCase().includes("missing"));
@@ -491,8 +510,8 @@ function ApprovalDecisionCard({
           <DecisionSummaryItem state={missingImage ? "blocked" : "ready"}>{missingImage || "Images paired"}</DecisionSummaryItem>
           <DecisionSummaryItem state={group.confidence >= 90 ? "ready" : "warning"}>AI confidence: {group.confidence}%</DecisionSummaryItem>
           <DecisionSummaryItem state={completeRecord ? "ready" : "warning"}>{completeRecord ? "Required fields complete" : warnings[0]}</DecisionSummaryItem>
-          <DecisionSummaryItem state={readyForApproval ? "ready" : "warning"}>{readyForApproval ? "Ready for SKU assignment" : "SKU assignment needs review"}</DecisionSummaryItem>
-          <DecisionSummaryItem state={readyForApproval ? "ready" : "warning"}>{readyForApproval ? "Ready for Inventory" : "Inventory approval paused"}</DecisionSummaryItem>
+          <DecisionSummaryItem state={isApproved ? "ready" : readyForApproval ? "ready" : "warning"}>{isApproved ? "SKU assigned" : readyForApproval ? "Ready for SKU assignment" : "SKU assignment needs review"}</DecisionSummaryItem>
+          <DecisionSummaryItem state={isRejected ? "blocked" : isApproved ? "ready" : readyForApproval ? "ready" : "warning"}>{isRejected ? "Rejected from inventory" : isApproved ? "Inventory item created" : readyForApproval ? "Ready for Inventory" : "Inventory approval paused"}</DecisionSummaryItem>
         </div>
       </div>
 
@@ -503,14 +522,14 @@ function ApprovalDecisionCard({
         <MiniButton tone="gold" icon={<ArrowLeftRight className="h-4 w-4" />} className="h-11 w-full text-xs" onClick={() => onSwapFrontBack(group.id)}>
           Swap Front/Back
         </MiniButton>
-        <MiniButton tone="teal" icon={<BadgeCheck className="h-4 w-4" />} className="h-11 w-full text-xs" onClick={() => onApprove(group.id)}>
-          Approve to Inventory
+        <MiniButton tone="teal" icon={<BadgeCheck className="h-4 w-4" />} className="h-11 w-full text-xs" disabled={isApproved || isRejected} onClick={() => onApprove(group.id)}>
+          {isApproved ? "Approved" : "Approve to Inventory"}
         </MiniButton>
-        <MiniButton icon={<FileSearch className="h-4 w-4" />} className="h-11 w-full text-xs" onClick={() => onResearch(group.id)}>
+        <MiniButton icon={<FileSearch className="h-4 w-4" />} className="h-11 w-full text-xs" disabled={isApproved || isRejected} onClick={() => onResearch(group.id)}>
           Send to Research
         </MiniButton>
-        <MiniButton tone="pink" icon={<XCircle className="h-4 w-4" />} className="h-11 w-full text-xs" onClick={() => onReject(group.id)}>
-          Reject Group
+        <MiniButton tone="pink" icon={<XCircle className="h-4 w-4" />} className="h-11 w-full text-xs" onClick={() => (isRejected ? onUndoReject(group.id) : onReject(group.id))}>
+          {isRejected ? "Undo Reject" : "Reject Group"}
         </MiniButton>
       </div>
     </section>
@@ -577,6 +596,8 @@ function ReviewDrawer({
   group,
   skuStatus,
   assignedSku,
+  isApproved,
+  isRejected,
   onClose,
   onSave,
   onSwapFrontBack,
@@ -587,11 +608,14 @@ function ReviewDrawer({
   onUpdateConfidence,
   onApprove,
   onResearch,
-  onReject
+  onReject,
+  onUndoReject
 }: {
   group: IntakeGroup;
   skuStatus: SkuStatus;
   assignedSku: string;
+  isApproved: boolean;
+  isRejected: boolean;
   onClose: () => void;
   onSave: (id: string) => void;
   onSwapFrontBack: (id: string) => void;
@@ -603,6 +627,7 @@ function ReviewDrawer({
   onApprove: (id: string) => void;
   onResearch: (id: string) => void;
   onReject: (id: string) => void;
+  onUndoReject: (id: string) => void;
 }) {
   const routeStatus = statusForGroup(group);
   const skuDisplay = skuStatus === "SKU Assigned" ? `${assignedSku} mock` : "Pending Approval";
@@ -729,11 +754,14 @@ function ReviewDrawer({
             <ApprovalDecisionCard
               group={group}
               routeStatus={routeStatus}
+              isApproved={isApproved}
+              isRejected={isRejected}
               onSave={onSave}
               onSwapFrontBack={onSwapFrontBack}
               onApprove={onApprove}
               onResearch={onResearch}
               onReject={onReject}
+              onUndoReject={onUndoReject}
             />
           </div>
         </div>
@@ -744,47 +772,45 @@ function ReviewDrawer({
 
 export default function PhotoIntakePage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const objectUrlsRef = useRef<string[]>([]);
-  const skuCounterRef = useRef(1);
   const [activeSource, setActiveSource] = useState<SourceKey>("Computer Upload");
-  const [batchNumber, setBatchNumber] = useState(1);
-  const [batchName, setBatchName] = useState("July Intake - Breaks + Singles");
-  const [imageCountMode, setImageCountMode] = useState<ImageCountMode>("2 images/card");
-  const [customImageCount, setCustomImageCount] = useState(4);
-  const [autoPair, setAutoPair] = useState(true);
-  const [aiPairingCheck, setAiPairingCheck] = useState(true);
-  const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
-  const [groups, setGroups] = useState<IntakeGroup[]>([]);
-  const [selectedGroupId, setSelectedGroupId] = useState("");
-  const [drawerGroupId, setDrawerGroupId] = useState<string | null>(null);
-  const [selectedQueueIds, setSelectedQueueIds] = useState<Set<string>>(new Set());
-  const [approvedIds, setApprovedIds] = useState<Set<string>>(new Set());
-  const [researchIds, setResearchIds] = useState<Set<string>>(new Set());
-  const [rejectedIds, setRejectedIds] = useState<Set<string>>(new Set());
-  const [assignedSkus, setAssignedSkus] = useState<Record<string, string>>({});
-  const [approvedInventory, setApprovedInventory] = useState<ApprovedInventoryItem[]>([]);
-  const [statusMessage, setStatusMessage] = useState("Upload photos to generate local intake groups.");
+  const {
+    batchNumber,
+    batchName,
+    setBatchName,
+    imageCountMode,
+    setImageCountMode,
+    customImageCount,
+    setCustomImageCount,
+    autoPair,
+    setAutoPair,
+    aiPairingCheck,
+    setAiPairingCheck,
+    uploadedImages,
+    groups,
+    setGroups,
+    selectedGroupId,
+    setSelectedGroupId,
+    drawerGroupId,
+    setDrawerGroupId,
+    selectedQueueIds,
+    setSelectedQueueIds,
+    approvedIds,
+    setApprovedIds,
+    researchIds,
+    setResearchIds,
+    rejectedIds,
+    setRejectedIds,
+    assignedSkus,
+    setAssignedSkus,
+    approvedInventory,
+    setApprovedInventory,
+    statusMessage,
+    setStatusMessage,
+    skuCounterRef,
+    addUploadedFiles,
+    clearIntakeState
+  } = useAcvLocalState();
   const batchId = `B-${String(batchNumber).padStart(3, "0")}`;
-
-  useEffect(() => {
-    return () => {
-      objectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
-    };
-  }, []);
-
-  useEffect(() => {
-    const nextGroups = buildGroupsFromUploads({ uploadedImages, batchId, mode: imageCountMode, customCount: customImageCount });
-    setGroups(nextGroups);
-    setSelectedGroupId(nextGroups[0]?.id || "");
-    setDrawerGroupId(null);
-    setSelectedQueueIds(new Set());
-    setApprovedIds(new Set());
-    setResearchIds(new Set());
-    setRejectedIds(new Set());
-    setAssignedSkus({});
-    setApprovedInventory([]);
-    skuCounterRef.current = 1;
-  }, [uploadedImages, batchId, imageCountMode, customImageCount]);
 
   const visibleGroups = useMemo(() => (activeSource === "Computer Upload" ? groups : []), [activeSource, groups]);
   const selectedGroup = visibleGroups.find((group) => group.id === selectedGroupId) || visibleGroups[0];
@@ -820,47 +846,39 @@ export default function PhotoIntakePage() {
     return `ACV-${code}-${String(sequence).padStart(6, "0")}`;
   }
 
-  function handleFiles(files: FileList | File[]) {
-    const imageFiles = Array.from(files).filter((file) => file.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif)$/i.test(file.name));
-    if (imageFiles.length === 0) {
-      setStatusMessage("No supported image files found. Use jpg, jpeg, png, webp, or browser-supported heic.");
-      return;
-    }
-
-    setUploadedImages((current) => {
-      const startOrder = current.length;
-      const nextImages = imageFiles.map((file, index) => {
-        const url = URL.createObjectURL(file);
-        objectUrlsRef.current.push(url);
-        return {
-          id: `upload-${Date.now()}-${startOrder + index}`,
-          fileName: file.name,
-          url,
-          type: file.type || "image/*",
-          order: startOrder + index
-        };
-      });
-      return [...current, ...nextImages];
-    });
-    setStatusMessage(`${imageFiles.length} photo${imageFiles.length === 1 ? "" : "s"} uploaded locally. Grouping uses upload order.`);
-  }
-
-  function clearBatch() {
-    objectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
-    objectUrlsRef.current = [];
-    setUploadedImages([]);
-    setGroups([]);
-    setSelectedGroupId("");
+  function resetWorkflowForGroups(nextGroups: IntakeGroup[]) {
+    setGroups(nextGroups);
+    setSelectedGroupId(nextGroups[0]?.id || "");
     setDrawerGroupId(null);
     setSelectedQueueIds(new Set());
     setApprovedIds(new Set());
     setResearchIds(new Set());
     setRejectedIds(new Set());
     setAssignedSkus({});
-    setApprovedInventory([]);
-    skuCounterRef.current = 1;
-    setBatchNumber((current) => current + 1);
-    setStatusMessage("Batch cleared. Start a new local upload batch.");
+  }
+
+  function regroupImages(images: UploadedImage[], mode: ImageCountMode, customCount: number) {
+    const nextGroups = buildGroupsFromUploads({ uploadedImages: images, batchId, mode, customCount });
+    resetWorkflowForGroups(nextGroups);
+    return nextGroups;
+  }
+
+  function handleFiles(files: FileList | File[]) {
+    const nextImages = addUploadedFiles(files);
+    const addedCount = nextImages.length - uploadedImages.length;
+
+    if (addedCount <= 0) {
+      setStatusMessage("No supported image files found. Use jpg, jpeg, png, webp, or browser-supported heic.");
+      return;
+    }
+
+    const nextGroups = regroupImages(nextImages, imageCountMode, customImageCount);
+    setStatusMessage(`${addedCount} photo${addedCount === 1 ? "" : "s"} uploaded locally. ${nextGroups.length} group${nextGroups.length === 1 ? "" : "s"} generated from upload order.`);
+  }
+
+  function clearBatch() {
+    if (!window.confirm("Clear the current local intake batch? Uploaded groups, approval state, and mock inventory from this batch will be removed.")) return;
+    clearIntakeState();
   }
 
   function setQueueSelection(id: string, checked: boolean) {
@@ -886,6 +904,16 @@ export default function PhotoIntakePage() {
   function approveGroup(id: string) {
     const group = groups.find((item) => item.id === id);
     if (!group) return;
+
+    if (approvedIds.has(id)) {
+      setStatusMessage(`${group.id} already has SKU ${assignedSkuForGroup(group)}. Repeated approval is disabled.`);
+      return;
+    }
+
+    if (rejectedIds.has(id)) {
+      setStatusMessage(`${group.id} is rejected. Undo reject before approving.`);
+      return;
+    }
 
     if (!group.images.some((image) => image.role === "Front")) {
       setResearchIds((current) => new Set(current).add(id));
@@ -918,6 +946,7 @@ export default function PhotoIntakePage() {
           group: group.id,
           source: group.source,
           primaryImageUrl: primaryImage?.url || "",
+          needsImageReupload: Boolean(primaryImage?.needsReupload || !primaryImage?.url),
           images: group.images,
           proposed: group.proposed,
           approvedAt: new Date().toLocaleString()
@@ -955,6 +984,15 @@ export default function PhotoIntakePage() {
       return next;
     });
     setStatusMessage(`${id} rejected locally.`);
+  }
+
+  function undoRejectGroup(id: string) {
+    setRejectedIds((current) => {
+      const next = new Set(current);
+      next.delete(id);
+      return next;
+    });
+    setStatusMessage(`${id} rejection undone. Group is back in review history.`);
   }
 
   function openGroup(group: IntakeGroup) {
@@ -1097,7 +1135,12 @@ export default function PhotoIntakePage() {
                 <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-acv-muted">Images per card</span>
                 <select
                   value={imageCountMode}
-                  onChange={(event) => setImageCountMode(event.target.value as ImageCountMode)}
+                  onChange={(event) => {
+                    const nextMode = event.target.value as ImageCountMode;
+                    setImageCountMode(nextMode);
+                    regroupImages(uploadedImages, nextMode, customImageCount);
+                    setStatusMessage(nextMode === "Auto-detect" ? "Auto-detect mock mode regrouped uploaded images using 2/card." : `Regrouped uploaded images using ${nextMode}.`);
+                  }}
                   className="mt-1 h-9 w-full rounded-md border border-acv-border bg-acv-panel2 px-3 text-xs font-semibold text-acv-text outline-none transition focus:border-acv-teal/60"
                 >
                   {imageCountModes.map((mode) => (
@@ -1112,7 +1155,14 @@ export default function PhotoIntakePage() {
                   min={1}
                   max={10}
                   value={customImageCount}
-                  onChange={(event) => setCustomImageCount(Math.min(10, Math.max(1, Number(event.target.value) || 1)))}
+                  onChange={(event) => {
+                    const nextCount = Math.min(10, Math.max(1, Number(event.target.value) || 1));
+                    setCustomImageCount(nextCount);
+                    if (imageCountMode === "Custom") {
+                      regroupImages(uploadedImages, imageCountMode, nextCount);
+                      setStatusMessage(`Regrouped uploaded images using ${nextCount} images/card.`);
+                    }
+                  }}
                   disabled={imageCountMode !== "Custom"}
                   className="mt-1 h-9 w-full rounded-md border border-acv-border bg-acv-panel2 px-3 text-xs font-semibold text-acv-text outline-none transition disabled:opacity-45 focus:border-acv-teal/60"
                 />
@@ -1419,49 +1469,56 @@ export default function PhotoIntakePage() {
                 key: "actions",
                 header: "Actions",
                 className: "min-w-80",
-                cell: (group) => (
-                  <div className="flex flex-wrap gap-2">
-                    <MiniButton
-                      tone="teal"
-                      icon={<CheckCircle2 className="h-3.5 w-3.5" />}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        approveGroup(group.id);
-                      }}
-                    >
-                      Approve to Inventory
-                    </MiniButton>
-                    <MiniButton
-                      icon={<FileSearch className="h-3.5 w-3.5" />}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        sendToResearch(group.id);
-                      }}
-                    >
-                      Needs Research
-                    </MiniButton>
-                    <MiniButton
-                      tone="pink"
-                      icon={<XCircle className="h-3.5 w-3.5" />}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        rejectGroup(group.id);
-                      }}
-                    >
-                      Reject
-                    </MiniButton>
-                    <MiniButton
-                      tone="gold"
-                      icon={<FileSearch className="h-3.5 w-3.5" />}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        openGroup(group);
-                      }}
-                    >
-                      Open Review
-                    </MiniButton>
-                  </div>
-                )
+                cell: (group) => {
+                  const isApproved = approvedIds.has(group.id);
+                  const isRejected = rejectedIds.has(group.id);
+                  return (
+                    <div className="flex flex-wrap gap-2">
+                      <MiniButton
+                        tone="teal"
+                        icon={<CheckCircle2 className="h-3.5 w-3.5" />}
+                        disabled={isApproved || isRejected}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          approveGroup(group.id);
+                        }}
+                      >
+                        {isApproved ? "Approved" : "Approve to Inventory"}
+                      </MiniButton>
+                      <MiniButton
+                        icon={<FileSearch className="h-3.5 w-3.5" />}
+                        disabled={isApproved || isRejected}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          sendToResearch(group.id);
+                        }}
+                      >
+                        Needs Research
+                      </MiniButton>
+                      <MiniButton
+                        tone="pink"
+                        icon={<XCircle className="h-3.5 w-3.5" />}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          if (isRejected) undoRejectGroup(group.id);
+                          else rejectGroup(group.id);
+                        }}
+                      >
+                        {isRejected ? "Undo Reject" : "Reject"}
+                      </MiniButton>
+                      <MiniButton
+                        tone="gold"
+                        icon={<FileSearch className="h-3.5 w-3.5" />}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          openGroup(group);
+                        }}
+                      >
+                        Open Review
+                      </MiniButton>
+                    </div>
+                  );
+                }
               }
             ]}
           />
@@ -1507,6 +1564,8 @@ export default function PhotoIntakePage() {
           group={drawerGroup}
           skuStatus={skuStatusForGroup(drawerGroup)}
           assignedSku={assignedSkuForGroup(drawerGroup)}
+          isApproved={approvedIds.has(drawerGroup.id)}
+          isRejected={rejectedIds.has(drawerGroup.id)}
           onClose={() => setDrawerGroupId(null)}
           onSave={saveGroup}
           onSwapFrontBack={swapFrontBack}
@@ -1526,6 +1585,9 @@ export default function PhotoIntakePage() {
           onReject={(id) => {
             rejectGroup(id);
             setDrawerGroupId(null);
+          }}
+          onUndoReject={(id) => {
+            undoRejectGroup(id);
           }}
         />
       )}
