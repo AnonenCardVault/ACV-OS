@@ -7,13 +7,17 @@ import {
   BadgeCheck,
   Camera,
   CheckCircle2,
+  ClipboardCopy,
+  Eraser,
   FileSearch,
   FolderOpen,
   ImagePlus,
   Layers3,
   Move,
+  RefreshCw,
   Save,
   Scissors,
+  Sparkles,
   UploadCloud,
   X,
   XCircle
@@ -22,6 +26,7 @@ import { DataTable } from "@/components/data-table";
 import { PageHeader } from "@/components/page-header";
 import { SectionCard } from "@/components/section-card";
 import { StatusPill } from "@/components/status-pill";
+import { extractCardFromImages } from "@/lib/ai-extraction";
 import { useAcvLocalState, type BatchHistoryEntry } from "@/lib/acv-local-state";
 import { cn } from "@/lib/utils";
 
@@ -32,6 +37,7 @@ type RouteStatus = "Ready to Approve" | "Review" | "Needs Research" | "Blocked";
 type QueueStatus = RouteStatus | "Approved Local" | "Rejected";
 type SkuStatus = "Pending Approval" | "SKU Assigned" | "Needs Review";
 type StatusTone = "green" | "teal" | "gold" | "pink" | "purple" | "neutral";
+type AiExtractionStatus = "Not Run" | "Extracted" | "Needs Review" | "Failed" | "Cleared";
 
 type UploadedImage = {
   id: string;
@@ -81,6 +87,19 @@ type ProposedRecord = {
   internalNotes: string;
 };
 
+type AiFieldConfidenceMap = Partial<Record<keyof ProposedRecord | "suggestedTitle", number>>;
+
+type AiExtractionSnapshot = {
+  status: AiExtractionStatus;
+  extracted?: Partial<ProposedRecord>;
+  fieldConfidence: AiFieldConfidenceMap;
+  warnings: string[];
+  suggestedTitle: string;
+  extractedAt?: string;
+  confidenceScore?: number;
+  modelLabel?: string;
+};
+
 type IntakeGroup = {
   id: string;
   batch: string;
@@ -90,6 +109,7 @@ type IntakeGroup = {
   confidence: number;
   warnings: string[];
   proposed: ProposedRecord;
+  aiExtraction?: AiExtractionSnapshot;
 };
 
 const sourceOptions: Array<{ key: SourceKey; status: string; tone: StatusTone }> = [
@@ -121,6 +141,16 @@ const categoryOptions = ["Football", "Baseball", "Basketball", "Pokemon", "TCG",
 const graderOptions = ["Raw", "PSA", "SGC", "BGS", "CGC", "Other"];
 const gradeOptions = ["Raw", "10", "9.5", "9", "8.5", "8", "7", "6", "5", "Other"];
 const acquisitionSourceOptions = ["Computer Upload", "Card Show", "Break", "eBay Import", "Trade", "Personal Collection", "Other"];
+
+function defaultAiExtraction(): AiExtractionSnapshot {
+  return {
+    status: "Not Run",
+    extracted: undefined,
+    fieldConfidence: {},
+    warnings: [],
+    suggestedTitle: ""
+  };
+}
 
 const skuCategoryCodes: Record<string, string> = {
   Football: "NFL",
@@ -245,9 +275,47 @@ function pairingStatusForGroup(group: IntakeGroup) {
 
 function warningsForGroup(group: IntakeGroup) {
   const warnings = new Set(group.warnings);
+  group.aiExtraction?.warnings?.forEach((warning) => warnings.add(warning));
   if (!group.images.some((image) => image.role === "Front")) warnings.add("Missing front image");
   if (!group.images.some((image) => image.role === "Back")) warnings.add("Missing back image");
   return Array.from(warnings);
+}
+
+function baseWarningsForReadiness(group: IntakeGroup) {
+  const warnings = new Set(group.warnings);
+  if (!group.images.some((image) => image.role === "Front")) warnings.add("Missing front image");
+  if (!group.images.some((image) => image.role === "Back")) warnings.add("Missing back image");
+  return Array.from(warnings);
+}
+
+function aiStatusForGroup(group: IntakeGroup): AiExtractionStatus {
+  return group.aiExtraction?.status || "Not Run";
+}
+
+function toneForAiStatus(status: AiExtractionStatus): StatusTone {
+  if (status === "Extracted") return "teal";
+  if (status === "Needs Review") return "gold";
+  if (status === "Failed") return "pink";
+  if (status === "Cleared") return "neutral";
+  return "purple";
+}
+
+function fieldConfidenceLabel(key: string) {
+  const labels: Record<string, string> = {
+    cardName: "Title",
+    playerCharacter: "Player",
+    team: "Team",
+    category: "Category",
+    year: "Year",
+    brand: "Brand",
+    set: "Set",
+    cardNumber: "Card #",
+    parallel: "Parallel",
+    serialNumber: "Serial",
+    suggestedTitle: "Suggested title"
+  };
+
+  return labels[key] || key.replace(/([A-Z])/g, " $1").replace(/^./, (letter) => letter.toUpperCase());
 }
 
 function hasFieldValue(value: string | number | undefined | null) {
@@ -261,7 +329,7 @@ function hasUncertaintyNote(group: IntakeGroup) {
 }
 
 function readinessIssuesForGroup(group: IntakeGroup) {
-  const warnings = warningsForGroup(group);
+  const warnings = baseWarningsForReadiness(group);
   const issues: string[] = [];
   const hasFront = group.images.some((image) => image.role === "Front");
   const hasMismatch = warnings.some((warning) => warning.toLowerCase().includes("mismatch"));
@@ -275,6 +343,7 @@ function readinessIssuesForGroup(group: IntakeGroup) {
   if (!hasFieldValue(group.proposed.year) && !uncertainty) issues.push("Year missing");
   if (!hasBrandOrSet && !uncertainty) issues.push("Brand or set missing");
   if (group.confidence < 90) issues.push("Confidence below 90%");
+  if (aiStatusForGroup(group) === "Failed") issues.push("AI extraction failed");
   warnings
     .filter((warning) => !issues.includes(warning))
     .forEach((warning) => issues.push(warning));
@@ -325,7 +394,8 @@ function buildGroupsFromUploads({
       confidence: mode === "Auto-detect" ? 76 : chunk.length === perCard ? 92 : 68,
       warnings,
       images,
-      proposed: defaultProposedRecord(groupNumber)
+      proposed: defaultProposedRecord(groupNumber),
+      aiExtraction: defaultAiExtraction()
     };
 
     groups.push({ ...draftGroup, pairingStatus: pairingStatusForGroup(draftGroup) });
@@ -339,6 +409,7 @@ function statusForGroup(group: IntakeGroup): RouteStatus {
   const hasFront = group.images.some((image) => image.role === "Front");
   if (!hasFront || warnings.some((warning) => warning.toLowerCase().includes("mismatch"))) return "Blocked";
   if (!hasFieldValue(group.proposed.cardName) || !hasFieldValue(group.proposed.category)) return "Needs Research";
+  if (group.confidence < 70) return "Needs Research";
   if (readinessIssuesForGroup(group).length > 0) return "Review";
   return "Ready to Approve";
 }
@@ -775,6 +846,10 @@ function ReviewDrawer({
   onMoveImage,
   onUpdateProposed,
   onUpdateConfidence,
+  onRunExtraction,
+  onClearExtraction,
+  onApplyAiSuggestion,
+  onApplySuggestedTitle,
   onApprove,
   onResearch,
   onReject,
@@ -794,6 +869,10 @@ function ReviewDrawer({
   onMoveImage: (groupId: string, imageId: string, direction: -1 | 1) => void;
   onUpdateProposed: <K extends keyof ProposedRecord>(groupId: string, key: K, value: ProposedRecord[K]) => void;
   onUpdateConfidence: (groupId: string, confidence: number) => void;
+  onRunExtraction: (groupId: string) => void;
+  onClearExtraction: (groupId: string) => void;
+  onApplyAiSuggestion: (groupId: string) => void;
+  onApplySuggestedTitle: (groupId: string) => void;
   onApprove: (id: string) => void;
   onResearch: (id: string) => void;
   onReject: (id: string) => void;
@@ -804,7 +883,12 @@ function ReviewDrawer({
   const drawerSkuTone = skuStatus === "SKU Assigned" ? "green" : "purple";
   const warnings = warningsForGroup(group);
   const readinessIssues = readinessIssuesForGroup(group);
-  const draftTitle = generatedTitleForRecord(group.proposed);
+  const aiStatus = aiStatusForGroup(group);
+  const aiWarnings = group.aiExtraction?.warnings || [];
+  const fieldConfidence = group.aiExtraction?.fieldConfidence || {};
+  const fieldConfidenceEntries = Object.entries(fieldConfidence).filter(([, value]) => typeof value === "number");
+  const draftTitle = group.aiExtraction?.suggestedTitle || generatedTitleForRecord(group.proposed);
+  const hasAiSuggestion = Boolean(group.aiExtraction?.extracted || group.aiExtraction?.suggestedTitle);
 
   return (
     <div className="fixed inset-y-0 left-0 right-0 z-50 flex justify-end bg-black/70 backdrop-blur-sm sm:left-56">
@@ -818,6 +902,7 @@ function ReviewDrawer({
               <StatusPill tone={drawerSkuTone}>SKU: {skuDisplay}</StatusPill>
               <StatusPill tone={toneForStatus(routeStatus)}>{routeStatus}</StatusPill>
               <StatusPill tone={confidenceTone(group.confidence)}>{group.confidence}% confidence</StatusPill>
+              <StatusPill tone={toneForAiStatus(aiStatus)}>AI: {aiStatus}</StatusPill>
             </div>
             <h2 className="truncate text-lg font-semibold text-acv-text">{group.proposed.cardName}</h2>
             <p className="mt-1 text-xs text-acv-muted">Temporary intake references only - permanent SKU assignment happens after approval.</p>
@@ -884,21 +969,77 @@ function ReviewDrawer({
                 </div>
 
                 <div className="mb-3 rounded-lg border border-acv-border bg-acv-panel2 p-3">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <StatusPill tone={toneForAiStatus(aiStatus)}>AI Extraction: {aiStatus}</StatusPill>
+                        {(aiStatus === "Extracted" || aiStatus === "Needs Review") && <StatusPill tone="teal">AI extracted locally / mock</StatusPill>}
+                        {group.aiExtraction?.confidenceScore !== undefined && <StatusPill tone={confidenceTone(group.aiExtraction.confidenceScore)}>AI {group.aiExtraction.confidenceScore}%</StatusPill>}
+                      </div>
+                      <p className="mt-2 text-xs leading-5 text-acv-muted">
+                        Mock extraction reads image filenames, roles, and current form values. It never approves inventory automatically.
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 flex-wrap gap-2">
+                      <MiniButton tone="teal" icon={<Sparkles className="h-3.5 w-3.5" />} onClick={() => onRunExtraction(group.id)}>
+                        {aiStatus === "Extracted" || aiStatus === "Needs Review" ? "Re-run Extraction" : "Run AI Extraction"}
+                      </MiniButton>
+                      <MiniButton icon={<RefreshCw className="h-3.5 w-3.5" />} disabled={!hasAiSuggestion} onClick={() => onApplyAiSuggestion(group.id)}>
+                        Apply AI Suggestion
+                      </MiniButton>
+                      <MiniButton tone="pink" icon={<Eraser className="h-3.5 w-3.5" />} disabled={aiStatus === "Not Run"} onClick={() => onClearExtraction(group.id)}>
+                        Clear Extraction
+                      </MiniButton>
+                    </div>
+                  </div>
+
+                  {(fieldConfidenceEntries.length > 0 || aiWarnings.length > 0) && (
+                    <div className="mt-3 grid min-w-0 gap-2 lg:grid-cols-[1fr_0.8fr]">
+                      {fieldConfidenceEntries.length > 0 && (
+                        <div className="min-w-0 rounded-md border border-acv-border bg-black/20 p-2">
+                          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-acv-muted">Field Confidence</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {fieldConfidenceEntries.slice(0, 10).map(([key, value]) => (
+                              <StatusPill key={key} tone={confidenceTone(Number(value))}>
+                                {fieldConfidenceLabel(key)}: {value}%
+                              </StatusPill>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {aiWarnings.length > 0 && (
+                        <div className="min-w-0 rounded-md border border-acv-border bg-black/20 p-2">
+                          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-acv-muted">AI Warnings</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {aiWarnings.map((warning) => (
+                              <StatusPill key={warning} tone={warning.toLowerCase().includes("missing") || warning.toLowerCase().includes("low confidence") ? "pink" : "gold"}>
+                                {warning}
+                              </StatusPill>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="mb-3 rounded-lg border border-acv-border bg-acv-panel2 p-3">
                   <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-acv-muted">Draft-Friendly Title Preview</p>
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-acv-muted">{group.aiExtraction?.suggestedTitle ? "AI Suggested Title" : "Draft-Friendly Title Preview"}</p>
                       <p className="mt-1 truncate text-sm font-semibold text-acv-text">{draftTitle}</p>
                     </div>
                     <div className="flex shrink-0 flex-wrap gap-2">
                       <MiniButton
                         tone="teal"
                         onClick={() => {
-                          onUpdateProposed(group.id, "cardName", draftTitle);
+                          onApplySuggestedTitle(group.id);
                         }}
                       >
-                        Apply title
+                        Apply Suggested Title
                       </MiniButton>
                       <MiniButton
+                        icon={<ClipboardCopy className="h-3.5 w-3.5" />}
                         onClick={() => {
                           window.navigator.clipboard?.writeText(draftTitle);
                         }}
@@ -1471,6 +1612,76 @@ export default function PhotoIntakePage() {
     updateGroup(groupId, (group) => ({ ...group, confidence }));
   }
 
+  function runAiExtraction(groupId: string) {
+    const group = groups.find((item) => item.id === groupId);
+    if (!group) return;
+
+    try {
+      const result = extractCardFromImages({
+        images: group.images,
+        imageRoles: group.images.map((image) => ({ id: image.id, role: image.role })),
+        categoryHint: group.proposed.category,
+        existingValues: group.proposed
+      });
+      updateGroup(groupId, (currentGroup) => ({
+        ...currentGroup,
+        confidence: result.confidenceScore,
+        proposed: { ...currentGroup.proposed, ...result.extracted },
+        aiExtraction: {
+          status: result.status,
+          extracted: result.extracted,
+          fieldConfidence: result.fieldConfidence,
+          warnings: result.warnings,
+          suggestedTitle: result.suggestedTitle,
+          extractedAt: result.extractedAt,
+          confidenceScore: result.confidenceScore,
+          modelLabel: result.modelLabel
+        }
+      }));
+      setStatusMessage(`${groupId} AI extracted locally / mock. Review editable fields before approving.`);
+    } catch {
+      updateGroup(groupId, (currentGroup) => ({
+        ...currentGroup,
+        aiExtraction: {
+          status: "Failed",
+          extracted: undefined,
+          fieldConfidence: {},
+          warnings: ["Mock extraction failed"],
+          suggestedTitle: "",
+          extractedAt: new Date().toISOString(),
+          modelLabel: "ACV local mock extractor"
+        }
+      }));
+      setStatusMessage(`${groupId} AI extraction failed in local mock mode.`);
+    }
+  }
+
+  function clearAiExtraction(groupId: string) {
+    updateGroup(groupId, (group) => ({ ...group, aiExtraction: { ...defaultAiExtraction(), status: "Cleared" } }));
+    setStatusMessage(`${groupId} AI extraction cleared. Current manual field values were preserved.`);
+  }
+
+  function applyAiSuggestion(groupId: string) {
+    const group = groups.find((item) => item.id === groupId);
+    const extracted = group?.aiExtraction?.extracted;
+    if (!group || !extracted) {
+      setStatusMessage(`${groupId} has no AI suggestion to apply yet.`);
+      return;
+    }
+
+    updateGroup(groupId, (currentGroup) => ({ ...currentGroup, proposed: { ...currentGroup.proposed, ...extracted } }));
+    setStatusMessage(`${groupId} AI suggestion applied to editable fields. Mock only.`);
+  }
+
+  function applySuggestedTitle(groupId: string) {
+    const group = groups.find((item) => item.id === groupId);
+    if (!group) return;
+
+    const title = group.aiExtraction?.suggestedTitle || generatedTitleForRecord(group.proposed);
+    updateProposed(groupId, "cardName", title);
+    setStatusMessage(`${groupId} suggested title applied to Card title.`);
+  }
+
   function saveGroup(id: string) {
     setStatusMessage(`${id} saved in local browser state. Mock only; ACV will try to restore it after refresh.`);
   }
@@ -1755,6 +1966,7 @@ export default function PhotoIntakePage() {
                 <div className="acv-scrollbar contained-x-scroll flex min-w-0 gap-3 pb-2">
                   {activeReviewGroups.map((group) => {
                     const routeStatus = statusForGroup(group);
+                    const aiStatus = aiStatusForGroup(group);
                     const isSelected = selectedGroup?.id === group.id;
                     const warnings = warningsForGroup(group);
                     const frontImage = group.images.find((image) => image.role === "Front");
@@ -1780,6 +1992,7 @@ export default function PhotoIntakePage() {
                             <div className="flex shrink-0 flex-col items-end gap-1">
                               <StatusPill tone={toneForStatus(routeStatus)}>{routeStatus}</StatusPill>
                               <StatusPill tone={confidenceTone(group.confidence)}>{group.confidence}%</StatusPill>
+                              <StatusPill tone={toneForAiStatus(aiStatus)}>AI: {aiStatus}</StatusPill>
                             </div>
                           </div>
                           <div className="grid min-w-0 grid-cols-2 gap-2">
@@ -1827,9 +2040,11 @@ export default function PhotoIntakePage() {
                   <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                     <StatusPill tone={toneForStatus(statusForGroup(selectedGroup))}>{statusForGroup(selectedGroup)}</StatusPill>
                     <StatusPill tone={confidenceTone(selectedGroup.confidence)}>{selectedGroup.confidence}% confidence</StatusPill>
+                    <StatusPill tone={toneForAiStatus(aiStatusForGroup(selectedGroup))}>AI: {aiStatusForGroup(selectedGroup)}</StatusPill>
                   </div>
                   <div className="grid min-w-0 gap-2 sm:grid-cols-2">
                     <FieldRow label="Proposed card name" value={selectedGroup.proposed.cardName} tone="gold" />
+                    <FieldRow label="AI suggested title" value={selectedGroup.aiExtraction?.suggestedTitle || "Not generated"} tone={selectedGroup.aiExtraction?.suggestedTitle ? "teal" : undefined} />
                     <FieldRow label="Player / Character" value={selectedGroup.proposed.playerCharacter} />
                     <FieldRow label="Team" value={selectedGroup.proposed.team} />
                     <FieldRow label="Sport / Category" value={selectedGroup.proposed.category} />
@@ -1928,6 +2143,7 @@ export default function PhotoIntakePage() {
               { key: "item", header: "Proposed Item", className: "min-w-56", cell: (group) => <span className="font-semibold text-acv-text">{group.proposed.cardName}</span> },
               { key: "category", header: "Category", cell: (group) => <StatusPill tone="purple">{group.proposed.category}</StatusPill> },
               { key: "confidence", header: "Confidence", cell: (group) => <span className={cn("font-semibold", group.confidence >= 90 ? "text-acv-teal" : group.confidence >= 70 ? "text-acv-gold" : "text-acv-pink")}>{group.confidence}%</span> },
+              { key: "aiStatus", header: "AI Status", cell: (group) => <StatusPill tone={toneForAiStatus(aiStatusForGroup(group))}>{aiStatusForGroup(group)}</StatusPill> },
               { key: "status", header: "Status", cell: (group) => <StatusPill tone={toneForStatus(queueStatus(group))}>{queueStatus(group)}</StatusPill> },
               {
                 key: "warnings",
@@ -2060,6 +2276,10 @@ export default function PhotoIntakePage() {
           onMoveImage={moveImage}
           onUpdateProposed={updateProposed}
           onUpdateConfidence={updateConfidence}
+          onRunExtraction={runAiExtraction}
+          onClearExtraction={clearAiExtraction}
+          onApplyAiSuggestion={applyAiSuggestion}
+          onApplySuggestedTitle={applySuggestedTitle}
           onApprove={(id) => {
             approveGroup(id, true);
           }}

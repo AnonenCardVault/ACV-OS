@@ -54,6 +54,21 @@ export type ProposedRecord = {
   internalNotes: string;
 };
 
+export type AiExtractionStatus = "Not Run" | "Extracted" | "Needs Review" | "Failed" | "Cleared";
+
+export type AiFieldConfidenceMap = Partial<Record<keyof ProposedRecord | "suggestedTitle", number>>;
+
+export type AiExtractionSnapshot = {
+  status: AiExtractionStatus;
+  extracted?: Partial<ProposedRecord>;
+  fieldConfidence: AiFieldConfidenceMap;
+  warnings: string[];
+  suggestedTitle: string;
+  extractedAt?: string;
+  confidenceScore?: number;
+  modelLabel?: string;
+};
+
 export type IntakeGroup = {
   id: string;
   batch: string;
@@ -63,6 +78,7 @@ export type IntakeGroup = {
   confidence: number;
   warnings: string[];
   proposed: ProposedRecord;
+  aiExtraction?: AiExtractionSnapshot;
 };
 
 export type ApprovedInventoryItem = {
