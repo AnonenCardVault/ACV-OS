@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   ArrowLeftRight,
@@ -18,7 +18,6 @@ import {
   X,
   XCircle
 } from "lucide-react";
-import { ActionButton } from "@/components/action-button";
 import { DataTable } from "@/components/data-table";
 import { PageHeader } from "@/components/page-header";
 import { SectionCard } from "@/components/section-card";
@@ -29,14 +28,25 @@ type SourceKey = "Computer Upload" | "eBay Active Listings" | "eBay Drafts" | "F
 type ImageCountMode = "2 images/card" | "3 images/card" | "Custom" | "Auto-detect";
 type ImageRole = "Front" | "Back" | "Detail / Closeup" | "Serial Closeup" | "Holo / Surface" | "Auto Closeup" | "Patch / Relic Closeup" | "Other";
 type RouteStatus = "Ready to Approve" | "Review" | "Needs Research" | "Blocked";
-type QueueStatus = RouteStatus | "Approved Mock" | "Rejected";
+type QueueStatus = RouteStatus | "Approved Local" | "Rejected";
 type SkuStatus = "Pending Approval" | "SKU Assigned" | "Needs Review";
 type StatusTone = "green" | "teal" | "gold" | "pink" | "purple" | "neutral";
+
+type UploadedImage = {
+  id: string;
+  fileName: string;
+  url: string;
+  type: string;
+  order: number;
+};
 
 type IntakeImage = {
   id: string;
   role: ImageRole;
   label: string;
+  fileName: string;
+  url: string;
+  order: number;
 };
 
 type ProposedRecord = {
@@ -69,6 +79,17 @@ type IntakeGroup = {
   proposed: ProposedRecord;
 };
 
+type ApprovedInventoryItem = {
+  sku: string;
+  batch: string;
+  group: string;
+  source: SourceKey;
+  primaryImageUrl: string;
+  images: IntakeImage[];
+  proposed: ProposedRecord;
+  approvedAt: string;
+};
+
 const sourceOptions: Array<{ key: SourceKey; status: string; tone: StatusTone }> = [
   { key: "Computer Upload", status: "Available / mock", tone: "teal" },
   { key: "eBay Active Listings", status: "Planned / mock", tone: "purple" },
@@ -89,148 +110,172 @@ const imageRoles: ImageRole[] = [
   "Other"
 ];
 
-const mockAssignedSkus: Record<string, string> = {
-  "G-001": "ACV-NFL-000421",
-  "G-002": "ACV-TCG-000143",
-  "G-003": "ACV-POK-000382",
-  "G-004": "ACV-MLB-000301"
+const skuCategoryCodes: Record<string, string> = {
+  Football: "NFL",
+  Baseball: "MLB",
+  Basketball: "NBA",
+  Pokemon: "POK",
+  TCG: "TCG",
+  Soccer: "SOC",
+  Hockey: "NHL"
 };
 
-const intakeGroups: IntakeGroup[] = [
-  {
-    id: "G-001",
-    batch: "B-073",
-    source: "Computer Upload",
-    pairingStatus: "Front/back/detail paired",
-    confidence: 94,
-    warnings: [],
-    images: [
-      { id: "img-001-a", role: "Front", label: "CJ front" },
-      { id: "img-001-b", role: "Back", label: "CJ back" },
-      { id: "img-001-c", role: "Holo / Surface", label: "Silver surface" }
-    ],
-    proposed: {
-      cardName: "2023 Prizm CJ Stroud Silver Rookie",
-      playerCharacter: "CJ Stroud",
-      team: "Houston Texans",
+function defaultRoleForImage(index: number, total: number, mode: ImageCountMode): ImageRole {
+  if (mode === "3 images/card") {
+    if (index === 0) return "Front";
+    if (index === 1) return "Detail / Closeup";
+    if (index === 2) return "Back";
+  }
+
+  if (mode === "Custom") {
+    if (index === 0) return "Front";
+    if (total > 1 && index === total - 1) return "Back";
+    return "Detail / Closeup";
+  }
+
+  if (index === 0) return "Front";
+  if (index === 1) return "Back";
+  return "Detail / Closeup";
+}
+
+function defaultProposedRecord(groupNumber: number): ProposedRecord {
+  const samples: ProposedRecord[] = [
+    {
+      cardName: "Unidentified Football Card",
+      playerCharacter: "Pending manual review",
+      team: "Pending",
       category: "Football",
       year: "2023",
       brand: "Panini",
       set: "Prizm",
-      cardNumber: "339",
-      parallel: "Silver",
-      serialNumber: "-",
-      rookieFlag: true,
-      autoFlag: false,
-      relicFlag: false,
-      variationFlag: false,
-      conditionNotes: "Clean front. Minor edge review complete.",
-      uncertaintyNotes: "No uncertainty flagged."
-    }
-  },
-  {
-    id: "G-002",
-    batch: "B-073",
-    source: "Computer Upload",
-    pairingStatus: "Back image missing",
-    confidence: 62,
-    warnings: ["Missing back image", "Card number not confirmed"],
-    images: [
-      { id: "img-002-a", role: "Front", label: "Luffy front" },
-      { id: "img-002-c", role: "Detail / Closeup", label: "Corner crop" }
-    ],
-    proposed: {
-      cardName: "One Piece OP05 Manga Luffy",
-      playerCharacter: "Monkey D. Luffy",
-      team: "Straw Hat Crew",
-      category: "TCG",
-      year: "2023",
-      brand: "Bandai",
-      set: "One Piece OP05",
-      cardNumber: "OP05-119",
-      parallel: "Manga Rare",
+      cardNumber: "-",
+      parallel: "-",
       serialNumber: "-",
       rookieFlag: false,
       autoFlag: false,
       relicFlag: false,
       variationFlag: false,
-      conditionNotes: "Needs back image and manual authenticity review.",
-      uncertaintyNotes: "AI confidence is low because the back image is missing."
-    }
-  },
-  {
-    id: "G-003",
-    batch: "B-072",
-    source: "Computer Upload",
-    pairingStatus: "Possible set variation",
-    confidence: 81,
-    warnings: ["Holo pattern needs review", "Condition grade not inferred"],
-    images: [
-      { id: "img-003-a", role: "Front", label: "Charizard front" },
-      { id: "img-003-b", role: "Back", label: "Charizard back" },
-      { id: "img-003-c", role: "Holo / Surface", label: "Holo closeup" }
-    ],
-    proposed: {
-      cardName: "1999 Pokemon Base Charizard Holo",
-      playerCharacter: "Charizard",
-      team: "Pokemon",
-      category: "Pokemon",
-      year: "1999",
-      brand: "Wizards of the Coast",
-      set: "Pokemon Base Set",
-      cardNumber: "4/102",
-      parallel: "Holo",
-      serialNumber: "-",
-      rookieFlag: false,
-      autoFlag: false,
-      relicFlag: false,
-      variationFlag: true,
-      conditionNotes: "Back whitening visible. Needs manual condition notes.",
-      uncertaintyNotes: "Verify unlimited/shadowless and holo surface."
-    }
-  },
-  {
-    id: "G-004",
-    batch: "B-072",
-    source: "Computer Upload",
-    pairingStatus: "Front/back paired",
-    confidence: 91,
-    warnings: ["Serial area should be checked"],
-    images: [
-      { id: "img-004-a", role: "Front", label: "Ohtani front" },
-      { id: "img-004-b", role: "Back", label: "Ohtani back" },
-      { id: "img-004-c", role: "Serial Closeup", label: "Number crop" }
-    ],
-    proposed: {
-      cardName: "2018 Topps Update Shohei Ohtani RC",
-      playerCharacter: "Shohei Ohtani",
-      team: "Los Angeles Angels",
+      conditionNotes: "Local mock record generated from uploaded images. No OCR or AI has run yet.",
+      uncertaintyNotes: "Review card name, player, set, and numbering before approval."
+    },
+    {
+      cardName: "Unidentified Baseball Card",
+      playerCharacter: "Pending manual review",
+      team: "Pending",
       category: "Baseball",
-      year: "2018",
+      year: "2024",
       brand: "Topps",
-      set: "Update",
-      cardNumber: "US1",
-      parallel: "Base",
+      set: "Chrome",
+      cardNumber: "-",
+      parallel: "-",
       serialNumber: "-",
-      rookieFlag: true,
+      rookieFlag: false,
       autoFlag: false,
       relicFlag: false,
       variationFlag: false,
-      conditionNotes: "Two-image pair plus serial/detail crop staged.",
-      uncertaintyNotes: "Confirm serial crop is needed before listing draft."
+      conditionNotes: "Local mock record generated from uploaded images. No OCR or AI has run yet.",
+      uncertaintyNotes: "Confirm player, set, and image pairing."
+    },
+    {
+      cardName: "Unidentified TCG Card",
+      playerCharacter: "Pending manual review",
+      team: "Pending",
+      category: "TCG",
+      year: "2024",
+      brand: "Pokemon",
+      set: "Pending",
+      cardNumber: "-",
+      parallel: "-",
+      serialNumber: "-",
+      rookieFlag: false,
+      autoFlag: false,
+      relicFlag: false,
+      variationFlag: false,
+      conditionNotes: "Local mock record generated from uploaded images. No OCR or AI has run yet.",
+      uncertaintyNotes: "Confirm set, card number, and surface image role."
     }
+  ];
+
+  return { ...samples[(groupNumber - 1) % samples.length] };
+}
+
+function pairingStatusForGroup(group: IntakeGroup) {
+  const hasFront = group.images.some((image) => image.role === "Front");
+  const hasBack = group.images.some((image) => image.role === "Back");
+  const hasDetail = group.images.some((image) => !["Front", "Back"].includes(image.role));
+
+  if (!hasFront) return "Front image missing";
+  if (!hasBack) return "Back image missing";
+  if (hasDetail) return "Front/back/detail paired";
+  return "Front/back paired";
+}
+
+function warningsForGroup(group: IntakeGroup) {
+  const warnings = new Set(group.warnings);
+  if (!group.images.some((image) => image.role === "Front")) warnings.add("Missing front image");
+  if (!group.images.some((image) => image.role === "Back")) warnings.add("Missing back image");
+  return Array.from(warnings);
+}
+
+function buildGroupsFromUploads({
+  uploadedImages,
+  batchId,
+  mode,
+  customCount
+}: {
+  uploadedImages: UploadedImage[];
+  batchId: string;
+  mode: ImageCountMode;
+  customCount: number;
+}) {
+  const perCard = imagesPerCard(mode, customCount);
+  const groups: IntakeGroup[] = [];
+
+  for (let index = 0; index < uploadedImages.length; index += perCard) {
+    const chunk = uploadedImages.slice(index, index + perCard);
+    const groupNumber = groups.length + 1;
+    const groupId = `G-${String(groupNumber).padStart(3, "0")}`;
+    const warnings: string[] = [];
+
+    if (chunk.length < perCard) warnings.push(`Incomplete group: expected ${perCard} image${perCard === 1 ? "" : "s"}`);
+    if (mode === "Auto-detect") warnings.push("Auto-detect mock mode used 2 images/card");
+
+    const images = chunk.map((image, imageIndex) => ({
+      id: `${groupId}-${image.id}`,
+      role: defaultRoleForImage(imageIndex, chunk.length, mode),
+      label: image.fileName,
+      fileName: image.fileName,
+      url: image.url,
+      order: image.order
+    }));
+
+    const draftGroup: IntakeGroup = {
+      id: groupId,
+      batch: batchId,
+      source: "Computer Upload",
+      pairingStatus: "Pending pairing",
+      confidence: mode === "Auto-detect" ? 76 : chunk.length === perCard ? 92 : 68,
+      warnings,
+      images,
+      proposed: defaultProposedRecord(groupNumber)
+    };
+
+    groups.push({ ...draftGroup, pairingStatus: pairingStatusForGroup(draftGroup) });
   }
-];
+
+  return groups;
+}
 
 function statusForGroup(group: IntakeGroup): RouteStatus {
-  if (group.warnings.some((warning) => warning.toLowerCase().includes("missing") || warning.toLowerCase().includes("mismatch"))) return "Blocked";
+  const warnings = warningsForGroup(group);
+  if (warnings.some((warning) => warning.toLowerCase().includes("missing") || warning.toLowerCase().includes("mismatch"))) return "Blocked";
   if (group.confidence >= 90) return "Ready to Approve";
   if (group.confidence >= 70) return "Review";
   return "Needs Research";
 }
 
 function toneForStatus(status: QueueStatus): StatusTone {
-  if (status === "Approved Mock") return "green";
+  if (status === "Approved Local") return "green";
   if (status === "Ready to Approve") return "teal";
   if (status === "Review") return "gold";
   if (status === "Needs Research" || status === "Blocked" || status === "Rejected") return "pink";
@@ -275,14 +320,23 @@ function ImagePlaceholder({
     <div
       className={cn(
         "relative flex min-w-0 flex-col justify-between overflow-hidden rounded-md border border-acv-border bg-gradient-to-br from-acv-purple/30 via-acv-panel2 to-acv-gold/15",
-        compact ? "h-12 w-10 p-1" : large ? "aspect-[3/4] p-3" : "h-24 p-2"
+        compact ? "h-12 w-10 p-1" : large ? "aspect-[3/4] p-3" : "h-24 p-2",
+        image?.url && "bg-acv-panel2"
       )}
     >
-      <span className={cn("truncate font-semibold uppercase tracking-[0.1em] text-acv-gold", compact ? "text-[7px]" : "text-[10px]")}>{image?.role || emptyLabel || "Empty"}</span>
-      <div className="flex flex-1 items-center justify-center">
-        <Camera className={cn("text-acv-muted/70", compact ? "h-3.5 w-3.5" : large ? "h-10 w-10" : "h-6 w-6")} />
+      {image?.url ? (
+        <img src={image.url} alt={image.label} className="absolute inset-0 h-full w-full object-cover" />
+      ) : (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <Camera className={cn("text-acv-muted/70", compact ? "h-3.5 w-3.5" : large ? "h-10 w-10" : "h-6 w-6")} />
+        </div>
+      )}
+      <div className="pointer-events-none absolute inset-x-0 top-0 bg-gradient-to-b from-black/80 to-transparent p-1.5">
+        <span className={cn("block truncate font-semibold uppercase tracking-[0.1em] text-acv-gold", compact ? "text-[7px]" : "text-[10px]")}>{image?.role || emptyLabel || "Empty"}</span>
       </div>
-      <span className={cn("truncate font-semibold text-acv-text", compact ? "text-[7px]" : "text-[11px]")}>{compact ? "ACV" : image?.label || "Awaiting image"}</span>
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent p-1.5">
+        <span className={cn("block truncate font-semibold text-acv-text", compact ? "text-[7px]" : "text-[11px]")}>{compact ? "ACV" : image?.label || "Awaiting image"}</span>
+      </div>
       {image && <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-acv-teal shadow-[0_0_14px_#26d4c7]" />}
     </div>
   );
@@ -405,18 +459,23 @@ function DecisionSummaryItem({ state, children }: { state: "ready" | "warning" |
 function ApprovalDecisionCard({
   group,
   routeStatus,
+  onSave,
+  onSwapFrontBack,
   onApprove,
   onResearch,
   onReject
 }: {
   group: IntakeGroup;
   routeStatus: RouteStatus;
+  onSave: (id: string) => void;
+  onSwapFrontBack: (id: string) => void;
   onApprove: (id: string) => void;
   onResearch: (id: string) => void;
   onReject: (id: string) => void;
 }) {
-  const missingImage = group.warnings.find((warning) => warning.toLowerCase().includes("missing"));
-  const completeRecord = group.warnings.length === 0;
+  const warnings = warningsForGroup(group);
+  const missingImage = warnings.find((warning) => warning.toLowerCase().includes("missing"));
+  const completeRecord = warnings.length === 0;
   const readyForApproval = routeStatus === "Ready to Approve";
 
   return (
@@ -431,17 +490,17 @@ function ApprovalDecisionCard({
         <div className="grid min-w-0 gap-2 sm:grid-cols-2 xl:grid-cols-5">
           <DecisionSummaryItem state={missingImage ? "blocked" : "ready"}>{missingImage || "Images paired"}</DecisionSummaryItem>
           <DecisionSummaryItem state={group.confidence >= 90 ? "ready" : "warning"}>AI confidence: {group.confidence}%</DecisionSummaryItem>
-          <DecisionSummaryItem state={completeRecord ? "ready" : "warning"}>{completeRecord ? "Required fields complete" : group.warnings[0]}</DecisionSummaryItem>
+          <DecisionSummaryItem state={completeRecord ? "ready" : "warning"}>{completeRecord ? "Required fields complete" : warnings[0]}</DecisionSummaryItem>
           <DecisionSummaryItem state={readyForApproval ? "ready" : "warning"}>{readyForApproval ? "Ready for SKU assignment" : "SKU assignment needs review"}</DecisionSummaryItem>
           <DecisionSummaryItem state={readyForApproval ? "ready" : "warning"}>{readyForApproval ? "Ready for Inventory" : "Inventory approval paused"}</DecisionSummaryItem>
         </div>
       </div>
 
       <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
-        <MiniButton tone="teal" icon={<Save className="h-4 w-4" />} className="h-11 w-full text-xs">
+        <MiniButton tone="teal" icon={<Save className="h-4 w-4" />} className="h-11 w-full text-xs" onClick={() => onSave(group.id)}>
           Save Group
         </MiniButton>
-        <MiniButton tone="gold" icon={<ArrowLeftRight className="h-4 w-4" />} className="h-11 w-full text-xs">
+        <MiniButton tone="gold" icon={<ArrowLeftRight className="h-4 w-4" />} className="h-11 w-full text-xs" onClick={() => onSwapFrontBack(group.id)}>
           Swap Front/Back
         </MiniButton>
         <MiniButton tone="teal" icon={<BadgeCheck className="h-4 w-4" />} className="h-11 w-full text-xs" onClick={() => onApprove(group.id)}>
@@ -458,11 +517,74 @@ function ApprovalDecisionCard({
   );
 }
 
+function EditableField({
+  label,
+  value,
+  onChange,
+  tone,
+  multiline = false
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  tone?: StatusTone;
+  multiline?: boolean;
+}) {
+  const toneClass =
+    tone === "gold"
+      ? "focus:border-acv-gold/70"
+      : tone === "teal"
+        ? "focus:border-acv-teal/70"
+        : tone === "pink"
+          ? "focus:border-acv-pink/70"
+          : "focus:border-acv-teal/60";
+
+  return (
+    <label className={cn("min-w-0 rounded-md border border-acv-border bg-acv-panel2 px-3 py-2", multiline && "sm:col-span-2 xl:col-span-3")}>
+      <span className="truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-acv-muted">{label}</span>
+      {multiline ? (
+        <textarea
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          rows={3}
+          className={cn("mt-1 w-full resize-none bg-transparent text-xs font-semibold leading-5 text-acv-text outline-none transition", toneClass)}
+        />
+      ) : (
+        <input
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          className={cn("mt-1 w-full min-w-0 bg-transparent text-xs font-semibold text-acv-text outline-none transition", toneClass)}
+        />
+      )}
+    </label>
+  );
+}
+
+function EditableFlag({ label, checked, onChange }: { label: string; checked: boolean; onChange: (checked: boolean) => void }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(!checked)}
+      className="flex min-w-0 items-center justify-between gap-3 rounded-md border border-acv-border bg-acv-panel2 px-3 py-2 text-xs font-semibold text-acv-text transition hover:border-acv-teal/50"
+    >
+      <span className="truncate">{label}</span>
+      <StatusPill tone={checked ? "teal" : "neutral"}>{checked ? "Yes" : "No"}</StatusPill>
+    </button>
+  );
+}
+
 function ReviewDrawer({
   group,
   skuStatus,
   assignedSku,
   onClose,
+  onSave,
+  onSwapFrontBack,
+  onRoleChange,
+  onSetImageRole,
+  onMoveImage,
+  onUpdateProposed,
+  onUpdateConfidence,
   onApprove,
   onResearch,
   onReject
@@ -471,6 +593,13 @@ function ReviewDrawer({
   skuStatus: SkuStatus;
   assignedSku: string;
   onClose: () => void;
+  onSave: (id: string) => void;
+  onSwapFrontBack: (id: string) => void;
+  onRoleChange: (groupId: string, imageId: string, role: ImageRole) => void;
+  onSetImageRole: (groupId: string, imageId: string, role: ImageRole) => void;
+  onMoveImage: (groupId: string, imageId: string, direction: -1 | 1) => void;
+  onUpdateProposed: <K extends keyof ProposedRecord>(groupId: string, key: K, value: ProposedRecord[K]) => void;
+  onUpdateConfidence: (groupId: string, confidence: number) => void;
   onApprove: (id: string) => void;
   onResearch: (id: string) => void;
   onReject: (id: string) => void;
@@ -478,6 +607,7 @@ function ReviewDrawer({
   const routeStatus = statusForGroup(group);
   const skuDisplay = skuStatus === "SKU Assigned" ? `${assignedSku} mock` : "Pending Approval";
   const drawerSkuTone = skuStatus === "SKU Assigned" ? "green" : "purple";
+  const warnings = warningsForGroup(group);
 
   return (
     <div className="fixed inset-y-0 left-0 right-0 z-50 flex justify-end bg-black/70 backdrop-blur-sm sm:left-56">
@@ -517,12 +647,13 @@ function ReviewDrawer({
                   <StatusPill tone="teal">{group.images.length} images</StatusPill>
                 </div>
                 <div className="grid min-w-0 gap-3 sm:grid-cols-2">
-                  {group.images.map((image) => (
+                  {group.images.map((image, imageIndex) => (
                     <div key={image.id} className="min-w-0 space-y-2">
                       <ImagePlaceholder image={image} large />
                       <select
                         aria-label={`Role for ${image.label}`}
-                        defaultValue={image.role}
+                        value={image.role}
+                        onChange={(event) => onRoleChange(group.id, image.id, event.target.value as ImageRole)}
                         className="h-8 w-full rounded-md border border-acv-border bg-acv-panel2 px-2 text-xs font-semibold text-acv-text outline-none"
                       >
                         {imageRoles.map((role) => (
@@ -531,6 +662,16 @@ function ReviewDrawer({
                           </option>
                         ))}
                       </select>
+                      <div className="grid grid-cols-2 gap-2">
+                        <MiniButton onClick={() => onSetImageRole(group.id, image.id, "Front")}>Set Front</MiniButton>
+                        <MiniButton onClick={() => onSetImageRole(group.id, image.id, "Back")}>Set Back</MiniButton>
+                        <MiniButton onClick={() => onMoveImage(group.id, image.id, -1)} className={imageIndex === 0 ? "opacity-45" : undefined}>
+                          Move Up
+                        </MiniButton>
+                        <MiniButton onClick={() => onMoveImage(group.id, image.id, 1)} className={imageIndex === group.images.length - 1 ? "opacity-45" : undefined}>
+                          Move Down
+                        </MiniButton>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -545,35 +686,37 @@ function ReviewDrawer({
                   <StatusPill tone={toneForStatus(routeStatus)}>{routeStatus}</StatusPill>
                 </div>
                 <div className="grid min-w-0 gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                  <FieldRow label="Proposed card" value={group.proposed.cardName} tone="gold" />
-                  <FieldRow label="Player / Character" value={group.proposed.playerCharacter} />
-                  <FieldRow label="Team" value={group.proposed.team} />
-                  <FieldRow label="Sport / Category" value={group.proposed.category} />
-                  <FieldRow label="Year" value={group.proposed.year} />
-                  <FieldRow label="Brand" value={group.proposed.brand} />
-                  <FieldRow label="Set" value={group.proposed.set} />
-                  <FieldRow label="Card Number" value={group.proposed.cardNumber} />
-                  <FieldRow label="Parallel" value={group.proposed.parallel} />
-                  <FieldRow label="Serial Number" value={group.proposed.serialNumber} />
-                  <FieldRow label="Rookie" value={flagLabel(group.proposed.rookieFlag)} tone={group.proposed.rookieFlag ? "teal" : undefined} />
-                  <FieldRow label="Auto" value={flagLabel(group.proposed.autoFlag)} />
-                  <FieldRow label="Relic" value={flagLabel(group.proposed.relicFlag)} />
-                  <FieldRow label="Variation" value={flagLabel(group.proposed.variationFlag)} tone={group.proposed.variationFlag ? "gold" : undefined} />
-                  <FieldRow label="Confidence" value={`${group.confidence}%`} tone={confidenceTone(group.confidence)} />
+                  <EditableField label="Proposed card" value={group.proposed.cardName} tone="gold" onChange={(value) => onUpdateProposed(group.id, "cardName", value)} />
+                  <EditableField label="Player / Character" value={group.proposed.playerCharacter} onChange={(value) => onUpdateProposed(group.id, "playerCharacter", value)} />
+                  <EditableField label="Team" value={group.proposed.team} onChange={(value) => onUpdateProposed(group.id, "team", value)} />
+                  <EditableField label="Sport / Category" value={group.proposed.category} onChange={(value) => onUpdateProposed(group.id, "category", value)} />
+                  <EditableField label="Year" value={group.proposed.year} onChange={(value) => onUpdateProposed(group.id, "year", value)} />
+                  <EditableField label="Brand" value={group.proposed.brand} onChange={(value) => onUpdateProposed(group.id, "brand", value)} />
+                  <EditableField label="Set" value={group.proposed.set} onChange={(value) => onUpdateProposed(group.id, "set", value)} />
+                  <EditableField label="Card Number" value={group.proposed.cardNumber} onChange={(value) => onUpdateProposed(group.id, "cardNumber", value)} />
+                  <EditableField label="Parallel" value={group.proposed.parallel} onChange={(value) => onUpdateProposed(group.id, "parallel", value)} />
+                  <EditableField label="Serial Number" value={group.proposed.serialNumber} onChange={(value) => onUpdateProposed(group.id, "serialNumber", value)} />
+                  <label className="min-w-0 rounded-md border border-acv-border bg-acv-panel2 px-3 py-2">
+                    <span className="truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-acv-muted">Confidence</span>
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={group.confidence}
+                      onChange={(event) => onUpdateConfidence(group.id, Math.min(100, Math.max(0, Number(event.target.value) || 0)))}
+                      className="mt-1 w-full min-w-0 bg-transparent text-xs font-semibold text-acv-text outline-none"
+                    />
+                  </label>
+                  <EditableFlag label="Rookie" checked={group.proposed.rookieFlag} onChange={(value) => onUpdateProposed(group.id, "rookieFlag", value)} />
+                  <EditableFlag label="Auto" checked={group.proposed.autoFlag} onChange={(value) => onUpdateProposed(group.id, "autoFlag", value)} />
+                  <EditableFlag label="Relic" checked={group.proposed.relicFlag} onChange={(value) => onUpdateProposed(group.id, "relicFlag", value)} />
+                  <EditableFlag label="Variation" checked={group.proposed.variationFlag} onChange={(value) => onUpdateProposed(group.id, "variationFlag", value)} />
+                  <EditableField label="Condition Notes" value={group.proposed.conditionNotes} multiline onChange={(value) => onUpdateProposed(group.id, "conditionNotes", value)} />
+                  <EditableField label="Uncertainty Notes" value={group.proposed.uncertaintyNotes} multiline onChange={(value) => onUpdateProposed(group.id, "uncertaintyNotes", value)} />
                 </div>
-                <div className="mt-3 grid min-w-0 gap-3 lg:grid-cols-2">
-                  <div className="rounded-md border border-acv-border bg-acv-panel2 p-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-acv-muted">Condition Notes</p>
-                    <p className="mt-2 text-xs leading-5 text-acv-text">{group.proposed.conditionNotes}</p>
-                  </div>
-                  <div className="rounded-md border border-acv-border bg-acv-panel2 p-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-acv-muted">Uncertainty Notes</p>
-                    <p className="mt-2 text-xs leading-5 text-acv-text">{group.proposed.uncertaintyNotes}</p>
-                  </div>
-                </div>
-                {group.warnings.length > 0 && (
+                {warnings.length > 0 && (
                   <div className="mt-3 flex flex-wrap gap-2">
-                    {group.warnings.map((warning) => (
+                    {warnings.map((warning) => (
                       <StatusPill key={warning} tone="pink">
                         {warning}
                       </StatusPill>
@@ -583,7 +726,15 @@ function ReviewDrawer({
               </section>
             </div>
 
-            <ApprovalDecisionCard group={group} routeStatus={routeStatus} onApprove={onApprove} onResearch={onResearch} onReject={onReject} />
+            <ApprovalDecisionCard
+              group={group}
+              routeStatus={routeStatus}
+              onSave={onSave}
+              onSwapFrontBack={onSwapFrontBack}
+              onApprove={onApprove}
+              onResearch={onResearch}
+              onReject={onReject}
+            />
           </div>
         </div>
       </aside>
@@ -592,32 +743,63 @@ function ReviewDrawer({
 }
 
 export default function PhotoIntakePage() {
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const objectUrlsRef = useRef<string[]>([]);
+  const skuCounterRef = useRef(1);
   const [activeSource, setActiveSource] = useState<SourceKey>("Computer Upload");
+  const [batchNumber, setBatchNumber] = useState(1);
   const [batchName, setBatchName] = useState("July Intake - Breaks + Singles");
   const [imageCountMode, setImageCountMode] = useState<ImageCountMode>("2 images/card");
   const [customImageCount, setCustomImageCount] = useState(4);
   const [autoPair, setAutoPair] = useState(true);
   const [aiPairingCheck, setAiPairingCheck] = useState(true);
-  const [selectedGroupId, setSelectedGroupId] = useState("G-001");
-  const [drawerGroup, setDrawerGroup] = useState<IntakeGroup | null>(null);
+  const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
+  const [groups, setGroups] = useState<IntakeGroup[]>([]);
+  const [selectedGroupId, setSelectedGroupId] = useState("");
+  const [drawerGroupId, setDrawerGroupId] = useState<string | null>(null);
   const [selectedQueueIds, setSelectedQueueIds] = useState<Set<string>>(new Set());
   const [approvedIds, setApprovedIds] = useState<Set<string>>(new Set());
   const [researchIds, setResearchIds] = useState<Set<string>>(new Set());
   const [rejectedIds, setRejectedIds] = useState<Set<string>>(new Set());
+  const [assignedSkus, setAssignedSkus] = useState<Record<string, string>>({});
+  const [approvedInventory, setApprovedInventory] = useState<ApprovedInventoryItem[]>([]);
+  const [statusMessage, setStatusMessage] = useState("Upload photos to generate local intake groups.");
+  const batchId = `B-${String(batchNumber).padStart(3, "0")}`;
 
-  const visibleGroups = useMemo(() => intakeGroups.filter((group) => group.source === activeSource || activeSource !== "Computer Upload"), [activeSource]);
-  const selectedGroup = visibleGroups.find((group) => group.id === selectedGroupId) || visibleGroups[0] || intakeGroups[0];
-  const totalPhotos = 128;
+  useEffect(() => {
+    return () => {
+      objectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, []);
+
+  useEffect(() => {
+    const nextGroups = buildGroupsFromUploads({ uploadedImages, batchId, mode: imageCountMode, customCount: customImageCount });
+    setGroups(nextGroups);
+    setSelectedGroupId(nextGroups[0]?.id || "");
+    setDrawerGroupId(null);
+    setSelectedQueueIds(new Set());
+    setApprovedIds(new Set());
+    setResearchIds(new Set());
+    setRejectedIds(new Set());
+    setAssignedSkus({});
+    setApprovedInventory([]);
+    skuCounterRef.current = 1;
+  }, [uploadedImages, batchId, imageCountMode, customImageCount]);
+
+  const visibleGroups = useMemo(() => (activeSource === "Computer Upload" ? groups : []), [activeSource, groups]);
+  const selectedGroup = visibleGroups.find((group) => group.id === selectedGroupId) || visibleGroups[0];
+  const drawerGroup = drawerGroupId ? groups.find((group) => group.id === drawerGroupId) || null : null;
+  const totalPhotos = uploadedImages.length;
   const perCard = imagesPerCard(imageCountMode, customImageCount);
-  const estimatedCards = imageCountMode === "Auto-detect" ? 43 : Math.floor(totalPhotos / perCard);
-  const pairedGroups = intakeGroups.filter((group) => statusForGroup(group) !== "Blocked").length;
-  const reviewFlags = intakeGroups.reduce((total, group) => total + group.warnings.length, 0);
-  const readyToApprove = intakeGroups.filter((group) => statusForGroup(group) === "Ready to Approve" && !approvedIds.has(group.id)).length;
+  const estimatedCards = totalPhotos === 0 ? 0 : Math.ceil(totalPhotos / perCard);
+  const pairedGroups = groups.filter((group) => statusForGroup(group) !== "Blocked").length;
+  const reviewFlags = groups.reduce((total, group) => total + warningsForGroup(group).length, 0);
+  const readyToApprove = groups.filter((group) => statusForGroup(group) === "Ready to Approve" && !approvedIds.has(group.id)).length;
 
   const allQueueSelected = visibleGroups.length > 0 && visibleGroups.every((group) => selectedQueueIds.has(group.id));
 
   function queueStatus(group: IntakeGroup): QueueStatus {
-    if (approvedIds.has(group.id)) return "Approved Mock";
+    if (approvedIds.has(group.id)) return "Approved Local";
     if (rejectedIds.has(group.id)) return "Rejected";
     if (researchIds.has(group.id)) return "Needs Research";
     return statusForGroup(group);
@@ -630,7 +812,55 @@ export default function PhotoIntakePage() {
   }
 
   function assignedSkuForGroup(group: IntakeGroup) {
-    return mockAssignedSkus[group.id] || "ACV-NFL-000421";
+    return assignedSkus[group.id] || "Pending Approval";
+  }
+
+  function buildMockSku(group: IntakeGroup, sequence: number) {
+    const code = skuCategoryCodes[group.proposed.category] || group.proposed.category.slice(0, 3).toUpperCase() || "GEN";
+    return `ACV-${code}-${String(sequence).padStart(6, "0")}`;
+  }
+
+  function handleFiles(files: FileList | File[]) {
+    const imageFiles = Array.from(files).filter((file) => file.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif)$/i.test(file.name));
+    if (imageFiles.length === 0) {
+      setStatusMessage("No supported image files found. Use jpg, jpeg, png, webp, or browser-supported heic.");
+      return;
+    }
+
+    setUploadedImages((current) => {
+      const startOrder = current.length;
+      const nextImages = imageFiles.map((file, index) => {
+        const url = URL.createObjectURL(file);
+        objectUrlsRef.current.push(url);
+        return {
+          id: `upload-${Date.now()}-${startOrder + index}`,
+          fileName: file.name,
+          url,
+          type: file.type || "image/*",
+          order: startOrder + index
+        };
+      });
+      return [...current, ...nextImages];
+    });
+    setStatusMessage(`${imageFiles.length} photo${imageFiles.length === 1 ? "" : "s"} uploaded locally. Grouping uses upload order.`);
+  }
+
+  function clearBatch() {
+    objectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+    objectUrlsRef.current = [];
+    setUploadedImages([]);
+    setGroups([]);
+    setSelectedGroupId("");
+    setDrawerGroupId(null);
+    setSelectedQueueIds(new Set());
+    setApprovedIds(new Set());
+    setResearchIds(new Set());
+    setRejectedIds(new Set());
+    setAssignedSkus({});
+    setApprovedInventory([]);
+    skuCounterRef.current = 1;
+    setBatchNumber((current) => current + 1);
+    setStatusMessage("Batch cleared. Start a new local upload batch.");
   }
 
   function setQueueSelection(id: string, checked: boolean) {
@@ -654,6 +884,18 @@ export default function PhotoIntakePage() {
   }
 
   function approveGroup(id: string) {
+    const group = groups.find((item) => item.id === id);
+    if (!group) return;
+
+    if (!group.images.some((image) => image.role === "Front")) {
+      setResearchIds((current) => new Set(current).add(id));
+      setStatusMessage(`${group.id} needs review before approval: missing Front image.`);
+      return;
+    }
+
+    const nextSku = assignedSkus[id] || buildMockSku(group, skuCounterRef.current);
+    if (!assignedSkus[id]) skuCounterRef.current += 1;
+    setAssignedSkus((current) => ({ ...current, [id]: current[id] || nextSku }));
     setApprovedIds((current) => new Set(current).add(id));
     setResearchIds((current) => {
       const next = new Set(current);
@@ -665,6 +907,24 @@ export default function PhotoIntakePage() {
       next.delete(id);
       return next;
     });
+    setApprovedInventory((current) => {
+      if (current.some((item) => item.group === id)) return current;
+      const primaryImage = group.images.find((image) => image.role === "Front") || group.images[0];
+      return [
+        ...current,
+        {
+          sku: nextSku,
+          batch: group.batch,
+          group: group.id,
+          source: group.source,
+          primaryImageUrl: primaryImage?.url || "",
+          images: group.images,
+          proposed: group.proposed,
+          approvedAt: new Date().toLocaleString()
+        }
+      ];
+    });
+    setStatusMessage(`${group.id} approved locally. Mock SKU assigned: ${nextSku}.`);
   }
 
   function sendToResearch(id: string) {
@@ -674,6 +934,12 @@ export default function PhotoIntakePage() {
       next.delete(id);
       return next;
     });
+    setRejectedIds((current) => {
+      const next = new Set(current);
+      next.delete(id);
+      return next;
+    });
+    setStatusMessage(`${id} sent to research in local state.`);
   }
 
   function rejectGroup(id: string) {
@@ -683,11 +949,82 @@ export default function PhotoIntakePage() {
       next.delete(id);
       return next;
     });
+    setResearchIds((current) => {
+      const next = new Set(current);
+      next.delete(id);
+      return next;
+    });
+    setStatusMessage(`${id} rejected locally.`);
   }
 
   function openGroup(group: IntakeGroup) {
     setSelectedGroupId(group.id);
-    setDrawerGroup(group);
+    setDrawerGroupId(group.id);
+  }
+
+  function updateGroup(groupId: string, updater: (group: IntakeGroup) => IntakeGroup) {
+    setGroups((current) => current.map((group) => (group.id === groupId ? updater(group) : group)));
+  }
+
+  function updateImageRole(groupId: string, imageId: string, role: ImageRole) {
+    updateGroup(groupId, (group) => {
+      const nextGroup = { ...group, images: group.images.map((image) => (image.id === imageId ? { ...image, role } : image)) };
+      return { ...nextGroup, pairingStatus: pairingStatusForGroup(nextGroup) };
+    });
+  }
+
+  function setImageRoleExclusive(groupId: string, imageId: string, role: ImageRole) {
+    updateGroup(groupId, (group) => {
+      const images: IntakeImage[] = group.images.map((image) => {
+        if (image.id === imageId) return { ...image, role };
+        if (role === "Front" && image.role === "Front") return { ...image, role: "Detail / Closeup" };
+        if (role === "Back" && image.role === "Back") return { ...image, role: "Detail / Closeup" };
+        return image;
+      });
+      const nextGroup = {
+        ...group,
+        images
+      };
+      return { ...nextGroup, pairingStatus: pairingStatusForGroup(nextGroup) };
+    });
+  }
+
+  function swapFrontBack(groupId: string) {
+    updateGroup(groupId, (group) => {
+      const images: IntakeImage[] = group.images.map((image) =>
+        image.role === "Front" ? { ...image, role: "Back" } : image.role === "Back" ? { ...image, role: "Front" } : image
+      );
+      const nextGroup = {
+        ...group,
+        images
+      };
+      return { ...nextGroup, pairingStatus: pairingStatusForGroup(nextGroup) };
+    });
+    setStatusMessage(`${groupId} front/back roles swapped locally.`);
+  }
+
+  function moveImage(groupId: string, imageId: string, direction: -1 | 1) {
+    updateGroup(groupId, (group) => {
+      const index = group.images.findIndex((image) => image.id === imageId);
+      const target = index + direction;
+      if (index < 0 || target < 0 || target >= group.images.length) return group;
+      const images = [...group.images];
+      const [moved] = images.splice(index, 1);
+      images.splice(target, 0, moved);
+      return { ...group, images };
+    });
+  }
+
+  function updateProposed<K extends keyof ProposedRecord>(groupId: string, key: K, value: ProposedRecord[K]) {
+    updateGroup(groupId, (group) => ({ ...group, proposed: { ...group.proposed, [key]: value } }));
+  }
+
+  function updateConfidence(groupId: string, confidence: number) {
+    updateGroup(groupId, (group) => ({ ...group, confidence }));
+  }
+
+  function saveGroup(id: string) {
+    setStatusMessage(`${id} saved in local browser state. Mock only; refresh clears it.`);
   }
 
   return (
@@ -697,12 +1034,25 @@ export default function PhotoIntakePage() {
         description="Images to batch grouping, pairing review, AI extraction review, and staged approval into inventory."
         action={
           <>
-            <ActionButton variant="ghost" icon={<FolderOpen className="h-4 w-4" />}>
+            <MiniButton icon={<FolderOpen className="h-4 w-4" />} onClick={() => fileInputRef.current?.click()}>
               Open batch
-            </ActionButton>
-            <ActionButton icon={<ImagePlus className="h-4 w-4" />}>New intake</ActionButton>
+            </MiniButton>
+            <MiniButton tone="pink" icon={<XCircle className="h-4 w-4" />} onClick={clearBatch}>
+              Clear Batch
+            </MiniButton>
           </>
         }
+      />
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        accept=".jpg,.jpeg,.png,.webp,.heic,.heif,image/jpeg,image/png,image/webp,image/heic,image/heif"
+        className="hidden"
+        onChange={(event) => {
+          if (event.target.files) handleFiles(event.target.files);
+          event.target.value = "";
+        }}
       />
 
       <div className="min-w-0 space-y-3 p-3 sm:p-4">
@@ -795,16 +1145,37 @@ export default function PhotoIntakePage() {
 
           <SectionCard title="Upload Zone" eyebrow="Computer Upload mock">
             <div className="grid min-w-0 gap-3 lg:grid-cols-[1fr_220px]">
-              <div className="flex min-h-56 flex-col items-center justify-center rounded-lg border border-dashed border-acv-teal/35 bg-acv-teal/5 p-5 text-center">
+              <div
+                onDragOver={(event) => {
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = "copy";
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  handleFiles(event.dataTransfer.files);
+                }}
+                className="flex min-h-56 flex-col items-center justify-center rounded-lg border border-dashed border-acv-teal/35 bg-acv-teal/5 p-5 text-center"
+              >
                 <UploadCloud className="h-9 w-9 text-acv-teal" />
                 <p className="mt-3 text-base font-semibold text-acv-text">Drag and drop card photos</p>
-                <p className="mt-1 max-w-lg text-xs leading-5 text-acv-muted">Mock upload bay for front, back, closeup, serial, surface, auto, patch, relic, and other image roles.</p>
+                <p className="mt-1 max-w-lg text-xs leading-5 text-acv-muted">Local browser upload bay for front, back, closeup, serial, surface, auto, patch, relic, and other image roles.</p>
                 <div className="mt-4 flex flex-wrap justify-center gap-2">
-                  <ActionButton icon={<Camera className="h-4 w-4" />}>Upload photos</ActionButton>
-                  <ActionButton variant="ghost" icon={<FolderOpen className="h-4 w-4" />}>
+                  <MiniButton tone="teal" icon={<Camera className="h-4 w-4" />} onClick={() => fileInputRef.current?.click()}>
+                    Upload Photos
+                  </MiniButton>
+                  <MiniButton icon={<FolderOpen className="h-4 w-4" />} onClick={() => fileInputRef.current?.click()}>
                     Open batch
-                  </ActionButton>
+                  </MiniButton>
+                  <MiniButton tone="pink" icon={<XCircle className="h-4 w-4" />} onClick={clearBatch}>
+                    Clear Batch
+                  </MiniButton>
                 </div>
+                <p className="mt-3 text-xs font-semibold text-acv-teal">{statusMessage}</p>
+                {imageCountMode === "Auto-detect" && (
+                  <div className="mt-2">
+                    <StatusPill tone="gold">Auto-detect mock: using 2/card</StatusPill>
+                  </div>
+                )}
               </div>
               <div className="min-w-0 rounded-lg border border-acv-border bg-acv-panel2 p-3">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-acv-gold">Supported roles</p>
@@ -817,12 +1188,30 @@ export default function PhotoIntakePage() {
                 </div>
               </div>
             </div>
+            {uploadedImages.length > 0 && (
+              <div className="mt-3 rounded-lg border border-acv-border bg-acv-panel2 p-3">
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-acv-gold">Upload order preview</p>
+                  <StatusPill tone="teal">{uploadedImages.length} local photos</StatusPill>
+                </div>
+                <div className="acv-scrollbar contained-x-scroll flex gap-2 pb-1">
+                  {uploadedImages.map((image, index) => (
+                    <div key={image.id} className="w-20 shrink-0">
+                      <div className="h-20 overflow-hidden rounded-md border border-acv-border bg-acv-black">
+                        <img src={image.url} alt={image.fileName} className="h-full w-full object-cover" />
+                      </div>
+                      <p className="mt-1 truncate text-[10px] font-semibold text-acv-muted">{index + 1}. {image.fileName}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </SectionCard>
         </div>
 
         <div className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(108px,1fr))] gap-2">
           <CompactMetric label="Total photos" value={String(totalPhotos)} tone="teal" />
-          <CompactMetric label="Estimated cards" value={imageCountMode === "Auto-detect" ? "~43" : String(estimatedCards)} tone="gold" />
+          <CompactMetric label="Estimated cards" value={imageCountMode === "Auto-detect" && totalPhotos > 0 ? `~${estimatedCards}` : String(estimatedCards)} tone="gold" />
           <CompactMetric label="Paired groups" value={String(pairedGroups)} tone="green" />
           <CompactMetric label="Review flags" value={String(reviewFlags)} tone="pink" />
           <CompactMetric label="Ready to approve" value={String(readyToApprove)} tone="teal" />
@@ -830,10 +1219,18 @@ export default function PhotoIntakePage() {
 
         <div className="grid min-w-0 gap-3 2xl:grid-cols-[1.15fr_0.85fr]">
           <SectionCard title="Grouping / Pairing Review" eyebrow={batchName}>
+            {visibleGroups.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-acv-border bg-acv-panel2 p-6 text-center">
+                <UploadCloud className="mx-auto h-8 w-8 text-acv-muted" />
+                <p className="mt-3 text-sm font-semibold text-acv-text">No local upload groups yet</p>
+                <p className="mt-1 text-xs text-acv-muted">Upload photos or drag them into the upload zone to generate groups from upload order.</p>
+              </div>
+            ) : (
             <div className="grid min-w-0 gap-3 lg:grid-cols-2">
               {visibleGroups.map((group) => {
                 const routeStatus = statusForGroup(group);
-                const isSelected = selectedGroup.id === group.id;
+                const isSelected = selectedGroup?.id === group.id;
+                const warnings = warningsForGroup(group);
                 return (
                   <article
                     key={group.id}
@@ -862,9 +1259,9 @@ export default function PhotoIntakePage() {
                         <ImagePlaceholder image={group.images.find((image) => !["Front", "Back"].includes(image.role))} emptyLabel="Closeup" />
                       </div>
                     </button>
-                    {group.warnings.length > 0 && (
+                    {warnings.length > 0 && (
                       <div className="mt-3 flex flex-wrap gap-1.5">
-                        {group.warnings.map((warning) => (
+                        {warnings.map((warning) => (
                           <StatusPill key={warning} tone="pink">
                             {warning}
                           </StatusPill>
@@ -872,9 +1269,9 @@ export default function PhotoIntakePage() {
                       </div>
                     )}
                     <div className="mt-3 flex flex-wrap gap-2">
-                      <MiniButton icon={<ArrowLeftRight className="h-3.5 w-3.5" />}>Swap front/back</MiniButton>
-                      <MiniButton>Set as front</MiniButton>
-                      <MiniButton>Set as back</MiniButton>
+                      <MiniButton icon={<ArrowLeftRight className="h-3.5 w-3.5" />} onClick={() => swapFrontBack(group.id)}>Swap front/back</MiniButton>
+                      <MiniButton onClick={() => group.images[0] && setImageRoleExclusive(group.id, group.images[0].id, "Front")}>Set first front</MiniButton>
+                      <MiniButton onClick={() => group.images[group.images.length - 1] && setImageRoleExclusive(group.id, group.images[group.images.length - 1].id, "Back")}>Set last back</MiniButton>
                       <MiniButton icon={<ImagePlus className="h-3.5 w-3.5" />}>Add closeup</MiniButton>
                       <MiniButton icon={<Move className="h-3.5 w-3.5" />}>Move image</MiniButton>
                       <MiniButton icon={<Scissors className="h-3.5 w-3.5" />}>Split group</MiniButton>
@@ -887,40 +1284,49 @@ export default function PhotoIntakePage() {
                 );
               })}
             </div>
+            )}
           </SectionCard>
 
           <div className="min-w-0 space-y-3">
-            <SectionCard title="AI Extraction Review" eyebrow={selectedGroup.id}>
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <StatusPill tone={toneForStatus(statusForGroup(selectedGroup))}>{statusForGroup(selectedGroup)}</StatusPill>
-                <StatusPill tone={confidenceTone(selectedGroup.confidence)}>{selectedGroup.confidence}% confidence</StatusPill>
-              </div>
-              <div className="grid min-w-0 gap-2 sm:grid-cols-2">
-                <FieldRow label="Proposed card name" value={selectedGroup.proposed.cardName} tone="gold" />
-                <FieldRow label="Player / Character" value={selectedGroup.proposed.playerCharacter} />
-                <FieldRow label="Team" value={selectedGroup.proposed.team} />
-                <FieldRow label="Sport / Category" value={selectedGroup.proposed.category} />
-                <FieldRow label="Year" value={selectedGroup.proposed.year} />
-                <FieldRow label="Brand" value={selectedGroup.proposed.brand} />
-                <FieldRow label="Set" value={selectedGroup.proposed.set} />
-                <FieldRow label="Card Number" value={selectedGroup.proposed.cardNumber} />
-                <FieldRow label="Parallel" value={selectedGroup.proposed.parallel} />
-                <FieldRow label="Serial Number" value={selectedGroup.proposed.serialNumber} />
-                <FieldRow label="Rookie Flag" value={flagLabel(selectedGroup.proposed.rookieFlag)} tone={selectedGroup.proposed.rookieFlag ? "teal" : undefined} />
-                <FieldRow label="Auto Flag" value={flagLabel(selectedGroup.proposed.autoFlag)} />
-                <FieldRow label="Relic Flag" value={flagLabel(selectedGroup.proposed.relicFlag)} />
-                <FieldRow label="Variation Flag" value={flagLabel(selectedGroup.proposed.variationFlag)} tone={selectedGroup.proposed.variationFlag ? "gold" : undefined} />
-              </div>
-              <div className="mt-3 space-y-2">
-                <div className="rounded-md border border-acv-border bg-acv-panel2 p-3 text-xs leading-5 text-acv-text">
-                  <span className="font-semibold text-acv-muted">Condition notes: </span>
-                  {selectedGroup.proposed.conditionNotes}
+            <SectionCard title="AI Extraction Review" eyebrow={selectedGroup?.id || "No group selected"}>
+              {selectedGroup ? (
+                <>
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                    <StatusPill tone={toneForStatus(statusForGroup(selectedGroup))}>{statusForGroup(selectedGroup)}</StatusPill>
+                    <StatusPill tone={confidenceTone(selectedGroup.confidence)}>{selectedGroup.confidence}% confidence</StatusPill>
+                  </div>
+                  <div className="grid min-w-0 gap-2 sm:grid-cols-2">
+                    <FieldRow label="Proposed card name" value={selectedGroup.proposed.cardName} tone="gold" />
+                    <FieldRow label="Player / Character" value={selectedGroup.proposed.playerCharacter} />
+                    <FieldRow label="Team" value={selectedGroup.proposed.team} />
+                    <FieldRow label="Sport / Category" value={selectedGroup.proposed.category} />
+                    <FieldRow label="Year" value={selectedGroup.proposed.year} />
+                    <FieldRow label="Brand" value={selectedGroup.proposed.brand} />
+                    <FieldRow label="Set" value={selectedGroup.proposed.set} />
+                    <FieldRow label="Card Number" value={selectedGroup.proposed.cardNumber} />
+                    <FieldRow label="Parallel" value={selectedGroup.proposed.parallel} />
+                    <FieldRow label="Serial Number" value={selectedGroup.proposed.serialNumber} />
+                    <FieldRow label="Rookie Flag" value={flagLabel(selectedGroup.proposed.rookieFlag)} tone={selectedGroup.proposed.rookieFlag ? "teal" : undefined} />
+                    <FieldRow label="Auto Flag" value={flagLabel(selectedGroup.proposed.autoFlag)} />
+                    <FieldRow label="Relic Flag" value={flagLabel(selectedGroup.proposed.relicFlag)} />
+                    <FieldRow label="Variation Flag" value={flagLabel(selectedGroup.proposed.variationFlag)} tone={selectedGroup.proposed.variationFlag ? "gold" : undefined} />
+                  </div>
+                  <div className="mt-3 space-y-2">
+                    <div className="rounded-md border border-acv-border bg-acv-panel2 p-3 text-xs leading-5 text-acv-text">
+                      <span className="font-semibold text-acv-muted">Condition notes: </span>
+                      {selectedGroup.proposed.conditionNotes}
+                    </div>
+                    <div className="rounded-md border border-acv-border bg-acv-panel2 p-3 text-xs leading-5 text-acv-text">
+                      <span className="font-semibold text-acv-muted">Uncertainty notes: </span>
+                      {selectedGroup.proposed.uncertaintyNotes}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="rounded-lg border border-dashed border-acv-border bg-acv-panel2 p-5 text-center text-xs text-acv-muted">
+                  Upload images to generate a proposed local inventory record.
                 </div>
-                <div className="rounded-md border border-acv-border bg-acv-panel2 p-3 text-xs leading-5 text-acv-text">
-                  <span className="font-semibold text-acv-muted">Uncertainty notes: </span>
-                  {selectedGroup.proposed.uncertaintyNotes}
-                </div>
-              </div>
+              )}
             </SectionCard>
 
             <SectionCard title="Image Role Model" eyebrow="Future inventory + listing rules">
@@ -994,10 +1400,11 @@ export default function PhotoIntakePage() {
                 key: "warnings",
                 header: "Warnings",
                 className: "min-w-44",
-                cell: (group) =>
-                  group.warnings.length ? (
+                cell: (group) => {
+                  const warnings = warningsForGroup(group);
+                  return warnings.length ? (
                     <div className="flex flex-wrap gap-1.5">
-                      {group.warnings.slice(0, 2).map((warning) => (
+                      {warnings.slice(0, 2).map((warning) => (
                         <StatusPill key={warning} tone="pink">
                           {warning}
                         </StatusPill>
@@ -1005,7 +1412,8 @@ export default function PhotoIntakePage() {
                     </div>
                   ) : (
                     <span className="font-semibold text-acv-teal">None</span>
-                  )
+                  );
+                }
               },
               {
                 key: "actions",
@@ -1061,8 +1469,13 @@ export default function PhotoIntakePage() {
             <div className="mt-3 flex items-center gap-2 rounded-md border border-acv-green/35 bg-acv-green/10 px-3 py-2 text-xs font-semibold text-acv-green">
               <CheckCircle2 className="h-4 w-4" />
               {approvedIds.size} record{approvedIds.size === 1 ? "" : "s"} approved locally. SKU would be assigned during approval: {Array.from(approvedIds)
-                .map((id) => mockAssignedSkus[id] || "ACV-NFL-000421")
+                .map((id) => assignedSkus[id] || "SKU pending")
                 .join(", ")}. Mock only, not permanent yet.
+            </div>
+          )}
+          {approvedInventory.length > 0 && (
+            <div className="mt-3 rounded-md border border-acv-border bg-acv-panel2 px-3 py-2 text-xs text-acv-muted">
+              <span className="font-semibold text-acv-teal">Local approved inventory:</span> {approvedInventory.length} item{approvedInventory.length === 1 ? "" : "s"} staged in browser memory for future Inventory/Supabase handoff.
             </div>
           )}
         </SectionCard>
@@ -1094,18 +1507,25 @@ export default function PhotoIntakePage() {
           group={drawerGroup}
           skuStatus={skuStatusForGroup(drawerGroup)}
           assignedSku={assignedSkuForGroup(drawerGroup)}
-          onClose={() => setDrawerGroup(null)}
+          onClose={() => setDrawerGroupId(null)}
+          onSave={saveGroup}
+          onSwapFrontBack={swapFrontBack}
+          onRoleChange={updateImageRole}
+          onSetImageRole={setImageRoleExclusive}
+          onMoveImage={moveImage}
+          onUpdateProposed={updateProposed}
+          onUpdateConfidence={updateConfidence}
           onApprove={(id) => {
             approveGroup(id);
-            setDrawerGroup(null);
+            setDrawerGroupId(null);
           }}
           onResearch={(id) => {
             sendToResearch(id);
-            setDrawerGroup(null);
+            setDrawerGroupId(null);
           }}
           onReject={(id) => {
             rejectGroup(id);
-            setDrawerGroup(null);
+            setDrawerGroupId(null);
           }}
         />
       )}
