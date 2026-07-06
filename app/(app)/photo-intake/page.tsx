@@ -22,10 +22,10 @@ import { DataTable } from "@/components/data-table";
 import { PageHeader } from "@/components/page-header";
 import { SectionCard } from "@/components/section-card";
 import { StatusPill } from "@/components/status-pill";
-import { useAcvLocalState } from "@/lib/acv-local-state";
+import { useAcvLocalState, type BatchHistoryEntry } from "@/lib/acv-local-state";
 import { cn } from "@/lib/utils";
 
-type SourceKey = "Computer Upload" | "eBay Active Listings" | "eBay Drafts" | "Future Sources";
+type SourceKey = "Computer Upload" | "eBay Active Listings" | "eBay Drafts" | "Google Drive" | "Dropbox" | "Mobile Camera Upload" | "Scanner" | "Shared Team Uploads" | "Future Sources";
 type ImageCountMode = "2 images/card" | "3 images/card" | "Custom" | "Auto-detect";
 type ImageRole = "Front" | "Back" | "Detail / Closeup" | "Serial Closeup" | "Holo / Surface" | "Auto Closeup" | "Patch / Relic Closeup" | "Other";
 type RouteStatus = "Ready to Approve" | "Review" | "Needs Research" | "Blocked";
@@ -37,6 +37,7 @@ type UploadedImage = {
   id: string;
   fileName: string;
   url: string;
+  dataUrl?: string;
   type: string;
   order: number;
   needsReupload?: boolean;
@@ -48,6 +49,8 @@ type IntakeImage = {
   label: string;
   fileName: string;
   url: string;
+  dataUrl?: string;
+  uploadId?: string;
   order: number;
   needsReupload?: boolean;
 };
@@ -82,22 +85,15 @@ type IntakeGroup = {
   proposed: ProposedRecord;
 };
 
-type ApprovedInventoryItem = {
-  sku: string;
-  batch: string;
-  group: string;
-  source: SourceKey;
-  primaryImageUrl: string;
-  images: IntakeImage[];
-  proposed: ProposedRecord;
-  approvedAt: string;
-  needsImageReupload?: boolean;
-};
-
 const sourceOptions: Array<{ key: SourceKey; status: string; tone: StatusTone }> = [
   { key: "Computer Upload", status: "Available / mock", tone: "teal" },
   { key: "eBay Active Listings", status: "Planned / mock", tone: "purple" },
   { key: "eBay Drafts", status: "Planned / mock", tone: "purple" },
+  { key: "Google Drive", status: "Future source", tone: "purple" },
+  { key: "Dropbox", status: "Future source", tone: "purple" },
+  { key: "Mobile Camera Upload", status: "Future source", tone: "gold" },
+  { key: "Scanner", status: "Future source", tone: "gold" },
+  { key: "Shared Team Uploads", status: "Future source", tone: "gold" },
   { key: "Future Sources", status: "Planned / mock", tone: "gold" }
 ];
 
@@ -249,8 +245,11 @@ function buildGroupsFromUploads({
       role: defaultRoleForImage(imageIndex, chunk.length, mode),
       label: image.fileName,
       fileName: image.fileName,
-      url: image.url,
-      order: image.order
+      url: image.url || image.dataUrl || "",
+      dataUrl: image.dataUrl,
+      uploadId: image.id,
+      order: image.order,
+      needsReupload: image.needsReupload
     }));
 
     const draftGroup: IntakeGroup = {
@@ -309,6 +308,17 @@ function imagesPerCard(mode: ImageCountMode, customCount: number) {
   return 2;
 }
 
+function formatBatchDate(value: string, format: "short" | "long" = "short") {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Unknown";
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: format === "long" ? "long" : "short",
+    day: "numeric",
+    year: "numeric"
+  }).format(date);
+}
+
 function ImagePlaceholder({
   image,
   emptyLabel,
@@ -325,11 +335,11 @@ function ImagePlaceholder({
       className={cn(
         "relative flex min-w-0 flex-col justify-between overflow-hidden rounded-md border border-acv-border bg-gradient-to-br from-acv-purple/30 via-acv-panel2 to-acv-gold/15",
         compact ? "h-12 w-10 p-1" : large ? "aspect-[3/4] p-3" : "h-24 p-2",
-        image?.url && "bg-acv-panel2"
+        (image?.url || image?.dataUrl) && "bg-acv-panel2"
       )}
     >
-      {image?.url ? (
-        <img src={image.url} alt={image.label} className="absolute inset-0 h-full w-full object-cover" />
+      {image?.url || image?.dataUrl ? (
+        <img src={image.url || image.dataUrl} alt={image.label} className="absolute inset-0 h-full w-full object-cover" />
       ) : (
         <div className="absolute inset-0 flex items-center justify-center">
           <Camera className={cn("text-acv-muted/70", compact ? "h-3.5 w-3.5" : large ? "h-10 w-10" : "h-6 w-6")} />
@@ -770,13 +780,135 @@ function ReviewDrawer({
   );
 }
 
+function toneForBatchStatus(status: string): StatusTone {
+  if (status === "Complete" || status === "Completed") return "green";
+  if (status === "Reviewing" || status === "In Review") return "teal";
+  if (status === "Needs Research") return "gold";
+  if (status === "Rejected") return "pink";
+  return "neutral";
+}
+
+function BatchMetadataStrip({
+  batchName,
+  batchId,
+  source,
+  createdAt,
+  totalCards,
+  status
+}: {
+  batchName: string;
+  batchId: string;
+  source: SourceKey;
+  createdAt: string;
+  totalCards: number;
+  status: string;
+}) {
+  return (
+    <section className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(128px,1fr))] gap-2 rounded-lg border border-acv-border bg-acv-panel px-3 py-3">
+      <FieldRow label="Batch" value={batchName || "Untitled Batch"} tone="gold" />
+      <FieldRow label="Batch ID" value={batchId} tone="purple" />
+      <FieldRow label="Source" value={source} tone="teal" />
+      <FieldRow label="Created" value={formatBatchDate(createdAt, "long")} />
+      <FieldRow label="Cards" value={totalCards} tone="teal" />
+      <FieldRow label="Status" value={status} tone={toneForBatchStatus(status)} />
+    </section>
+  );
+}
+
+function BatchHistoryModal({
+  currentBatch,
+  batches,
+  onClose,
+  onRestore
+}: {
+  currentBatch: BatchHistoryEntry;
+  batches: BatchHistoryEntry[];
+  onClose: () => void;
+  onRestore: (batch: BatchHistoryEntry) => void;
+}) {
+  const historyRows = [currentBatch, ...batches.filter((batch) => batch.batchId !== currentBatch.batchId)];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+      <button type="button" aria-label="Close batch history" className="absolute inset-0 cursor-default" onClick={onClose} />
+      <section className="relative z-10 flex max-h-[82vh] w-full max-w-5xl flex-col overflow-hidden rounded-lg border border-acv-border bg-acv-black shadow-glow">
+        <div className="flex items-center justify-between gap-3 border-b border-acv-border px-5 py-4">
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-acv-gold">Batch Library</p>
+            <h2 className="truncate text-lg font-semibold text-acv-text">Batch History</h2>
+            <p className="mt-1 text-xs text-acv-muted">Restore a local intake session exactly where it left off. Mock browser state only.</p>
+          </div>
+          <button
+            type="button"
+            title="Close"
+            onClick={onClose}
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-acv-border text-acv-muted transition hover:text-acv-teal"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="acv-scrollbar min-h-0 flex-1 overflow-y-auto p-4">
+          <div className="min-w-0 overflow-x-auto">
+            <table className="w-full min-w-[760px] border-separate border-spacing-0 text-left text-xs">
+              <thead className="sticky top-0 z-10 bg-acv-panel2">
+                <tr className="text-[10px] uppercase tracking-[0.12em] text-acv-muted">
+                  <th className="border-b border-acv-border px-3 py-2">Batch</th>
+                  <th className="border-b border-acv-border px-3 py-2">Created</th>
+                  <th className="border-b border-acv-border px-3 py-2">Source</th>
+                  <th className="border-b border-acv-border px-3 py-2">Cards</th>
+                  <th className="border-b border-acv-border px-3 py-2">Status</th>
+                  <th className="border-b border-acv-border px-3 py-2">Approved</th>
+                  <th className="border-b border-acv-border px-3 py-2">Rejected</th>
+                  <th className="border-b border-acv-border px-3 py-2">Remaining</th>
+                  <th className="border-b border-acv-border px-3 py-2">Last Opened</th>
+                  <th className="border-b border-acv-border px-3 py-2 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {historyRows.map((batch) => (
+                  <tr key={batch.batchId} className="border-b border-acv-border transition hover:bg-white/[0.03]">
+                    <td className="border-b border-acv-border px-3 py-3">
+                      <div className="min-w-0">
+                        <p className="font-semibold text-acv-text">{batch.batchName || "Untitled Batch"}</p>
+                        <p className="mt-0.5 text-[11px] font-semibold text-acv-gold">{batch.batchId}</p>
+                      </div>
+                    </td>
+                    <td className="border-b border-acv-border px-3 py-3 text-acv-muted">{formatBatchDate(batch.createdDate)}</td>
+                    <td className="border-b border-acv-border px-3 py-3 text-acv-muted">{batch.source}</td>
+                    <td className="border-b border-acv-border px-3 py-3 font-semibold text-acv-text">{batch.cardCount}</td>
+                    <td className="border-b border-acv-border px-3 py-3">
+                      <StatusPill tone={toneForBatchStatus(batch.status)}>{batch.status}</StatusPill>
+                    </td>
+                    <td className="border-b border-acv-border px-3 py-3 font-semibold text-acv-green">{batch.approved}</td>
+                    <td className="border-b border-acv-border px-3 py-3 font-semibold text-acv-pink">{batch.rejected}</td>
+                    <td className="border-b border-acv-border px-3 py-3 font-semibold text-acv-gold">{batch.remaining}</td>
+                    <td className="border-b border-acv-border px-3 py-3 text-acv-muted">{batch.lastOpened}</td>
+                    <td className="border-b border-acv-border px-3 py-3 text-right">
+                      <MiniButton tone={batch.batchId === currentBatch.batchId ? "teal" : "neutral"} onClick={() => onRestore(batch)}>
+                        {batch.batchId === currentBatch.batchId ? "Current" : "Restore"}
+                      </MiniButton>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 export default function PhotoIntakePage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [activeSource, setActiveSource] = useState<SourceKey>("Computer Upload");
+  const [showBatchHistory, setShowBatchHistory] = useState(false);
   const {
     batchNumber,
     batchName,
     setBatchName,
+    batchCreatedAt,
     imageCountMode,
     setImageCountMode,
     customImageCount,
@@ -804,25 +936,69 @@ export default function PhotoIntakePage() {
     setAssignedSkus,
     approvedInventory,
     setApprovedInventory,
+    batchHistory,
+    setBatchHistory,
     statusMessage,
     setStatusMessage,
     skuCounterRef,
     addUploadedFiles,
-    clearIntakeState
+    clearIntakeState,
+    restoreBatch
   } = useAcvLocalState();
   const batchId = `B-${String(batchNumber).padStart(3, "0")}`;
 
   const visibleGroups = useMemo(() => (activeSource === "Computer Upload" ? groups : []), [activeSource, groups]);
-  const selectedGroup = visibleGroups.find((group) => group.id === selectedGroupId) || visibleGroups[0];
+  const processedIds = useMemo(() => new Set([...Array.from(approvedIds), ...Array.from(rejectedIds)]), [approvedIds, rejectedIds]);
+  const activeReviewGroups = useMemo(() => visibleGroups.filter((group) => !processedIds.has(group.id)), [processedIds, visibleGroups]);
+  const selectedGroup = activeReviewGroups.find((group) => group.id === selectedGroupId) || activeReviewGroups[0] || null;
   const drawerGroup = drawerGroupId ? groups.find((group) => group.id === drawerGroupId) || null : null;
   const totalPhotos = uploadedImages.length;
   const perCard = imagesPerCard(imageCountMode, customImageCount);
   const estimatedCards = totalPhotos === 0 ? 0 : Math.ceil(totalPhotos / perCard);
   const pairedGroups = groups.filter((group) => statusForGroup(group) !== "Blocked").length;
   const reviewFlags = groups.reduce((total, group) => total + warningsForGroup(group).length, 0);
-  const readyToApprove = groups.filter((group) => statusForGroup(group) === "Ready to Approve" && !approvedIds.has(group.id)).length;
+  const readyToApprove = activeReviewGroups.filter((group) => statusForGroup(group) === "Ready to Approve").length;
+  const batchStatus = visibleGroups.length === 0 ? "Empty" : activeReviewGroups.length === 0 ? "Complete" : "Reviewing";
+  const currentBatchEntry = useMemo<BatchHistoryEntry>(
+    () => ({
+      batchId,
+      batchName: batchName || "Untitled Batch",
+      createdDate: batchCreatedAt,
+      source: activeSource,
+      cardCount: visibleGroups.length,
+      status: batchStatus,
+      approved: approvedIds.size,
+      rejected: rejectedIds.size,
+      remaining: activeReviewGroups.length,
+      lastOpened: new Date().toLocaleString(),
+      uploadedImages,
+      groups,
+      selectedGroupId: selectedGroup?.id || selectedGroupId,
+      approvedIds: Array.from(approvedIds),
+      researchIds: Array.from(researchIds),
+      rejectedIds: Array.from(rejectedIds),
+      assignedSkus
+    }),
+    [
+      activeReviewGroups.length,
+      activeSource,
+      approvedIds,
+      assignedSkus,
+      batchCreatedAt,
+      batchId,
+      batchName,
+      batchStatus,
+      groups,
+      rejectedIds,
+      researchIds,
+      selectedGroup?.id,
+      selectedGroupId,
+      uploadedImages,
+      visibleGroups.length
+    ]
+  );
 
-  const allQueueSelected = visibleGroups.length > 0 && visibleGroups.every((group) => selectedQueueIds.has(group.id));
+  const allQueueSelected = activeReviewGroups.length > 0 && activeReviewGroups.every((group) => selectedQueueIds.has(group.id));
 
   function queueStatus(group: IntakeGroup): QueueStatus {
     if (approvedIds.has(group.id)) return "Approved Local";
@@ -893,7 +1069,7 @@ export default function PhotoIntakePage() {
   function setAllQueueSelection(checked: boolean) {
     setSelectedQueueIds((current) => {
       const next = new Set(current);
-      visibleGroups.forEach((group) => {
+      activeReviewGroups.forEach((group) => {
         if (checked) next.add(group.id);
         else next.delete(group.id);
       });
@@ -901,24 +1077,40 @@ export default function PhotoIntakePage() {
     });
   }
 
-  function approveGroup(id: string) {
+  function nextActiveGroupId(currentId: string) {
+    return activeReviewGroups.find((group) => group.id !== currentId)?.id || "";
+  }
+
+  function advanceAfterProcessed(id: string, keepDrawerOpen = false) {
+    const nextId = nextActiveGroupId(id);
+    setSelectedGroupId(nextId);
+    setSelectedQueueIds((current) => {
+      const next = new Set(current);
+      next.delete(id);
+      return next;
+    });
+    setDrawerGroupId(keepDrawerOpen && nextId ? nextId : null);
+    return nextId;
+  }
+
+  function approveGroup(id: string, keepDrawerOpen = false) {
     const group = groups.find((item) => item.id === id);
-    if (!group) return;
+    if (!group) return null;
 
     if (approvedIds.has(id)) {
       setStatusMessage(`${group.id} already has SKU ${assignedSkuForGroup(group)}. Repeated approval is disabled.`);
-      return;
+      return null;
     }
 
     if (rejectedIds.has(id)) {
       setStatusMessage(`${group.id} is rejected. Undo reject before approving.`);
-      return;
+      return null;
     }
 
     if (!group.images.some((image) => image.role === "Front")) {
       setResearchIds((current) => new Set(current).add(id));
       setStatusMessage(`${group.id} needs review before approval: missing Front image.`);
-      return;
+      return null;
     }
 
     const nextSku = assignedSkus[id] || buildMockSku(group, skuCounterRef.current);
@@ -945,15 +1137,17 @@ export default function PhotoIntakePage() {
           batch: group.batch,
           group: group.id,
           source: group.source,
-          primaryImageUrl: primaryImage?.url || "",
-          needsImageReupload: Boolean(primaryImage?.needsReupload || !primaryImage?.url),
+          primaryImageUrl: primaryImage?.dataUrl || primaryImage?.url || "",
+          needsImageReupload: Boolean(primaryImage?.needsReupload || !(primaryImage?.dataUrl || primaryImage?.url)),
           images: group.images,
           proposed: group.proposed,
           approvedAt: new Date().toLocaleString()
         }
       ];
     });
-    setStatusMessage(`${group.id} approved locally. Mock SKU assigned: ${nextSku}.`);
+    const nextId = advanceAfterProcessed(id, keepDrawerOpen);
+    setStatusMessage(`${group.id} approved locally. Mock SKU assigned: ${nextSku}.${nextId ? ` Next group: ${nextId}.` : " Batch review complete."}`);
+    return nextId;
   }
 
   function sendToResearch(id: string) {
@@ -971,7 +1165,7 @@ export default function PhotoIntakePage() {
     setStatusMessage(`${id} sent to research in local state.`);
   }
 
-  function rejectGroup(id: string) {
+  function rejectGroup(id: string, keepDrawerOpen = false) {
     setRejectedIds((current) => new Set(current).add(id));
     setApprovedIds((current) => {
       const next = new Set(current);
@@ -983,7 +1177,9 @@ export default function PhotoIntakePage() {
       next.delete(id);
       return next;
     });
-    setStatusMessage(`${id} rejected locally.`);
+    const nextId = advanceAfterProcessed(id, keepDrawerOpen);
+    setStatusMessage(`${id} rejected locally.${nextId ? ` Next group: ${nextId}.` : " Batch review complete."}`);
+    return nextId;
   }
 
   function undoRejectGroup(id: string) {
@@ -1062,7 +1258,28 @@ export default function PhotoIntakePage() {
   }
 
   function saveGroup(id: string) {
-    setStatusMessage(`${id} saved in local browser state. Mock only; refresh clears it.`);
+    setStatusMessage(`${id} saved in local browser state. Mock only; ACV will try to restore it after refresh.`);
+  }
+
+  function saveCurrentBatchToHistory() {
+    setBatchHistory((current) => [{ ...currentBatchEntry, lastOpened: new Date().toLocaleString() }, ...current.filter((batch) => batch.batchId !== currentBatchEntry.batchId)].slice(0, 30));
+  }
+
+  function openBatchHistory() {
+    saveCurrentBatchToHistory();
+    setShowBatchHistory(true);
+  }
+
+  function restoreHistoryBatch(batch: BatchHistoryEntry) {
+    restoreBatch(batch);
+    setActiveSource(batch.source as SourceKey);
+    setShowBatchHistory(false);
+  }
+
+  function startNewIntake() {
+    if (!window.confirm("Archive this local batch snapshot and start a new intake batch?")) return;
+    saveCurrentBatchToHistory();
+    clearIntakeState();
   }
 
   return (
@@ -1072,8 +1289,8 @@ export default function PhotoIntakePage() {
         description="Images to batch grouping, pairing review, AI extraction review, and staged approval into inventory."
         action={
           <>
-            <MiniButton icon={<FolderOpen className="h-4 w-4" />} onClick={() => fileInputRef.current?.click()}>
-              Open batch
+            <MiniButton icon={<FolderOpen className="h-4 w-4" />} onClick={openBatchHistory}>
+              Batch Library
             </MiniButton>
             <MiniButton tone="pink" icon={<XCircle className="h-4 w-4" />} onClick={clearBatch}>
               Clear Batch
@@ -1213,8 +1430,8 @@ export default function PhotoIntakePage() {
                   <MiniButton tone="teal" icon={<Camera className="h-4 w-4" />} onClick={() => fileInputRef.current?.click()}>
                     Upload Photos
                   </MiniButton>
-                  <MiniButton icon={<FolderOpen className="h-4 w-4" />} onClick={() => fileInputRef.current?.click()}>
-                    Open batch
+                  <MiniButton icon={<FolderOpen className="h-4 w-4" />} onClick={openBatchHistory}>
+                    Batch Library
                   </MiniButton>
                   <MiniButton tone="pink" icon={<XCircle className="h-4 w-4" />} onClick={clearBatch}>
                     Clear Batch
@@ -1248,7 +1465,13 @@ export default function PhotoIntakePage() {
                   {uploadedImages.map((image, index) => (
                     <div key={image.id} className="w-20 shrink-0">
                       <div className="h-20 overflow-hidden rounded-md border border-acv-border bg-acv-black">
-                        <img src={image.url} alt={image.fileName} className="h-full w-full object-cover" />
+                        {image.url || image.dataUrl ? (
+                          <img src={image.url || image.dataUrl} alt={image.fileName} className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full items-center justify-center px-2 text-center text-[10px] font-semibold text-acv-muted">
+                            Re-upload
+                          </div>
+                        )}
                       </div>
                       <p className="mt-1 truncate text-[10px] font-semibold text-acv-muted">{index + 1}. {image.fileName}</p>
                     </div>
@@ -1267,73 +1490,119 @@ export default function PhotoIntakePage() {
           <CompactMetric label="Ready to approve" value={String(readyToApprove)} tone="teal" />
         </div>
 
+        <BatchMetadataStrip batchName={batchName} batchId={batchId} source={activeSource} createdAt={batchCreatedAt} totalCards={visibleGroups.length} status={batchStatus} />
+
         <div className="grid min-w-0 gap-3 2xl:grid-cols-[1.15fr_0.85fr]">
-          <SectionCard title="Grouping / Pairing Review" eyebrow={batchName}>
+          <SectionCard title="Grouping / Pairing Review" eyebrow="Horizontal batch filmstrip">
             {visibleGroups.length === 0 ? (
               <div className="rounded-lg border border-dashed border-acv-border bg-acv-panel2 p-6 text-center">
                 <UploadCloud className="mx-auto h-8 w-8 text-acv-muted" />
                 <p className="mt-3 text-sm font-semibold text-acv-text">No local upload groups yet</p>
                 <p className="mt-1 text-xs text-acv-muted">Upload photos or drag them into the upload zone to generate groups from upload order.</p>
               </div>
+            ) : activeReviewGroups.length === 0 ? (
+              <div className="rounded-lg border border-acv-green/35 bg-acv-green/10 p-5">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-md border border-acv-green/35 bg-acv-green/10">
+                      <CheckCircle2 className="h-5 w-5 text-acv-green" />
+                    </div>
+                    <p className="text-base font-semibold text-acv-text">Batch Complete</p>
+                    <p className="mt-1 text-xs text-acv-muted">Review complete. Every active group has been approved or rejected.</p>
+                  </div>
+                  <div className="grid min-w-[220px] grid-cols-3 gap-2">
+                    <CompactMetric label="Approved" value={String(approvedIds.size)} tone="green" />
+                    <CompactMetric label="Rejected" value={String(rejectedIds.size)} tone="pink" />
+                    <CompactMetric label="Remaining" value="0" tone="teal" />
+                  </div>
+                </div>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <MiniButton icon={<FolderOpen className="h-4 w-4" />} onClick={openBatchHistory}>
+                    Open another batch
+                  </MiniButton>
+                  <MiniButton tone="teal" icon={<UploadCloud className="h-4 w-4" />} onClick={startNewIntake}>
+                    Start new intake
+                  </MiniButton>
+                  <MiniButton icon={<FolderOpen className="h-4 w-4" />} onClick={openBatchHistory}>
+                    View Batch History
+                  </MiniButton>
+                </div>
+              </div>
             ) : (
-            <div className="grid min-w-0 gap-3 lg:grid-cols-2">
-              {visibleGroups.map((group) => {
-                const routeStatus = statusForGroup(group);
-                const isSelected = selectedGroup?.id === group.id;
-                const warnings = warningsForGroup(group);
-                return (
-                  <article
-                    key={group.id}
-                    className={cn(
-                      "min-w-0 rounded-lg border bg-acv-panel2 p-3 transition",
-                      isSelected ? "border-acv-teal/55 shadow-[0_0_0_1px_rgba(38,212,199,0.18)]" : "border-acv-border hover:border-acv-purple/55"
-                    )}
-                  >
-                    <button type="button" onClick={() => setSelectedGroupId(group.id)} className="block w-full min-w-0 text-left">
-                      <div className="mb-3 flex min-w-0 flex-wrap items-center justify-between gap-2">
-                        <div className="min-w-0">
-                          <div className="mb-1 flex flex-wrap gap-1.5">
+              <div className="min-w-0">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap gap-1.5">
+                    <StatusPill tone="teal">{activeReviewGroups.length} active</StatusPill>
+                    <StatusPill tone="green">{approvedIds.size} approved</StatusPill>
+                    <StatusPill tone="pink">{rejectedIds.size} rejected</StatusPill>
+                  </div>
+                  <p className="text-xs font-semibold text-acv-muted">Click a tile to open the AI Review drawer.</p>
+                </div>
+                <div className="acv-scrollbar contained-x-scroll flex min-w-0 gap-3 pb-2">
+                  {activeReviewGroups.map((group) => {
+                    const routeStatus = statusForGroup(group);
+                    const isSelected = selectedGroup?.id === group.id;
+                    const warnings = warningsForGroup(group);
+                    const frontImage = group.images.find((image) => image.role === "Front");
+                    const backImage = group.images.find((image) => image.role === "Back");
+                    return (
+                      <article
+                        key={group.id}
+                        className={cn(
+                          "w-72 shrink-0 rounded-lg border bg-acv-panel2 p-3 transition",
+                          isSelected ? "border-acv-teal/55 shadow-[0_0_0_1px_rgba(38,212,199,0.18)]" : "border-acv-border hover:border-acv-purple/55"
+                        )}
+                      >
+                        <button type="button" onClick={() => openGroup(group)} className="block w-full min-w-0 text-left">
+                          <div className="mb-2 flex flex-wrap gap-1.5">
                             <StatusPill tone="purple">Batch: {group.batch}</StatusPill>
                             <StatusPill tone="gold">Group: {group.id}</StatusPill>
                           </div>
-                          <p className="truncate text-xs font-semibold text-acv-text">{group.pairingStatus}</p>
+                          <div className="mb-3 flex min-w-0 items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="truncate text-xs font-semibold text-acv-text">{group.pairingStatus}</p>
+                              <p className="mt-0.5 truncate text-[11px] text-acv-muted">{group.proposed.cardName}</p>
+                            </div>
+                            <div className="flex shrink-0 flex-col items-end gap-1">
+                              <StatusPill tone={toneForStatus(routeStatus)}>{routeStatus}</StatusPill>
+                              <StatusPill tone={confidenceTone(group.confidence)}>{group.confidence}%</StatusPill>
+                            </div>
+                          </div>
+                          <div className="grid min-w-0 grid-cols-2 gap-2">
+                            <ImagePlaceholder image={frontImage} emptyLabel="Front" />
+                            <ImagePlaceholder image={backImage} emptyLabel="Back" />
+                          </div>
+                          {warnings.length > 0 && (
+                            <div className="mt-2 flex min-h-6 flex-wrap gap-1.5">
+                              {warnings.slice(0, 2).map((warning) => (
+                                <StatusPill key={warning} tone="pink">
+                                  {warning}
+                                </StatusPill>
+                              ))}
+                            </div>
+                          )}
+                        </button>
+                        <div className="mt-3 grid grid-cols-2 gap-2">
+                          <MiniButton icon={<ArrowLeftRight className="h-3.5 w-3.5" />} onClick={() => swapFrontBack(group.id)}>
+                            Swap
+                          </MiniButton>
+                          <MiniButton tone="teal" icon={<FileSearch className="h-3.5 w-3.5" />} onClick={() => openGroup(group)}>
+                            Review
+                          </MiniButton>
+                          <MiniButton onClick={() => group.images[0] && setImageRoleExclusive(group.id, group.images[0].id, "Front")}>Set front</MiniButton>
+                          <MiniButton onClick={() => group.images[group.images.length - 1] && setImageRoleExclusive(group.id, group.images[group.images.length - 1].id, "Back")}>Set back</MiniButton>
                         </div>
-                        <div className="flex shrink-0 flex-wrap gap-1.5">
-                          <StatusPill tone={toneForStatus(routeStatus)}>{routeStatus}</StatusPill>
-                          <StatusPill tone={confidenceTone(group.confidence)}>{group.confidence}%</StatusPill>
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          <MiniButton icon={<ImagePlus className="h-3.5 w-3.5" />}>Add closeup</MiniButton>
+                          <MiniButton icon={<Move className="h-3.5 w-3.5" />}>Move</MiniButton>
+                          <MiniButton icon={<Scissors className="h-3.5 w-3.5" />}>Split</MiniButton>
+                          <MiniButton icon={<Layers3 className="h-3.5 w-3.5" />}>Merge</MiniButton>
                         </div>
-                      </div>
-                      <div className="grid min-w-0 grid-cols-3 gap-2">
-                        <ImagePlaceholder image={group.images.find((image) => image.role === "Front")} emptyLabel="Front" />
-                        <ImagePlaceholder image={group.images.find((image) => image.role === "Back")} emptyLabel="Back" />
-                        <ImagePlaceholder image={group.images.find((image) => !["Front", "Back"].includes(image.role))} emptyLabel="Closeup" />
-                      </div>
-                    </button>
-                    {warnings.length > 0 && (
-                      <div className="mt-3 flex flex-wrap gap-1.5">
-                        {warnings.map((warning) => (
-                          <StatusPill key={warning} tone="pink">
-                            {warning}
-                          </StatusPill>
-                        ))}
-                      </div>
-                    )}
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <MiniButton icon={<ArrowLeftRight className="h-3.5 w-3.5" />} onClick={() => swapFrontBack(group.id)}>Swap front/back</MiniButton>
-                      <MiniButton onClick={() => group.images[0] && setImageRoleExclusive(group.id, group.images[0].id, "Front")}>Set first front</MiniButton>
-                      <MiniButton onClick={() => group.images[group.images.length - 1] && setImageRoleExclusive(group.id, group.images[group.images.length - 1].id, "Back")}>Set last back</MiniButton>
-                      <MiniButton icon={<ImagePlus className="h-3.5 w-3.5" />}>Add closeup</MiniButton>
-                      <MiniButton icon={<Move className="h-3.5 w-3.5" />}>Move image</MiniButton>
-                      <MiniButton icon={<Scissors className="h-3.5 w-3.5" />}>Split group</MiniButton>
-                      <MiniButton icon={<Layers3 className="h-3.5 w-3.5" />}>Merge group</MiniButton>
-                      <MiniButton tone="teal" icon={<FileSearch className="h-3.5 w-3.5" />} onClick={() => openGroup(group)}>
-                        Review group
-                      </MiniButton>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              </div>
             )}
           </SectionCard>
 
@@ -1402,7 +1671,7 @@ export default function PhotoIntakePage() {
             selectedQueueIds.size > 0 ? (
               <div className="flex flex-wrap items-center gap-2">
                 <StatusPill tone="teal">{selectedQueueIds.size} selected</StatusPill>
-                <MiniButton tone="teal" onClick={() => selectedQueueIds.forEach(approveGroup)}>
+                <MiniButton tone="teal" onClick={() => selectedQueueIds.forEach((id) => approveGroup(id))}>
                   Approve selected
                 </MiniButton>
                 <MiniButton onClick={() => setSelectedQueueIds(new Set())}>Clear</MiniButton>
@@ -1411,7 +1680,7 @@ export default function PhotoIntakePage() {
           }
         >
           <DataTable<IntakeGroup>
-            rows={visibleGroups}
+            rows={activeReviewGroups}
             getRowKey={(group) => group.id}
             onRowClick={openGroup}
             columns={[
@@ -1559,6 +1828,8 @@ export default function PhotoIntakePage() {
         </SectionCard>
       </div>
 
+      {showBatchHistory && <BatchHistoryModal currentBatch={currentBatchEntry} batches={batchHistory} onClose={() => setShowBatchHistory(false)} onRestore={restoreHistoryBatch} />}
+
       {drawerGroup && (
         <ReviewDrawer
           group={drawerGroup}
@@ -1575,16 +1846,14 @@ export default function PhotoIntakePage() {
           onUpdateProposed={updateProposed}
           onUpdateConfidence={updateConfidence}
           onApprove={(id) => {
-            approveGroup(id);
-            setDrawerGroupId(null);
+            approveGroup(id, true);
           }}
           onResearch={(id) => {
             sendToResearch(id);
             setDrawerGroupId(null);
           }}
           onReject={(id) => {
-            rejectGroup(id);
-            setDrawerGroupId(null);
+            rejectGroup(id, true);
           }}
           onUndoReject={(id) => {
             undoRejectGroup(id);

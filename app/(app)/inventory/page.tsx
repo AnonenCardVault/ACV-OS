@@ -730,8 +730,8 @@ function ItemDetailDrawer({
                 {row.localImages?.length
                   ? row.localImages.slice(0, 6).map((image) => (
                       <div key={image.id} className="overflow-hidden rounded-md border border-acv-border bg-acv-panel2">
-                        {image.url ? (
-                          <img src={image.url} alt={image.label} className="h-16 w-full object-cover" />
+                        {image.url || image.dataUrl ? (
+                          <img src={image.url || image.dataUrl} alt={image.label} className="h-16 w-full object-cover" />
                         ) : (
                           <div className="flex h-16 items-center justify-center px-2 text-center text-[10px] font-semibold text-acv-muted">
                             {image.needsReupload ? "Re-upload" : image.role}
