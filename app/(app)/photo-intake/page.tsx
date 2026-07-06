@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import {
+  AlertTriangle,
   ArrowLeftRight,
   BadgeCheck,
   Camera,
@@ -310,12 +311,14 @@ function MiniButton({
   children,
   icon,
   tone = "neutral",
-  onClick
+  onClick,
+  className
 }: {
   children: React.ReactNode;
   icon?: React.ReactNode;
   tone?: "neutral" | "teal" | "gold" | "pink";
   onClick?: (event: React.MouseEvent<HTMLButtonElement>) => void;
+  className?: string;
 }) {
   return (
     <button
@@ -329,7 +332,8 @@ function MiniButton({
             ? "border-acv-gold/35 bg-acv-gold/10 text-acv-gold hover:bg-acv-gold/15"
             : tone === "pink"
               ? "border-acv-pink/40 bg-acv-pink/10 text-acv-pink hover:bg-acv-pink/15"
-              : "border-acv-border bg-white/[0.03] text-acv-muted hover:border-acv-teal/45 hover:text-acv-teal"
+              : "border-acv-border bg-white/[0.03] text-acv-muted hover:border-acv-teal/45 hover:text-acv-teal",
+        className
       )}
     >
       {icon}
@@ -386,6 +390,74 @@ function SelectCheckbox({
   );
 }
 
+function DecisionSummaryItem({ state, children }: { state: "ready" | "warning" | "blocked"; children: React.ReactNode }) {
+  const Icon = state === "ready" ? CheckCircle2 : state === "warning" ? AlertTriangle : XCircle;
+  const toneClass = state === "ready" ? "text-acv-teal" : state === "warning" ? "text-acv-gold" : "text-acv-pink";
+
+  return (
+    <div className="flex min-w-0 items-center gap-2 rounded-md border border-acv-border bg-acv-panel2 px-3 py-2">
+      <Icon className={cn("h-4 w-4 shrink-0", toneClass)} />
+      <span className="truncate text-xs font-semibold text-acv-text">{children}</span>
+    </div>
+  );
+}
+
+function ApprovalDecisionCard({
+  group,
+  routeStatus,
+  onApprove,
+  onResearch,
+  onReject
+}: {
+  group: IntakeGroup;
+  routeStatus: RouteStatus;
+  onApprove: (id: string) => void;
+  onResearch: (id: string) => void;
+  onReject: (id: string) => void;
+}) {
+  const missingImage = group.warnings.find((warning) => warning.toLowerCase().includes("missing"));
+  const completeRecord = group.warnings.length === 0;
+  const readyForApproval = routeStatus === "Ready to Approve";
+
+  return (
+    <section className="mt-5 rounded-lg border border-acv-border bg-acv-panel/95 p-4 shadow-glow">
+      <div className="mb-4 min-w-0">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-acv-gold">Approval Decision</p>
+        <p className="mt-1 text-xs text-acv-muted">This is the final review before an item becomes inventory.</p>
+      </div>
+
+      <div className="mb-4 rounded-lg border border-acv-border bg-black/20 p-3">
+        <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-acv-muted">Decision Summary</p>
+        <div className="grid min-w-0 gap-2 sm:grid-cols-2 xl:grid-cols-5">
+          <DecisionSummaryItem state={missingImage ? "blocked" : "ready"}>{missingImage || "Images paired"}</DecisionSummaryItem>
+          <DecisionSummaryItem state={group.confidence >= 90 ? "ready" : "warning"}>AI confidence: {group.confidence}%</DecisionSummaryItem>
+          <DecisionSummaryItem state={completeRecord ? "ready" : "warning"}>{completeRecord ? "Required fields complete" : group.warnings[0]}</DecisionSummaryItem>
+          <DecisionSummaryItem state={readyForApproval ? "ready" : "warning"}>{readyForApproval ? "Ready for SKU assignment" : "SKU assignment needs review"}</DecisionSummaryItem>
+          <DecisionSummaryItem state={readyForApproval ? "ready" : "warning"}>{readyForApproval ? "Ready for Inventory" : "Inventory approval paused"}</DecisionSummaryItem>
+        </div>
+      </div>
+
+      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+        <MiniButton tone="teal" icon={<Save className="h-4 w-4" />} className="h-11 w-full text-xs">
+          Save Group
+        </MiniButton>
+        <MiniButton tone="gold" icon={<ArrowLeftRight className="h-4 w-4" />} className="h-11 w-full text-xs">
+          Swap Front/Back
+        </MiniButton>
+        <MiniButton tone="teal" icon={<BadgeCheck className="h-4 w-4" />} className="h-11 w-full text-xs" onClick={() => onApprove(group.id)}>
+          Approve to Inventory
+        </MiniButton>
+        <MiniButton icon={<FileSearch className="h-4 w-4" />} className="h-11 w-full text-xs" onClick={() => onResearch(group.id)}>
+          Send to Research
+        </MiniButton>
+        <MiniButton tone="pink" icon={<XCircle className="h-4 w-4" />} className="h-11 w-full text-xs" onClick={() => onReject(group.id)}>
+          Reject Group
+        </MiniButton>
+      </div>
+    </section>
+  );
+}
+
 function ReviewDrawer({
   group,
   skuStatus,
@@ -434,7 +506,7 @@ function ReviewDrawer({
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col">
-          <div className="acv-scrollbar min-h-0 flex-1 overflow-y-auto p-5 pb-4">
+          <div className="acv-scrollbar min-h-0 flex-1 overflow-y-auto p-5 pb-8">
             <div className="grid min-w-0 gap-5 xl:grid-cols-[0.85fr_1.15fr]">
               <section className="min-w-0 rounded-lg border border-acv-border bg-acv-panel p-4">
                 <div className="mb-3 flex items-center justify-between gap-3">
@@ -510,32 +582,8 @@ function ReviewDrawer({
                 )}
               </section>
             </div>
-          </div>
 
-          <div className="sticky bottom-0 z-20 border-t border-acv-border bg-acv-black px-5 pb-8 pt-3">
-            <div className="rounded-lg border border-acv-border bg-acv-panel/95 p-3 shadow-glow">
-              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-acv-gold">Review Actions</p>
-                <span className="text-[11px] text-acv-muted">Mock only - approval stages an ACV-format SKU example.</span>
-              </div>
-              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
-                <MiniButton tone="teal" icon={<Save className="h-3.5 w-3.5" />}>
-                  Save Group
-                </MiniButton>
-                <MiniButton tone="gold" icon={<ArrowLeftRight className="h-3.5 w-3.5" />}>
-                  Swap Front/Back
-                </MiniButton>
-                <MiniButton tone="teal" icon={<BadgeCheck className="h-3.5 w-3.5" />} onClick={() => onApprove(group.id)}>
-                  Approve Record
-                </MiniButton>
-                <MiniButton icon={<FileSearch className="h-3.5 w-3.5" />} onClick={() => onResearch(group.id)}>
-                  Send to Research
-                </MiniButton>
-                <MiniButton tone="pink" icon={<XCircle className="h-3.5 w-3.5" />} onClick={() => onReject(group.id)}>
-                  Reject Group
-                </MiniButton>
-              </div>
-            </div>
+            <ApprovalDecisionCard group={group} routeStatus={routeStatus} onApprove={onApprove} onResearch={onResearch} onReject={onReject} />
           </div>
         </div>
       </aside>
