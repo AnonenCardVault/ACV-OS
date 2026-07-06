@@ -43,8 +43,15 @@ export type ProposedRecord = {
   autoFlag: boolean;
   relicFlag: boolean;
   variationFlag: boolean;
+  grader: string;
+  grade: string;
   conditionNotes: string;
   uncertaintyNotes: string;
+  purchaseCost: number;
+  quantity: number;
+  acquisitionSource: string;
+  location: string;
+  internalNotes: string;
 };
 
 export type IntakeGroup = {

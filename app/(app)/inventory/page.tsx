@@ -20,7 +20,7 @@ import { ActionButton } from "@/components/action-button";
 import { DataTable } from "@/components/data-table";
 import { StatusPill } from "@/components/status-pill";
 import { inventoryItems } from "@/data/mock";
-import { useAcvLocalState, type ApprovedInventoryItem, type IntakeImage } from "@/lib/acv-local-state";
+import { useAcvLocalState, type ApprovedInventoryItem, type IntakeImage, type ProposedRecord } from "@/lib/acv-local-state";
 import { cn, formatCurrency, formatPercent } from "@/lib/utils";
 
 type InventoryItem = (typeof inventoryItems)[number];
@@ -58,6 +58,7 @@ type Row = InventoryItem & {
   localNeedsImageReupload?: boolean;
   localBatch?: string;
   localGroup?: string;
+  localProposed?: ProposedRecord;
 };
 
 type InventoryOps = {
@@ -416,30 +417,37 @@ function rowWithOps(item: InventoryItem): Row {
 }
 
 function approvedItemToRow(item: ApprovedInventoryItem): Row {
+  const purchaseCost = Number(item.proposed.purchaseCost) || 0;
+  const quantity = Math.max(1, Number(item.proposed.quantity) || 1);
+  const source = item.proposed.acquisitionSource || "Photo Intake";
+  const location = item.proposed.location || "Photo Intake";
+  const internalNotes = item.proposed.internalNotes?.trim();
   const inventoryItem: InventoryItem = {
     id: `local-${item.sku}`,
     sku: item.sku,
-    name: item.proposed.cardName,
-    category: item.proposed.category,
-    year: item.proposed.year,
+    name: item.proposed.cardName || "Untitled intake item",
+    category: item.proposed.category || "Other",
+    year: item.proposed.year || "-",
     brandSet: `${item.proposed.brand} ${item.proposed.set}`.trim() || "Pending",
     parallel: item.proposed.parallel || "-",
     cardNumber: item.proposed.cardNumber || "-",
     serialNumber: item.proposed.serialNumber || "-",
     status: "Needs Pricing",
-    location: "Photo Intake",
-    purchaseCost: 0,
+    location,
+    purchaseCost,
     askingPrice: 0,
     marketValue: 0,
-    quantity: 1,
-    source: "Photo Intake",
+    quantity,
+    source,
     ebayId: "-",
     daysListed: 0,
     aiConfidence: 0.72,
     lastUpdated: item.approvedAt,
-    notes: item.needsImageReupload
-      ? "Approved locally from Photo Intake. Images need to be re-uploaded after refresh."
-      : "Approved locally from Photo Intake. Mock item awaiting pricing."
+    notes:
+      internalNotes ||
+      (item.needsImageReupload
+        ? "Approved locally from Photo Intake. Images need to be re-uploaded after refresh."
+        : "Approved locally from Photo Intake. Mock item awaiting pricing.")
   };
   const baseRow = rowWithOps(inventoryItem);
 
@@ -450,16 +458,18 @@ function approvedItemToRow(item: ApprovedInventoryItem): Row {
     localNeedsImageReupload: item.needsImageReupload,
     localBatch: item.batch,
     localGroup: item.group,
+    localProposed: item.proposed,
     ops: {
       ...baseRow.ops,
       playerCharacter: item.proposed.playerCharacter,
       team: item.proposed.team,
+      autoRelicFlags: `${item.proposed.autoFlag ? "Auto" : "No auto"} / ${item.proposed.relicFlag ? "Relic" : "No relic"}`,
       conditionNotes: item.proposed.conditionNotes,
       listingStatus: "Internal",
       photoStatus: item.needsImageReupload ? "Needs Reupload" : "Reviewed",
       priceStatus: "Needs Comps",
       nextAction: "Send to pricing",
-      compSummary: "Approved locally from Photo Intake. Pricing comps have not been run.",
+      compSummary: "Approved locally from Photo Intake. Market placeholder remains $0 until pricing comps run.",
       skuHistory: [`Assigned ${item.sku} from Photo Intake local approval`, `Batch ${item.batch} / Group ${item.group}`],
       lifecycleTimeline: ["Uploaded in Photo Intake", "Approved locally", "Needs pricing"],
       auditHistory: [`Mock approval ${item.approvedAt}`, "No database write yet"]
@@ -770,6 +780,8 @@ function ItemDetailDrawer({
                   <DetailField label="Card Number" value={row.cardNumber} />
                   <DetailField label="Parallel" value={row.parallel} />
                   <DetailField label="Serial Number" value={row.serialNumber} />
+                  {row.localProposed && <DetailField label="Grader" value={row.localProposed.grader || "Raw"} />}
+                  {row.localProposed && <DetailField label="Grade" value={row.localProposed.grade || "Raw"} />}
                   <DetailField label="Auto / Relic" value={row.ops.autoRelicFlags} />
                   <DetailField label="Status" value={row.status} tone={statusTone(row.status) === "pink" ? "pink" : "teal"} />
                   <DetailField label="Location" value={row.location || "Missing"} tone={row.location ? undefined : "pink"} />

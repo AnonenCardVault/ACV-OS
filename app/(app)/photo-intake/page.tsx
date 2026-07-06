@@ -70,8 +70,15 @@ type ProposedRecord = {
   autoFlag: boolean;
   relicFlag: boolean;
   variationFlag: boolean;
+  grader: string;
+  grade: string;
   conditionNotes: string;
   uncertaintyNotes: string;
+  purchaseCost: number;
+  quantity: number;
+  acquisitionSource: string;
+  location: string;
+  internalNotes: string;
 };
 
 type IntakeGroup = {
@@ -109,6 +116,11 @@ const imageRoles: ImageRole[] = [
   "Patch / Relic Closeup",
   "Other"
 ];
+
+const categoryOptions = ["Football", "Baseball", "Basketball", "Pokemon", "TCG", "Soccer", "Hockey", "Other"];
+const graderOptions = ["Raw", "PSA", "SGC", "BGS", "CGC", "Other"];
+const gradeOptions = ["Raw", "10", "9.5", "9", "8.5", "8", "7", "6", "5", "Other"];
+const acquisitionSourceOptions = ["Computer Upload", "Card Show", "Break", "eBay Import", "Trade", "Personal Collection", "Other"];
 
 const skuCategoryCodes: Record<string, string> = {
   Football: "NFL",
@@ -155,8 +167,15 @@ function defaultProposedRecord(groupNumber: number): ProposedRecord {
       autoFlag: false,
       relicFlag: false,
       variationFlag: false,
+      grader: "Raw",
+      grade: "Raw",
       conditionNotes: "Local mock record generated from uploaded images. No OCR or AI has run yet.",
-      uncertaintyNotes: "Review card name, player, set, and numbering before approval."
+      uncertaintyNotes: "Review card name, player, set, and numbering before approval.",
+      purchaseCost: 0,
+      quantity: 1,
+      acquisitionSource: "Computer Upload",
+      location: "Photo Intake",
+      internalNotes: ""
     },
     {
       cardName: "Unidentified Baseball Card",
@@ -173,8 +192,15 @@ function defaultProposedRecord(groupNumber: number): ProposedRecord {
       autoFlag: false,
       relicFlag: false,
       variationFlag: false,
+      grader: "Raw",
+      grade: "Raw",
       conditionNotes: "Local mock record generated from uploaded images. No OCR or AI has run yet.",
-      uncertaintyNotes: "Confirm player, set, and image pairing."
+      uncertaintyNotes: "Confirm player, set, and image pairing.",
+      purchaseCost: 0,
+      quantity: 1,
+      acquisitionSource: "Computer Upload",
+      location: "Photo Intake",
+      internalNotes: ""
     },
     {
       cardName: "Unidentified TCG Card",
@@ -191,8 +217,15 @@ function defaultProposedRecord(groupNumber: number): ProposedRecord {
       autoFlag: false,
       relicFlag: false,
       variationFlag: false,
+      grader: "Raw",
+      grade: "Raw",
       conditionNotes: "Local mock record generated from uploaded images. No OCR or AI has run yet.",
-      uncertaintyNotes: "Confirm set, card number, and surface image role."
+      uncertaintyNotes: "Confirm set, card number, and surface image role.",
+      purchaseCost: 0,
+      quantity: 1,
+      acquisitionSource: "Computer Upload",
+      location: "Photo Intake",
+      internalNotes: ""
     }
   ];
 
@@ -215,6 +248,38 @@ function warningsForGroup(group: IntakeGroup) {
   if (!group.images.some((image) => image.role === "Front")) warnings.add("Missing front image");
   if (!group.images.some((image) => image.role === "Back")) warnings.add("Missing back image");
   return Array.from(warnings);
+}
+
+function hasFieldValue(value: string | number | undefined | null) {
+  if (typeof value === "number") return Number.isFinite(value);
+  const normalized = String(value || "").trim().toLowerCase();
+  return Boolean(normalized && normalized !== "-" && normalized !== "pending");
+}
+
+function hasUncertaintyNote(group: IntakeGroup) {
+  return hasFieldValue(group.proposed.uncertaintyNotes);
+}
+
+function readinessIssuesForGroup(group: IntakeGroup) {
+  const warnings = warningsForGroup(group);
+  const issues: string[] = [];
+  const hasFront = group.images.some((image) => image.role === "Front");
+  const hasMismatch = warnings.some((warning) => warning.toLowerCase().includes("mismatch"));
+  const hasBrandOrSet = hasFieldValue(group.proposed.brand) || hasFieldValue(group.proposed.set);
+  const uncertainty = hasUncertaintyNote(group);
+
+  if (!hasFront) issues.push("Missing front image");
+  if (hasMismatch) issues.push("Image mismatch flag");
+  if (!hasFieldValue(group.proposed.cardName)) issues.push("Card title missing");
+  if (!hasFieldValue(group.proposed.category)) issues.push("Category missing");
+  if (!hasFieldValue(group.proposed.year) && !uncertainty) issues.push("Year missing");
+  if (!hasBrandOrSet && !uncertainty) issues.push("Brand or set missing");
+  if (group.confidence < 90) issues.push("Confidence below 90%");
+  warnings
+    .filter((warning) => !issues.includes(warning))
+    .forEach((warning) => issues.push(warning));
+
+  return issues;
 }
 
 function buildGroupsFromUploads({
@@ -271,10 +336,11 @@ function buildGroupsFromUploads({
 
 function statusForGroup(group: IntakeGroup): RouteStatus {
   const warnings = warningsForGroup(group);
-  if (warnings.some((warning) => warning.toLowerCase().includes("missing") || warning.toLowerCase().includes("mismatch"))) return "Blocked";
-  if (group.confidence >= 90) return "Ready to Approve";
-  if (group.confidence >= 70) return "Review";
-  return "Needs Research";
+  const hasFront = group.images.some((image) => image.role === "Front");
+  if (!hasFront || warnings.some((warning) => warning.toLowerCase().includes("mismatch"))) return "Blocked";
+  if (!hasFieldValue(group.proposed.cardName) || !hasFieldValue(group.proposed.category)) return "Needs Research";
+  if (readinessIssuesForGroup(group).length > 0) return "Review";
+  return "Ready to Approve";
 }
 
 function toneForStatus(status: QueueStatus): StatusTone {
@@ -299,6 +365,28 @@ function confidenceTone(confidence: number): "teal" | "gold" | "pink" {
 
 function flagLabel(value: boolean) {
   return value ? "Yes" : "No";
+}
+
+function cleanTitlePart(value: string | undefined) {
+  const text = String(value || "").trim();
+  if (!text || text === "-" || text.toLowerCase() === "pending") return "";
+  return text;
+}
+
+function generatedTitleForRecord(record: ProposedRecord) {
+  const parts = [
+    cleanTitlePart(record.year),
+    cleanTitlePart(record.brand),
+    cleanTitlePart(record.set),
+    cleanTitlePart(record.playerCharacter),
+    cleanTitlePart(record.parallel),
+    cleanTitlePart(record.cardNumber) ? `#${cleanTitlePart(record.cardNumber).replace(/^#/, "")}` : "",
+    record.rookieFlag ? "RC" : "",
+    record.autoFlag ? "Auto" : "",
+    record.relicFlag ? "Relic" : ""
+  ];
+
+  return parts.filter(Boolean).join(" ").replace(/\s+/g, " ").trim() || cleanTitlePart(record.cardName) || "Untitled card";
 }
 
 function imagesPerCard(mode: ImageCountMode, customCount: number) {
@@ -503,8 +591,11 @@ function ApprovalDecisionCard({
   onUndoReject: (id: string) => void;
 }) {
   const warnings = warningsForGroup(group);
+  const readinessIssues = readinessIssuesForGroup(group);
+  const missingFront = warnings.find((warning) => warning.toLowerCase().includes("front"));
   const missingImage = warnings.find((warning) => warning.toLowerCase().includes("missing"));
-  const completeRecord = warnings.length === 0;
+  const requiredIssue = readinessIssues.find((issue) => !issue.toLowerCase().includes("confidence") && !issue.toLowerCase().includes("front") && !issue.toLowerCase().includes("back"));
+  const completeRecord = readinessIssues.length === 0;
   const readyForApproval = routeStatus === "Ready to Approve";
 
   return (
@@ -517,9 +608,9 @@ function ApprovalDecisionCard({
       <div className="mb-4 rounded-lg border border-acv-border bg-black/20 p-3">
         <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-acv-muted">Decision Summary</p>
         <div className="grid min-w-0 gap-2 sm:grid-cols-2 xl:grid-cols-5">
-          <DecisionSummaryItem state={missingImage ? "blocked" : "ready"}>{missingImage || "Images paired"}</DecisionSummaryItem>
+          <DecisionSummaryItem state={missingFront ? "blocked" : missingImage ? "warning" : "ready"}>{missingImage || "Images paired"}</DecisionSummaryItem>
           <DecisionSummaryItem state={group.confidence >= 90 ? "ready" : "warning"}>AI confidence: {group.confidence}%</DecisionSummaryItem>
-          <DecisionSummaryItem state={completeRecord ? "ready" : "warning"}>{completeRecord ? "Required fields complete" : warnings[0]}</DecisionSummaryItem>
+          <DecisionSummaryItem state={completeRecord ? "ready" : "warning"}>{completeRecord ? "Required fields complete" : requiredIssue || readinessIssues[0] || "Review recommended"}</DecisionSummaryItem>
           <DecisionSummaryItem state={isApproved ? "ready" : readyForApproval ? "ready" : "warning"}>{isApproved ? "SKU assigned" : readyForApproval ? "Ready for SKU assignment" : "SKU assignment needs review"}</DecisionSummaryItem>
           <DecisionSummaryItem state={isRejected ? "blocked" : isApproved ? "ready" : readyForApproval ? "ready" : "warning"}>{isRejected ? "Rejected from inventory" : isApproved ? "Inventory item created" : readyForApproval ? "Ready for Inventory" : "Inventory approval paused"}</DecisionSummaryItem>
         </div>
@@ -551,13 +642,15 @@ function EditableField({
   value,
   onChange,
   tone,
-  multiline = false
+  multiline = false,
+  type = "text"
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   tone?: StatusTone;
   multiline?: boolean;
+  type?: "text" | "number";
 }) {
   const toneClass =
     tone === "gold"
@@ -580,11 +673,76 @@ function EditableField({
         />
       ) : (
         <input
+          type={type}
           value={value}
           onChange={(event) => onChange(event.target.value)}
           className={cn("mt-1 w-full min-w-0 bg-transparent text-xs font-semibold text-acv-text outline-none transition", toneClass)}
         />
       )}
+    </label>
+  );
+}
+
+function EditableNumberField({
+  label,
+  value,
+  onChange,
+  min,
+  tone
+}: {
+  label: string;
+  value: number;
+  onChange: (value: number) => void;
+  min?: number;
+  tone?: StatusTone;
+}) {
+  return (
+    <EditableField
+      label={label}
+      type="number"
+      value={Number.isFinite(value) ? String(value) : "0"}
+      tone={tone}
+      onChange={(nextValue) => onChange(Math.max(min ?? Number.NEGATIVE_INFINITY, Number(nextValue) || 0))}
+    />
+  );
+}
+
+function EditableSelectField({
+  label,
+  value,
+  options,
+  onChange,
+  tone
+}: {
+  label: string;
+  value: string;
+  options: string[];
+  onChange: (value: string) => void;
+  tone?: StatusTone;
+}) {
+  const toneClass =
+    tone === "gold"
+      ? "focus:border-acv-gold/70"
+      : tone === "teal"
+        ? "focus:border-acv-teal/70"
+        : tone === "pink"
+          ? "focus:border-acv-pink/70"
+          : "focus:border-acv-teal/60";
+
+  return (
+    <label className="min-w-0 rounded-md border border-acv-border bg-acv-panel2 px-3 py-2">
+      <span className="truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-acv-muted">{label}</span>
+      <select
+        value={value || options[0]}
+        onChange={(event) => onChange(event.target.value)}
+        className={cn("mt-1 w-full min-w-0 bg-transparent text-xs font-semibold text-acv-text outline-none transition", toneClass)}
+      >
+        {options.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
     </label>
   );
 }
@@ -608,6 +766,7 @@ function ReviewDrawer({
   assignedSku,
   isApproved,
   isRejected,
+  isResearch,
   onClose,
   onSave,
   onSwapFrontBack,
@@ -626,6 +785,7 @@ function ReviewDrawer({
   assignedSku: string;
   isApproved: boolean;
   isRejected: boolean;
+  isResearch: boolean;
   onClose: () => void;
   onSave: (id: string) => void;
   onSwapFrontBack: (id: string) => void;
@@ -639,10 +799,12 @@ function ReviewDrawer({
   onReject: (id: string) => void;
   onUndoReject: (id: string) => void;
 }) {
-  const routeStatus = statusForGroup(group);
+  const routeStatus: RouteStatus = isRejected ? "Blocked" : isResearch ? "Needs Research" : statusForGroup(group);
   const skuDisplay = skuStatus === "SKU Assigned" ? `${assignedSku} mock` : "Pending Approval";
   const drawerSkuTone = skuStatus === "SKU Assigned" ? "green" : "purple";
   const warnings = warningsForGroup(group);
+  const readinessIssues = readinessIssuesForGroup(group);
+  const draftTitle = generatedTitleForRecord(group.proposed);
 
   return (
     <div className="fixed inset-y-0 left-0 right-0 z-50 flex justify-end bg-black/70 backdrop-blur-sm sm:left-56">
@@ -715,24 +877,61 @@ function ReviewDrawer({
               <section className="min-w-0 rounded-lg border border-acv-border bg-acv-panel p-4">
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-acv-gold">AI Extraction Review</p>
-                    <p className="mt-1 text-xs text-acv-muted">Proposed inventory record remains staged until approved.</p>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-acv-gold">Manual / AI Extraction Form</p>
+                    <p className="mt-1 text-xs text-acv-muted">AI will eventually pre-fill this exact form. For now, edit it manually before approval.</p>
                   </div>
                   <StatusPill tone={toneForStatus(routeStatus)}>{routeStatus}</StatusPill>
                 </div>
+
+                <div className="mb-3 rounded-lg border border-acv-border bg-acv-panel2 p-3">
+                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-acv-muted">Draft-Friendly Title Preview</p>
+                      <p className="mt-1 truncate text-sm font-semibold text-acv-text">{draftTitle}</p>
+                    </div>
+                    <div className="flex shrink-0 flex-wrap gap-2">
+                      <MiniButton
+                        tone="teal"
+                        onClick={() => {
+                          onUpdateProposed(group.id, "cardName", draftTitle);
+                        }}
+                      >
+                        Apply title
+                      </MiniButton>
+                      <MiniButton
+                        onClick={() => {
+                          window.navigator.clipboard?.writeText(draftTitle);
+                        }}
+                      >
+                        Copy
+                      </MiniButton>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="grid min-w-0 gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                  <EditableField label="Proposed card" value={group.proposed.cardName} tone="gold" onChange={(value) => onUpdateProposed(group.id, "cardName", value)} />
+                  <EditableField label="Card title / display name" value={group.proposed.cardName} tone="gold" onChange={(value) => onUpdateProposed(group.id, "cardName", value)} />
                   <EditableField label="Player / Character" value={group.proposed.playerCharacter} onChange={(value) => onUpdateProposed(group.id, "playerCharacter", value)} />
                   <EditableField label="Team" value={group.proposed.team} onChange={(value) => onUpdateProposed(group.id, "team", value)} />
-                  <EditableField label="Sport / Category" value={group.proposed.category} onChange={(value) => onUpdateProposed(group.id, "category", value)} />
+                  <EditableSelectField label="Sport / Category" value={group.proposed.category} options={categoryOptions} onChange={(value) => onUpdateProposed(group.id, "category", value)} />
                   <EditableField label="Year" value={group.proposed.year} onChange={(value) => onUpdateProposed(group.id, "year", value)} />
                   <EditableField label="Brand" value={group.proposed.brand} onChange={(value) => onUpdateProposed(group.id, "brand", value)} />
                   <EditableField label="Set" value={group.proposed.set} onChange={(value) => onUpdateProposed(group.id, "set", value)} />
                   <EditableField label="Card Number" value={group.proposed.cardNumber} onChange={(value) => onUpdateProposed(group.id, "cardNumber", value)} />
                   <EditableField label="Parallel" value={group.proposed.parallel} onChange={(value) => onUpdateProposed(group.id, "parallel", value)} />
                   <EditableField label="Serial Number" value={group.proposed.serialNumber} onChange={(value) => onUpdateProposed(group.id, "serialNumber", value)} />
+                  <EditableSelectField label="Grader" value={group.proposed.grader || "Raw"} options={graderOptions} onChange={(value) => onUpdateProposed(group.id, "grader", value)} />
+                  <EditableSelectField label="Grade" value={group.proposed.grade || "Raw"} options={gradeOptions} onChange={(value) => onUpdateProposed(group.id, "grade", value)} />
                   <label className="min-w-0 rounded-md border border-acv-border bg-acv-panel2 px-3 py-2">
-                    <span className="truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-acv-muted">Confidence</span>
+                    <span className="truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-acv-muted">Manual Confidence</span>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      value={group.confidence}
+                      onChange={(event) => onUpdateConfidence(group.id, Math.min(100, Math.max(0, Number(event.target.value) || 0)))}
+                      className="mt-2 w-full accent-acv-teal"
+                    />
                     <input
                       type="number"
                       min={0}
@@ -746,14 +945,19 @@ function ReviewDrawer({
                   <EditableFlag label="Auto" checked={group.proposed.autoFlag} onChange={(value) => onUpdateProposed(group.id, "autoFlag", value)} />
                   <EditableFlag label="Relic" checked={group.proposed.relicFlag} onChange={(value) => onUpdateProposed(group.id, "relicFlag", value)} />
                   <EditableFlag label="Variation" checked={group.proposed.variationFlag} onChange={(value) => onUpdateProposed(group.id, "variationFlag", value)} />
+                  <EditableNumberField label="Purchase Cost" value={group.proposed.purchaseCost ?? 0} min={0} tone="pink" onChange={(value) => onUpdateProposed(group.id, "purchaseCost", value)} />
+                  <EditableNumberField label="Quantity" value={group.proposed.quantity || 1} min={1} onChange={(value) => onUpdateProposed(group.id, "quantity", Math.max(1, Math.round(value)))} />
+                  <EditableSelectField label="Source / Acquisition Source" value={group.proposed.acquisitionSource || "Computer Upload"} options={acquisitionSourceOptions} onChange={(value) => onUpdateProposed(group.id, "acquisitionSource", value)} />
+                  <EditableField label="Location Placeholder" value={group.proposed.location || ""} onChange={(value) => onUpdateProposed(group.id, "location", value)} />
                   <EditableField label="Condition Notes" value={group.proposed.conditionNotes} multiline onChange={(value) => onUpdateProposed(group.id, "conditionNotes", value)} />
                   <EditableField label="Uncertainty Notes" value={group.proposed.uncertaintyNotes} multiline onChange={(value) => onUpdateProposed(group.id, "uncertaintyNotes", value)} />
+                  <EditableField label="Internal Notes" value={group.proposed.internalNotes || ""} multiline onChange={(value) => onUpdateProposed(group.id, "internalNotes", value)} />
                 </div>
-                {warnings.length > 0 && (
+                {(warnings.length > 0 || readinessIssues.length > 0) && (
                   <div className="mt-3 flex flex-wrap gap-2">
-                    {warnings.map((warning) => (
-                      <StatusPill key={warning} tone="pink">
-                        {warning}
+                    {Array.from(new Set([...readinessIssues, ...warnings])).map((issue) => (
+                      <StatusPill key={issue} tone={issue.toLowerCase().includes("confidence") ? "gold" : "pink"}>
+                        {issue}
                       </StatusPill>
                     ))}
                   </div>
@@ -1110,6 +1314,18 @@ export default function PhotoIntakePage() {
     if (!group.images.some((image) => image.role === "Front")) {
       setResearchIds((current) => new Set(current).add(id));
       setStatusMessage(`${group.id} needs review before approval: missing Front image.`);
+      return null;
+    }
+
+    if (researchIds.has(id)) {
+      setStatusMessage(`${group.id} is marked Needs Research. Save corrections before approving to Inventory.`);
+      return null;
+    }
+
+    const approvalStatus = statusForGroup(group);
+    if (approvalStatus !== "Ready to Approve") {
+      const issues = readinessIssuesForGroup(group).slice(0, 2).join(", ") || approvalStatus;
+      setStatusMessage(`${group.id} is not ready for inventory approval: ${issues}.`);
       return null;
     }
 
@@ -1837,6 +2053,7 @@ export default function PhotoIntakePage() {
           assignedSku={assignedSkuForGroup(drawerGroup)}
           isApproved={approvedIds.has(drawerGroup.id)}
           isRejected={rejectedIds.has(drawerGroup.id)}
+          isResearch={researchIds.has(drawerGroup.id)}
           onClose={() => setDrawerGroupId(null)}
           onSave={saveGroup}
           onSwapFrontBack={swapFrontBack}
