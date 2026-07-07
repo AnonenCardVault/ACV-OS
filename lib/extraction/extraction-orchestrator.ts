@@ -2,9 +2,10 @@ import { matchBrandDictionary } from "@/lib/extraction/brand-dictionary";
 import { matchChecklist } from "@/lib/extraction/checklist-matcher";
 import { calculateExtractionConfidence } from "@/lib/extraction/confidence-engine";
 import { runOcrPipeline } from "@/lib/extraction/ocr-pipeline";
+import { runMockVisionFallback } from "@/lib/extraction/providers/mock-vision-provider";
 import { detectSportCategory } from "@/lib/extraction/sport-detector";
-import type { CardExtractionInput, ChecklistCandidate, ExtractedCardFields, ExtractionResult, ExtractionWarning, FieldConfidenceMap } from "@/lib/extraction/types";
-import { runMockVisionFallback } from "@/lib/extraction/vision-provider";
+import type { CardExtractionInput, ChecklistCandidate, ExtractedCardFields, ExtractionResult, ExtractionWarning, FieldConfidenceMap, OcrResult, VisionProviderResult } from "@/lib/extraction/types";
+import type { VisionProvider } from "@/lib/extraction/vision-provider";
 
 function clean(value: unknown) {
   return String(value || "").trim();
@@ -126,39 +127,62 @@ function dedupeWarnings(warnings: ExtractionWarning[]) {
   });
 }
 
-export function extractCardFromImages(input: CardExtractionInput): ExtractionResult {
+function pipelineContext(input: CardExtractionInput): {
+  ocr: OcrResult;
+  dictionaryMatches: ReturnType<typeof matchBrandDictionary>;
+  sport: ReturnType<typeof detectSportCategory>;
+  candidates: ChecklistCandidate[];
+  bestCandidate: ChecklistCandidate | undefined;
+  extractionSources: string[];
+} {
   const ocr = runOcrPipeline(input);
   const dictionaryMatches = matchBrandDictionary(ocr.textBlob);
   const sport = detectSportCategory({ input, detectedText: ocr.textBlob, dictionaryMatches });
   const candidates = matchChecklist({ detectedText: ocr.textBlob, categoryHint: sport.category, dictionaryMatches });
   const bestCandidate = candidates[0];
   const extractionSources = ["image roles", ...ocr.sources, "brand dictionary", "sport detector", "checklist matcher"];
-  let fields: ExtractedCardFields;
-  let fieldConfidence: FieldConfidenceMap;
-  let initialWarnings: ExtractionWarning[] = [];
 
-  if (bestCandidate) {
-    fields = mergeFields(input.existingFields, fieldsFromCandidate(bestCandidate), sport.category);
-    fieldConfidence = fieldConfidenceFromCandidate(bestCandidate, sport.confidence);
-  } else {
-    const visionFallback = runMockVisionFallback({ ...input, categoryHint: sport.category });
-    fields = mergeFields(input.existingFields, visionFallback.fields, sport.category);
-    fieldConfidence = visionFallback.fieldConfidence;
-    initialWarnings = visionFallback.warnings;
-    extractionSources.push(...visionFallback.sources);
-  }
+  return {
+    ocr,
+    dictionaryMatches,
+    sport,
+    candidates,
+    bestCandidate,
+    extractionSources
+  };
+}
 
+function finalizeExtraction({
+  input,
+  fields,
+  fieldConfidence,
+  candidate,
+  initialWarnings,
+  suggestedTitle,
+  extractionSources,
+  skipChecklistWarning
+}: {
+  input: CardExtractionInput;
+  fields: ExtractedCardFields;
+  fieldConfidence: FieldConfidenceMap;
+  candidate?: ChecklistCandidate;
+  initialWarnings?: ExtractionWarning[];
+  suggestedTitle?: string;
+  extractionSources: string[];
+  skipChecklistWarning?: boolean;
+}): ExtractionResult {
   if (!hasValue(fields.cardTitle)) {
     fields.cardTitle = createSuggestedTitle(fields) || "Unidentified Card";
   }
 
-  const suggestedTitle = createSuggestedTitle(fields) || fields.cardTitle;
+  const nextSuggestedTitle = clean(suggestedTitle) || createSuggestedTitle(fields) || fields.cardTitle;
   const confidence = calculateExtractionConfidence({
     fields,
     images: input.images,
-    candidate: bestCandidate,
+    candidate,
     fieldConfidence,
-    initialWarnings
+    initialWarnings,
+    skipChecklistWarning
   });
 
   return {
@@ -166,8 +190,62 @@ export function extractCardFromImages(input: CardExtractionInput): ExtractionRes
     confidence: confidence.confidence,
     fieldConfidence: confidence.fieldConfidence,
     warnings: dedupeWarnings(confidence.warnings),
-    suggestedTitle,
+    suggestedTitle: nextSuggestedTitle,
     extractionStatus: confidence.extractionStatus,
     extractionSources
   };
+}
+
+function resultFromVisionProvider(input: CardExtractionInput, visionResult: VisionProviderResult, sportCategory: string, extractionSources: string[], candidate?: ChecklistCandidate): ExtractionResult {
+  const fields = mergeFields(input.existingFields, visionResult.fields, sportCategory);
+
+  return finalizeExtraction({
+    input,
+    fields,
+    fieldConfidence: visionResult.fieldConfidence,
+    candidate,
+    initialWarnings: visionResult.warnings,
+    suggestedTitle: visionResult.suggestedTitle,
+    extractionSources: [...extractionSources, ...visionResult.sources],
+    skipChecklistWarning: true
+  });
+}
+
+export function extractCardFromImages(input: CardExtractionInput): ExtractionResult {
+  const context = pipelineContext(input);
+  let fields: ExtractedCardFields;
+  let fieldConfidence: FieldConfidenceMap;
+  let initialWarnings: ExtractionWarning[] = [];
+
+  if (context.bestCandidate) {
+    fields = mergeFields(input.existingFields, fieldsFromCandidate(context.bestCandidate), context.sport.category);
+    fieldConfidence = fieldConfidenceFromCandidate(context.bestCandidate, context.sport.confidence);
+  } else {
+    const visionFallback = runMockVisionFallback({ ...input, categoryHint: context.sport.category });
+    return resultFromVisionProvider(input, visionFallback, context.sport.category, context.extractionSources);
+  }
+
+  return finalizeExtraction({
+    input,
+    fields,
+    fieldConfidence,
+    candidate: context.bestCandidate,
+    initialWarnings,
+    extractionSources: context.extractionSources
+  });
+}
+
+export async function extractCardFromImagesWithProvider(
+  input: CardExtractionInput,
+  provider: VisionProvider,
+  options: { forceVisionProvider?: boolean } = {}
+): Promise<ExtractionResult> {
+  const context = pipelineContext(input);
+
+  if (!options.forceVisionProvider && context.bestCandidate) {
+    return extractCardFromImages(input);
+  }
+
+  const visionResult = await provider.extract({ ...input, categoryHint: context.sport.category });
+  return resultFromVisionProvider(input, visionResult, context.sport.category, context.extractionSources, options.forceVisionProvider ? undefined : context.bestCandidate);
 }

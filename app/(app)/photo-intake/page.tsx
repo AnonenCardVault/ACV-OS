@@ -26,7 +26,7 @@ import { DataTable } from "@/components/data-table";
 import { PageHeader } from "@/components/page-header";
 import { SectionCard } from "@/components/section-card";
 import { StatusPill } from "@/components/status-pill";
-import { extractCardFromImages } from "@/lib/ai-extraction";
+import { extractCardFromImagesViaApi } from "@/lib/ai-extraction";
 import { useAcvLocalState, type BatchHistoryEntry } from "@/lib/acv-local-state";
 import { cn } from "@/lib/utils";
 
@@ -847,6 +847,7 @@ function ReviewDrawer({
   isApproved,
   isRejected,
   isResearch,
+  isExtracting,
   onClose,
   onSave,
   onSwapFrontBack,
@@ -870,6 +871,7 @@ function ReviewDrawer({
   isApproved: boolean;
   isRejected: boolean;
   isResearch: boolean;
+  isExtracting: boolean;
   onClose: () => void;
   onSave: (id: string) => void;
   onSwapFrontBack: (id: string) => void;
@@ -878,7 +880,7 @@ function ReviewDrawer({
   onMoveImage: (groupId: string, imageId: string, direction: -1 | 1) => void;
   onUpdateProposed: <K extends keyof ProposedRecord>(groupId: string, key: K, value: ProposedRecord[K]) => void;
   onUpdateConfidence: (groupId: string, confidence: number) => void;
-  onRunExtraction: (groupId: string) => void;
+  onRunExtraction: (groupId: string) => void | Promise<void>;
   onClearExtraction: (groupId: string) => void;
   onApplyAiSuggestion: (groupId: string) => void;
   onApplySuggestedTitle: (groupId: string) => void;
@@ -898,6 +900,7 @@ function ReviewDrawer({
   const fieldConfidenceEntries = Object.entries(fieldConfidence).filter(([, value]) => typeof value === "number");
   const draftTitle = group.aiExtraction?.suggestedTitle || generatedTitleForRecord(group.proposed);
   const hasAiSuggestion = Boolean(group.aiExtraction?.extracted || group.aiExtraction?.suggestedTitle);
+  const aiProviderLabel = group.aiExtraction?.modelLabel?.includes("OpenAI") ? "OpenAI Vision / server-side" : group.aiExtraction?.modelLabel ? "Mock AI" : "Ready";
 
   return (
     <div className="fixed inset-y-0 left-0 right-0 z-50 flex justify-end bg-black/70 backdrop-blur-sm sm:left-56">
@@ -982,16 +985,16 @@ function ReviewDrawer({
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <StatusPill tone={toneForAiStatus(aiStatus)}>AI Extraction: {aiStatus}</StatusPill>
-                        {(aiStatus === "Extracted" || aiStatus === "Needs Review") && <StatusPill tone="teal">AI extracted locally / mock</StatusPill>}
+                        {(aiStatus === "Extracted" || aiStatus === "Needs Review") && <StatusPill tone={aiProviderLabel.includes("OpenAI") ? "purple" : "teal"}>{aiProviderLabel}</StatusPill>}
                         {group.aiExtraction?.confidenceScore !== undefined && <StatusPill tone={confidenceTone(group.aiExtraction.confidenceScore)}>AI {group.aiExtraction.confidenceScore}%</StatusPill>}
                       </div>
                       <p className="mt-2 text-xs leading-5 text-acv-muted">
-                        Mock extraction reads image filenames, roles, and current form values. It never approves inventory automatically.
+                        Extraction runs only when clicked, fills this editable form, and never approves inventory automatically.
                       </p>
                     </div>
                     <div className="flex shrink-0 flex-wrap gap-2">
-                      <MiniButton tone="teal" icon={<Sparkles className="h-3.5 w-3.5" />} onClick={() => onRunExtraction(group.id)}>
-                        {aiStatus === "Extracted" || aiStatus === "Needs Review" ? "Re-run Extraction" : "Run AI Extraction"}
+                      <MiniButton tone="teal" icon={<Sparkles className="h-3.5 w-3.5" />} disabled={isExtracting} onClick={() => onRunExtraction(group.id)}>
+                        {isExtracting ? "Running..." : aiStatus === "Extracted" || aiStatus === "Needs Review" ? "Re-run Extraction" : "Run AI Extraction"}
                       </MiniButton>
                       <MiniButton icon={<RefreshCw className="h-3.5 w-3.5" />} disabled={!hasAiSuggestion} onClick={() => onApplyAiSuggestion(group.id)}>
                         Apply AI Suggestion
@@ -1258,6 +1261,7 @@ export default function PhotoIntakePage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [activeSource, setActiveSource] = useState<SourceKey>("Computer Upload");
   const [showBatchHistory, setShowBatchHistory] = useState(false);
+  const [extractingGroupId, setExtractingGroupId] = useState<string | null>(null);
   const {
     batchNumber,
     batchName,
@@ -1675,14 +1679,18 @@ export default function PhotoIntakePage() {
     updateGroup(groupId, (group) => ({ ...group, confidence }));
   }
 
-  function runAiExtraction(groupId: string) {
+  async function runAiExtraction(groupId: string) {
     const group = groups.find((item) => item.id === groupId);
     if (!group) return;
+    if (extractingGroupId) return;
 
+    setExtractingGroupId(groupId);
     try {
-      const result = extractCardFromImages({
+      const result = await extractCardFromImagesViaApi({
         images: group.images,
         imageRoles: group.images.map((image) => ({ id: image.id, role: image.role })),
+        batchId: currentBatchEntry.batchId,
+        groupId: group.id,
         categoryHint: group.proposed.category,
         existingValues: group.proposed
       });
@@ -1702,21 +1710,24 @@ export default function PhotoIntakePage() {
           extractionSources: result.extractionSources
         }
       }));
-      setStatusMessage(`${groupId} AI extracted locally / mock. Review editable fields before approving.`);
-    } catch {
+      const sourceLabel = result.modelLabel.includes("OpenAI") ? "OpenAI Vision" : "Mock AI";
+      setStatusMessage(`${groupId} ${sourceLabel} extraction complete. Review editable fields before approving.`);
+    } catch (error) {
       updateGroup(groupId, (currentGroup) => ({
         ...currentGroup,
         aiExtraction: {
           status: "Failed",
           extracted: undefined,
           fieldConfidence: {},
-          warnings: ["Mock extraction failed"],
+          warnings: [error instanceof Error ? error.message : "AI extraction failed"],
           suggestedTitle: "",
           extractedAt: new Date().toISOString(),
-          modelLabel: "ACV local mock extractor"
+          modelLabel: "ACV extraction route"
         }
       }));
-      setStatusMessage(`${groupId} AI extraction failed in local mock mode.`);
+      setStatusMessage(`${groupId} AI extraction failed. Manual field values were preserved.`);
+    } finally {
+      setExtractingGroupId(null);
     }
   }
 
@@ -2334,6 +2345,7 @@ export default function PhotoIntakePage() {
           isApproved={approvedIds.has(drawerGroup.id)}
           isRejected={rejectedIds.has(drawerGroup.id)}
           isResearch={researchIds.has(drawerGroup.id)}
+          isExtracting={extractingGroupId === drawerGroup.id}
           onClose={() => setDrawerGroupId(null)}
           onSave={saveGroup}
           onSwapFrontBack={swapFrontBack}

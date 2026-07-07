@@ -4,6 +4,8 @@ import type { AiExtractionStatus, AiFieldConfidenceMap, IntakeImage, ProposedRec
 export type ExtractCardInput = {
   images: IntakeImage[];
   imageRoles?: Array<{ id: string; role: string }>;
+  batchId?: string;
+  groupId?: string;
   categoryHint?: string;
   existingValues: ProposedRecord;
 };
@@ -49,7 +51,7 @@ function engineImage(image: IntakeImage): ExtractionImage {
     role: image.role,
     fileName: image.fileName,
     label: image.label,
-    url: image.url,
+    url: image.publicUrl || image.url,
     dataUrl: image.dataUrl,
     order: image.order,
     needsReupload: image.needsReupload
@@ -108,22 +110,58 @@ function engineResultToProposed(result: EngineExtractionResult, existing: Propos
   };
 }
 
-export function extractCardFromImages(input: ExtractCardInput): ExtractionResult {
-  const result = runExtractionOrchestrator({
-    images: input.images.map(engineImage),
-    categoryHint: input.categoryHint,
-    existingFields: proposedToExtractedFields(input.existingValues)
-  });
-
+function adaptEngineResult(result: EngineExtractionResult, existingValues: ProposedRecord, modelLabel: string): ExtractionResult {
   return {
     status: engineStatusToIntakeStatus(result),
-    extracted: engineResultToProposed(result, input.existingValues),
+    extracted: engineResultToProposed(result, existingValues),
     confidenceScore: result.confidence,
     fieldConfidence: engineConfidenceToIntakeMap(result),
     warnings: result.warnings.map((warning) => warning.message),
     suggestedTitle: result.suggestedTitle,
     extractedAt: new Date().toISOString(),
-    modelLabel: "ACV Extraction Engine v2 / local mock",
+    modelLabel,
     extractionSources: result.extractionSources
   };
+}
+
+function engineInput(input: ExtractCardInput) {
+  return {
+    images: input.images.map(engineImage),
+    categoryHint: input.categoryHint,
+    existingFields: proposedToExtractedFields(input.existingValues)
+  };
+}
+
+export function extractCardFromImages(input: ExtractCardInput): ExtractionResult {
+  const result = runExtractionOrchestrator(engineInput(input));
+  return adaptEngineResult(result, input.existingValues, "ACV Extraction Engine v2 / local mock");
+}
+
+export async function extractCardFromImagesViaApi(input: ExtractCardInput): Promise<ExtractionResult> {
+  const response = await fetch("/api/extract-card", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      ...engineInput(input),
+      batchId: input.batchId,
+      groupId: input.groupId,
+      frontBackOnly: false
+    })
+  });
+
+  const payload = (await response.json().catch(() => null)) as
+    | {
+        ok?: boolean;
+        modelLabel?: string;
+        result?: EngineExtractionResult;
+        error?: string;
+        detail?: string;
+      }
+    | null;
+
+  if (!response.ok || !payload?.ok || !payload.result) {
+    throw new Error(payload?.error || payload?.detail || "AI extraction failed. Manual form values were left unchanged.");
+  }
+
+  return adaptEngineResult(payload.result, input.existingValues, payload.modelLabel || "ACV Extraction Engine");
 }

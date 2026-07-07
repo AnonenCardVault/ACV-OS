@@ -98,6 +98,7 @@ export type VisionProviderResult = {
   confidence: number;
   fieldConfidence: FieldConfidenceMap;
   warnings: ExtractionWarning[];
+  suggestedTitle?: string;
   sources: string[];
 };
 

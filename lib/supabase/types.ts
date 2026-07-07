@@ -141,6 +141,23 @@ export type AuditHistoryRow = {
   deleted_at: string | null;
 };
 
+export type ExtractionAttemptRow = {
+  id: string;
+  user_id: string;
+  intake_group_id: string | null;
+  batch_id: string | null;
+  group_id: string | null;
+  provider: string;
+  model: string | null;
+  status: string;
+  confidence: number | null;
+  warnings: unknown[];
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+};
+
 export type SupabaseLoadedState = {
   approvedInventory: ApprovedInventoryItem[];
   batchHistory: BatchHistoryEntry[];

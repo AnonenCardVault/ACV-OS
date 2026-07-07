@@ -19,13 +19,15 @@ export function calculateExtractionConfidence({
   images,
   candidate,
   fieldConfidence,
-  initialWarnings
+  initialWarnings,
+  skipChecklistWarning
 }: {
   fields: ExtractedCardFields;
   images: ExtractionImage[];
   candidate?: ChecklistCandidate;
   fieldConfidence: FieldConfidenceMap;
   initialWarnings?: ExtractionWarning[];
+  skipChecklistWarning?: boolean;
 }): {
   confidence: number;
   fieldConfidence: FieldConfidenceMap;
@@ -43,7 +45,7 @@ export function calculateExtractionConfidence({
   if (!hasValue(fields.cardNumber)) warnings.push(warning("card_number_unconfirmed", "Card number not confirmed", "warning", "cardNumber"));
   if (!hasValue(fields.serialNumber)) warnings.push(warning("serial_not_detected", "Serial number not detected", "info", "serialNumber"));
   if ((fieldConfidence.parallel || 0) > 0 && (fieldConfidence.parallel || 0) < 70) warnings.push(warning("parallel_uncertain", "Parallel uncertain", "warning", "parallel"));
-  if (!candidate) warnings.push(warning("checklist_not_found", "Checklist match not found", "warning"));
+  if (!candidate && !skipChecklistWarning) warnings.push(warning("checklist_not_found", "Checklist match not found", "warning"));
 
   const keyScores = [
     fieldConfidence.cardTitle,
