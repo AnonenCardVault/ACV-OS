@@ -67,6 +67,7 @@ export type AiExtractionSnapshot = {
   extractedAt?: string;
   confidenceScore?: number;
   modelLabel?: string;
+  extractionSources?: string[];
 };
 
 export type IntakeGroup = {

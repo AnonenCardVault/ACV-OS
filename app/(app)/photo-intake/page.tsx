@@ -98,6 +98,7 @@ type AiExtractionSnapshot = {
   extractedAt?: string;
   confidenceScore?: number;
   modelLabel?: string;
+  extractionSources?: string[];
 };
 
 type IntakeGroup = {
@@ -1635,7 +1636,8 @@ export default function PhotoIntakePage() {
           suggestedTitle: result.suggestedTitle,
           extractedAt: result.extractedAt,
           confidenceScore: result.confidenceScore,
-          modelLabel: result.modelLabel
+          modelLabel: result.modelLabel,
+          extractionSources: result.extractionSources
         }
       }));
       setStatusMessage(`${groupId} AI extracted locally / mock. Review editable fields before approving.`);

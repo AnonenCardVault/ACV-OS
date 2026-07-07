@@ -25,7 +25,8 @@ const currentAsk = 129.99;
 const marketEstimate = 128;
 const pricingConfidence = 0.84;
 const dateRangeOptions = ["7 days", "14 days", "30 days", "60 days", "90 days", "180 days", "365 days", "Custom"];
-const gradeOptions = ["All", "Raw", "PSA 10", "PSA 9", "PSA 8", "SGC 10", "SGC 9", "BGS 10", "BGS 9.5", "BGS 9", "CGC 10", "CGC 9"];
+const graderOptions = ["All", "Raw", "PSA", "SGC", "BGS", "CGC", "Other"];
+const gradeOptions = ["All", "Raw", "10", "9.5", "9", "8.5", "8", "7", "6", "5", "Other"];
 const soldSaleTypeOptions = ["All", "Auction", "Buy It Now", "Best Offer"];
 const activeListingTypeOptions = ["All", "BIN", "Auction", "Best Offer"];
 const priceRangeOptions = ["All", "Under Market", "Near Market", "Over Market"];
@@ -68,6 +69,19 @@ function getPriceRange(askingPrice: number) {
   }
 
   return "Near Market";
+}
+
+function getGraderFromGrade(grade: string) {
+  if (grade === "Raw") return "Raw";
+  const grader = grade.split(" ")[0];
+  if (["PSA", "SGC", "BGS", "CGC"].includes(grader)) return grader;
+  return "Other";
+}
+
+function getGradeValue(grade: string) {
+  if (grade === "Raw") return "Raw";
+  const match = grade.match(/(10|9\.5|9|8\.5|8|7|6|5)/);
+  return match?.[0] || "Other";
 }
 
 function getDrawerPrice(item: PricingDrawerItem) {
@@ -401,8 +415,10 @@ function PricingDetailDrawer({ item, onClose }: { item: PricingDrawerItem; onClo
 
 export default function PricingPage() {
   const [soldDateRange, setSoldDateRange] = useState("90 days");
+  const [soldGrader, setSoldGrader] = useState("All");
   const [soldGrade, setSoldGrade] = useState("All");
   const [soldSaleType, setSoldSaleType] = useState("All");
+  const [activeGrader, setActiveGrader] = useState("All");
   const [activeGrade, setActiveGrade] = useState("All");
   const [activeListingType, setActiveListingType] = useState("All");
   const [activePriceRange, setActivePriceRange] = useState("All");
@@ -416,23 +432,25 @@ export default function PricingPage() {
     () =>
       pricingSoldComps.filter((row) => {
         const matchesDate = row.daysAgo <= getRangeDays(soldDateRange);
-        const matchesGrade = soldGrade === "All" || row.grade === soldGrade;
+        const matchesGrader = soldGrader === "All" || getGraderFromGrade(row.grade) === soldGrader;
+        const matchesGrade = soldGrade === "All" || getGradeValue(row.grade) === soldGrade;
         const matchesSaleType = soldSaleType === "All" || row.saleType === soldSaleType;
 
-        return matchesDate && matchesGrade && matchesSaleType;
+        return matchesDate && matchesGrader && matchesGrade && matchesSaleType;
       }),
-    [soldDateRange, soldGrade, soldSaleType]
+    [soldDateRange, soldGrader, soldGrade, soldSaleType]
   );
   const filteredActiveListings = useMemo(
     () =>
       pricingActiveListings.filter((row) => {
-        const matchesGrade = activeGrade === "All" || row.grade === activeGrade;
+        const matchesGrader = activeGrader === "All" || getGraderFromGrade(row.grade) === activeGrader;
+        const matchesGrade = activeGrade === "All" || getGradeValue(row.grade) === activeGrade;
         const matchesListingType = activeListingType === "All" || row.listingType === activeListingType;
         const matchesPriceRange = activePriceRange === "All" || getPriceRange(row.askingPrice) === activePriceRange;
 
-        return matchesGrade && matchesListingType && matchesPriceRange;
+        return matchesGrader && matchesGrade && matchesListingType && matchesPriceRange;
       }),
-    [activeGrade, activeListingType, activePriceRange]
+    [activeGrader, activeGrade, activeListingType, activePriceRange]
   );
 
   return (
@@ -516,8 +534,9 @@ export default function PricingPage() {
             eyebrow="Completed sales / target 5+ / mock 12-month lookback"
             action={<ActionButton variant="ghost" icon={<RefreshCcw className="h-4 w-4" />}>Refresh comps</ActionButton>}
           >
-            <div className="mb-3 grid gap-2 md:grid-cols-3">
+            <div className="mb-3 grid gap-2 md:grid-cols-4">
               <FilterSelect label="Date Range" value={soldDateRange} options={dateRangeOptions} onChange={setSoldDateRange} />
+              <FilterSelect label="Grader" value={soldGrader} options={graderOptions} onChange={setSoldGrader} />
               <FilterSelect label="Grade" value={soldGrade} options={gradeOptions} onChange={setSoldGrade} />
               <FilterSelect label="Sale Type" value={soldSaleType} options={soldSaleTypeOptions} onChange={setSoldSaleType} />
             </div>
@@ -561,7 +580,8 @@ export default function PricingPage() {
           </SectionCard>
 
           <SectionCard title="Active Listings" eyebrow="Current marketplace supply / mock scan">
-            <div className="mb-3 grid gap-2 md:grid-cols-3">
+            <div className="mb-3 grid gap-2 md:grid-cols-4">
+              <FilterSelect label="Grader" value={activeGrader} options={graderOptions} onChange={setActiveGrader} />
               <FilterSelect label="Grade" value={activeGrade} options={gradeOptions} onChange={setActiveGrade} />
               <FilterSelect label="Listing Type" value={activeListingType} options={activeListingTypeOptions} onChange={setActiveListingType} />
               <FilterSelect label="Price Range" value={activePriceRange} options={priceRangeOptions} onChange={setActivePriceRange} />
