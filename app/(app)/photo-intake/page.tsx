@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   ArrowLeftRight,
@@ -47,6 +47,10 @@ type UploadedImage = {
   type: string;
   order: number;
   needsReupload?: boolean;
+  storageBucket?: string;
+  storagePath?: string;
+  publicUrl?: string;
+  supabaseImageId?: string;
 };
 
 type IntakeImage = {
@@ -59,6 +63,10 @@ type IntakeImage = {
   uploadId?: string;
   order: number;
   needsReupload?: boolean;
+  storageBucket?: string;
+  storagePath?: string;
+  publicUrl?: string;
+  supabaseImageId?: string;
 };
 
 type ProposedRecord = {
@@ -1286,10 +1294,14 @@ export default function PhotoIntakePage() {
     setBatchHistory,
     statusMessage,
     setStatusMessage,
+    backendStatus,
     skuCounterRef,
     addUploadedFiles,
     clearIntakeState,
-    restoreBatch
+    restoreBatch,
+    saveBatchSnapshotToBackend,
+    approveGroupToBackend,
+    updateGroupStatusInBackend
   } = useAcvLocalState();
   const batchId = `B-${String(batchNumber).padStart(3, "0")}`;
 
@@ -1345,6 +1357,15 @@ export default function PhotoIntakePage() {
   );
 
   const allQueueSelected = activeReviewGroups.length > 0 && activeReviewGroups.every((group) => selectedQueueIds.has(group.id));
+
+  useEffect(() => {
+    if (backendStatus.connectionState !== "connected" || currentBatchEntry.groups.length === 0) return;
+    const timeout = window.setTimeout(() => {
+      void saveBatchSnapshotToBackend(currentBatchEntry);
+    }, 1200);
+
+    return () => window.clearTimeout(timeout);
+  }, [backendStatus.connectionState, currentBatchEntry, saveBatchSnapshotToBackend]);
 
   function queueStatus(group: IntakeGroup): QueueStatus {
     if (approvedIds.has(group.id)) return "Approved Local";
@@ -1473,6 +1494,18 @@ export default function PhotoIntakePage() {
 
     const nextSku = assignedSkus[id] || buildMockSku(group, skuCounterRef.current);
     if (!assignedSkus[id]) skuCounterRef.current += 1;
+    const primaryImage = group.images.find((image) => image.role === "Front") || group.images[0];
+    const approvedItem = {
+      sku: nextSku,
+      batch: group.batch,
+      group: group.id,
+      source: group.source,
+      primaryImageUrl: primaryImage?.dataUrl || primaryImage?.url || primaryImage?.publicUrl || "",
+      needsImageReupload: Boolean(primaryImage?.needsReupload || !(primaryImage?.dataUrl || primaryImage?.url || primaryImage?.publicUrl)),
+      images: group.images,
+      proposed: group.proposed,
+      approvedAt: new Date().toLocaleString()
+    };
     setAssignedSkus((current) => ({ ...current, [id]: current[id] || nextSku }));
     setApprovedIds((current) => new Set(current).add(id));
     setResearchIds((current) => {
@@ -1486,27 +1519,29 @@ export default function PhotoIntakePage() {
       return next;
     });
     setApprovedInventory((current) => {
-      const primaryImage = group.images.find((image) => image.role === "Front") || group.images[0];
-      const approvedItem = {
-        sku: nextSku,
-        batch: group.batch,
-        group: group.id,
-        source: group.source,
-        primaryImageUrl: primaryImage?.dataUrl || primaryImage?.url || "",
-        needsImageReupload: Boolean(primaryImage?.needsReupload || !(primaryImage?.dataUrl || primaryImage?.url)),
-        images: group.images,
-        proposed: group.proposed,
-        approvedAt: new Date().toLocaleString()
-      };
-
       return current.some((item) => item.group === id) ? current.map((item) => (item.group === id ? approvedItem : item)) : [...current, approvedItem];
     });
     const nextId = advanceAfterProcessed(id, keepDrawerOpen);
+    void approveGroupToBackend(
+      {
+        ...currentBatchEntry,
+        approved: approvedIds.has(id) ? approvedIds.size : approvedIds.size + 1,
+        rejected: rejectedIds.size,
+        remaining: Math.max(0, currentBatchEntry.remaining - 1),
+        approvedIds: Array.from(new Set([...currentBatchEntry.approvedIds, id])),
+        rejectedIds: currentBatchEntry.rejectedIds.filter((groupId) => groupId !== id),
+        researchIds: currentBatchEntry.researchIds.filter((groupId) => groupId !== id),
+        assignedSkus: { ...currentBatchEntry.assignedSkus, [id]: nextSku }
+      },
+      group,
+      approvedItem
+    );
     setStatusMessage(`Approved to Inventory: ${nextSku}.${nextId ? ` Next group: ${nextId}.` : " Batch review complete."}`);
     return nextId;
   }
 
   function sendToResearch(id: string) {
+    const group = groups.find((item) => item.id === id);
     setResearchIds((current) => new Set(current).add(id));
     setApprovedIds((current) => {
       const next = new Set(current);
@@ -1518,10 +1553,23 @@ export default function PhotoIntakePage() {
       next.delete(id);
       return next;
     });
+    if (group) {
+      void updateGroupStatusInBackend(
+        {
+          ...currentBatchEntry,
+          researchIds: Array.from(new Set([...currentBatchEntry.researchIds, id])),
+          approvedIds: currentBatchEntry.approvedIds.filter((groupId) => groupId !== id),
+          rejectedIds: currentBatchEntry.rejectedIds.filter((groupId) => groupId !== id)
+        },
+        group,
+        "Needs Research"
+      );
+    }
     setStatusMessage(`${id} sent to research in local state.`);
   }
 
   function rejectGroup(id: string, keepDrawerOpen = false) {
+    const group = groups.find((item) => item.id === id);
     setRejectedIds((current) => new Set(current).add(id));
     setApprovedIds((current) => {
       const next = new Set(current);
@@ -1534,6 +1582,20 @@ export default function PhotoIntakePage() {
       return next;
     });
     const nextId = advanceAfterProcessed(id, keepDrawerOpen);
+    if (group) {
+      void updateGroupStatusInBackend(
+        {
+          ...currentBatchEntry,
+          rejected: rejectedIds.has(id) ? rejectedIds.size : rejectedIds.size + 1,
+          remaining: Math.max(0, currentBatchEntry.remaining - 1),
+          rejectedIds: Array.from(new Set([...currentBatchEntry.rejectedIds, id])),
+          approvedIds: currentBatchEntry.approvedIds.filter((groupId) => groupId !== id),
+          researchIds: currentBatchEntry.researchIds.filter((groupId) => groupId !== id)
+        },
+        group,
+        "Rejected"
+      );
+    }
     setStatusMessage(`${id} rejected locally.${nextId ? ` Next group: ${nextId}.` : " Batch review complete."}`);
     return nextId;
   }
@@ -1685,11 +1747,13 @@ export default function PhotoIntakePage() {
   }
 
   function saveGroup(id: string) {
-    setStatusMessage(`${id} saved in local browser state. Mock only; ACV will try to restore it after refresh.`);
+    void saveBatchSnapshotToBackend(currentBatchEntry);
+    setStatusMessage(`${id} saved in ${backendStatus.connectionState === "connected" ? "Supabase + local cache" : "local browser state"}.`);
   }
 
   function saveCurrentBatchToHistory() {
     setBatchHistory((current) => [{ ...currentBatchEntry, lastOpened: new Date().toLocaleString() }, ...current.filter((batch) => batch.batchId !== currentBatchEntry.batchId)].slice(0, 30));
+    void saveBatchSnapshotToBackend(currentBatchEntry);
   }
 
   function openBatchHistory() {

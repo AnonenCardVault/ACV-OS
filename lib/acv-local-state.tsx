@@ -1,6 +1,16 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { isSupabaseConfigured, testSupabaseConnection } from "@/lib/supabase/client";
+import {
+  approveGroupToSupabase,
+  loadSupabaseState,
+  migrateLocalStateToSupabase,
+  saveBatchSnapshotToSupabase,
+  updateIntakeGroupStatusInSupabase,
+  uploadTempIntakeFile
+} from "@/lib/supabase/intake";
+import type { SupabaseBackendStatus } from "@/lib/supabase/types";
 
 export type SourceKey = "Computer Upload" | "eBay Active Listings" | "eBay Drafts" | "Google Drive" | "Dropbox" | "Mobile Camera Upload" | "Scanner" | "Shared Team Uploads" | "Future Sources";
 export type ImageCountMode = "2 images/card" | "3 images/card" | "Custom" | "Auto-detect";
@@ -14,6 +24,10 @@ export type UploadedImage = {
   type: string;
   order: number;
   needsReupload?: boolean;
+  storageBucket?: string;
+  storagePath?: string;
+  publicUrl?: string;
+  supabaseImageId?: string;
 };
 
 export type IntakeImage = {
@@ -26,6 +40,10 @@ export type IntakeImage = {
   uploadId?: string;
   order: number;
   needsReupload?: boolean;
+  storageBucket?: string;
+  storagePath?: string;
+  publicUrl?: string;
+  supabaseImageId?: string;
 };
 
 export type ProposedRecord = {
@@ -92,6 +110,7 @@ export type ApprovedInventoryItem = {
   proposed: ProposedRecord;
   approvedAt: string;
   needsImageReupload?: boolean;
+  auditHistory?: string[];
 };
 
 export type BatchHistoryEntry = {
@@ -174,23 +193,40 @@ type AcvLocalStateValue = {
   setBatchHistory: React.Dispatch<React.SetStateAction<BatchHistoryEntry[]>>;
   statusMessage: string;
   setStatusMessage: React.Dispatch<React.SetStateAction<string>>;
+  backendStatus: SupabaseBackendStatus;
   skuCounterRef: React.MutableRefObject<number>;
   addUploadedFiles: (files: FileList | File[]) => UploadedImage[];
   clearIntakeState: () => void;
   restoreBatch: (entry: BatchHistoryEntry) => void;
+  saveBatchSnapshotToBackend: (entry: BatchHistoryEntry) => Promise<void>;
+  approveGroupToBackend: (entry: BatchHistoryEntry, group: IntakeGroup, approvedItem: ApprovedInventoryItem) => Promise<void>;
+  updateGroupStatusInBackend: (entry: BatchHistoryEntry, group: IntakeGroup, status: "Rejected" | "Needs Research") => Promise<void>;
 };
 
 const storageKey = "acv-os-local-intake-v1";
+const migrationMarkerKey = "acv_supabase_migration_completed";
 const AcvLocalStateContext = createContext<AcvLocalStateValue | null>(null);
 
+function initialBackendStatus(): SupabaseBackendStatus {
+  const configured = isSupabaseConfigured();
+
+  return {
+    configured,
+    connectionState: configured ? "connecting" : "not-configured",
+    storageState: configured ? "connecting" : "not-configured",
+    mode: configured ? "Supabase" : "Local Fallback",
+    message: configured ? "Supabase connection pending." : "Supabase env vars missing. ACV is using local fallback."
+  };
+}
+
 function stripObjectUrls(images: UploadedImage[]) {
-  return images.map((image) => ({ ...image, url: image.dataUrl || "", needsReupload: !image.dataUrl }));
+  return images.map((image) => ({ ...image, url: image.dataUrl || image.publicUrl || "", needsReupload: !(image.dataUrl || image.publicUrl) }));
 }
 
 function stripGroupObjectUrls(groups: IntakeGroup[]) {
   return groups.map((group) => ({
     ...group,
-    images: group.images.map((image) => ({ ...image, url: image.dataUrl || "", needsReupload: !image.dataUrl }))
+    images: group.images.map((image) => ({ ...image, url: image.dataUrl || image.publicUrl || "", needsReupload: !(image.dataUrl || image.publicUrl) }))
   }));
 }
 
@@ -200,9 +236,9 @@ function stripApprovedObjectUrls(items: ApprovedInventoryItem[]) {
 
     return {
       ...item,
-      primaryImageUrl: frontImage?.dataUrl || "",
-      needsImageReupload: !frontImage?.dataUrl,
-      images: item.images.map((image) => ({ ...image, url: image.dataUrl || "", needsReupload: !image.dataUrl }))
+      primaryImageUrl: frontImage?.dataUrl || frontImage?.publicUrl || frontImage?.url || "",
+      needsImageReupload: !(frontImage?.dataUrl || frontImage?.publicUrl || frontImage?.url),
+      images: item.images.map((image) => ({ ...image, url: image.dataUrl || image.publicUrl || "", needsReupload: !(image.dataUrl || image.publicUrl) }))
     };
   });
 }
@@ -247,12 +283,16 @@ export function AcvLocalStateProvider({ children }: { children: React.ReactNode 
   const [approvedInventory, setApprovedInventory] = useState<ApprovedInventoryItem[]>([]);
   const [batchHistory, setBatchHistory] = useState<BatchHistoryEntry[]>([]);
   const [statusMessage, setStatusMessage] = useState("Upload photos to generate local intake groups.");
+  const [backendStatus, setBackendStatus] = useState<SupabaseBackendStatus>(() => initialBackendStatus());
 
   useEffect(() => {
+    let parsedState: PersistedState | null = null;
+
     try {
       const saved = window.localStorage.getItem(storageKey);
       if (saved) {
         const parsed = JSON.parse(saved) as PersistedState;
+        parsedState = parsed;
         setBatchNumber(parsed.batchNumber || 73);
         setBatchName(parsed.batchName === "July Intake - Breaks + Singles" ? "Untitled Batch" : parsed.batchName || "Untitled Batch");
         setBatchCreatedAt(parsed.batchCreatedAt || new Date().toISOString());
@@ -281,6 +321,64 @@ export function AcvLocalStateProvider({ children }: { children: React.ReactNode 
     } finally {
       setHydrated(true);
     }
+
+    if (!isSupabaseConfigured()) {
+      setBackendStatus(initialBackendStatus());
+      return;
+    }
+
+    void (async () => {
+      setBackendStatus({
+        configured: true,
+        connectionState: "connecting",
+        storageState: "connecting",
+        mode: "Supabase",
+        message: "Connecting to Supabase."
+      });
+
+      try {
+        await testSupabaseConnection();
+        const alreadyMigrated = window.localStorage.getItem(migrationMarkerKey) === "true";
+        if (parsedState && !alreadyMigrated) {
+          await migrateLocalStateToSupabase(parsedState);
+          window.localStorage.setItem(migrationMarkerKey, "true");
+        }
+
+        const remote = await loadSupabaseState();
+        setApprovedInventory((current) => {
+          const bySku = new Map(current.map((item) => [item.sku, item]));
+          remote.approvedInventory.forEach((item) => bySku.set(item.sku, item));
+          return Array.from(bySku.values());
+        });
+        if (remote.groups.length > 0) {
+          setGroups(remote.groups);
+          setSelectedGroupId(remote.groups[0]?.id || "");
+          setApprovedIds(new Set(remote.approvedIds));
+          setRejectedIds(new Set(remote.rejectedIds));
+          setResearchIds(new Set(remote.researchIds));
+          setAssignedSkus(remote.assignedSkus);
+        }
+        if (remote.batchHistory.length > 0) {
+          setBatchHistory(remote.batchHistory);
+        }
+        setBackendStatus({
+          configured: true,
+          connectionState: "connected",
+          storageState: "connected",
+          mode: "Supabase",
+          lastSyncAt: new Date().toLocaleString(),
+          message: alreadyMigrated ? "Supabase connected." : "Supabase connected. Local cache migrated once."
+        });
+      } catch (error) {
+        setBackendStatus({
+          configured: true,
+          connectionState: "offline",
+          storageState: "offline",
+          mode: "Local Fallback",
+          message: error instanceof Error ? error.message : "Supabase unavailable. ACV is using local fallback."
+        });
+      }
+    })();
   }, []);
 
   useEffect(() => {
@@ -320,23 +418,23 @@ export function AcvLocalStateProvider({ children }: { children: React.ReactNode 
         storageKey,
         JSON.stringify({
           ...payload,
-          uploadedImages: stripObjectUrls(uploadedImages).map((image) => ({ ...image, dataUrl: undefined, url: "" })),
+          uploadedImages: stripObjectUrls(uploadedImages).map((image) => ({ ...image, dataUrl: undefined, url: image.publicUrl || "", needsReupload: !image.publicUrl })),
           groups: stripGroupObjectUrls(groups).map((group) => ({
             ...group,
-            images: group.images.map((image) => ({ ...image, dataUrl: undefined, url: "", needsReupload: true }))
+            images: group.images.map((image) => ({ ...image, dataUrl: undefined, url: image.publicUrl || "", needsReupload: !image.publicUrl }))
           })),
           approvedInventory: stripApprovedObjectUrls(approvedInventory).map((item) => ({
             ...item,
-            primaryImageUrl: "",
-            needsImageReupload: true,
-            images: item.images.map((image) => ({ ...image, dataUrl: undefined, url: "", needsReupload: true }))
+            primaryImageUrl: item.primaryImageUrl || item.images.find((image) => image.role === "Front")?.publicUrl || "",
+            needsImageReupload: !(item.primaryImageUrl || item.images.find((image) => image.role === "Front")?.publicUrl),
+            images: item.images.map((image) => ({ ...image, dataUrl: undefined, url: image.publicUrl || "", needsReupload: !image.publicUrl }))
           })),
           batchHistory: stripBatchHistoryObjectUrls(batchHistory).map((entry) => ({
             ...entry,
-            uploadedImages: entry.uploadedImages.map((image) => ({ ...image, dataUrl: undefined, url: "", needsReupload: true })),
+            uploadedImages: entry.uploadedImages.map((image) => ({ ...image, dataUrl: undefined, url: image.publicUrl || "", needsReupload: !image.publicUrl })),
             groups: entry.groups.map((group) => ({
               ...group,
-              images: group.images.map((image) => ({ ...image, dataUrl: undefined, url: "", needsReupload: true }))
+              images: group.images.map((image) => ({ ...image, dataUrl: undefined, url: image.publicUrl || "", needsReupload: !image.publicUrl }))
             }))
           }))
         })
@@ -383,6 +481,62 @@ export function AcvLocalStateProvider({ children }: { children: React.ReactNode 
       setUploadedImages((current) => [...current, ...nextImages]);
       imageFiles.forEach((file, index) => {
         const uploadId = nextImages[index].id;
+        if (isSupabaseConfigured()) {
+          uploadTempIntakeFile({
+            file,
+            batchId: `B-${String(batchNumber).padStart(3, "0")}`,
+            uploadId
+          })
+            .then((stored) => {
+              setUploadedImages((current) =>
+                current.map((image) =>
+                  image.id === uploadId
+                    ? {
+                        ...image,
+                        storageBucket: stored.bucket,
+                        storagePath: stored.path,
+                        publicUrl: stored.publicUrl,
+                        url: image.url || stored.publicUrl,
+                        needsReupload: false
+                      }
+                    : image
+                )
+              );
+              setGroups((current) =>
+                current.map((group) => ({
+                  ...group,
+                  images: group.images.map((image) =>
+                    image.uploadId === uploadId
+                      ? {
+                          ...image,
+                          storageBucket: stored.bucket,
+                          storagePath: stored.path,
+                          publicUrl: stored.publicUrl,
+                          url: image.url || stored.publicUrl,
+                          needsReupload: false
+                        }
+                      : image
+                  )
+                }))
+              );
+              setBackendStatus((current) => ({
+                ...current,
+                connectionState: "connected",
+                storageState: "connected",
+                mode: "Supabase",
+                lastSyncAt: new Date().toLocaleString(),
+                message: "Image uploaded to Supabase temp-intake."
+              }));
+            })
+            .catch((error) => {
+              setBackendStatus((current) => ({
+                ...current,
+                storageState: "offline",
+                mode: "Local Fallback",
+                message: error instanceof Error ? error.message : "Image storage unavailable. Using local fallback."
+              }));
+            });
+        }
         readFileAsDataUrl(file)
           .then((dataUrl) => {
             setUploadedImages((current) => current.map((image) => (image.id === uploadId ? { ...image, dataUrl, url: image.url || dataUrl, needsReupload: false } : image)));
@@ -407,7 +561,7 @@ export function AcvLocalStateProvider({ children }: { children: React.ReactNode 
       });
       return [...uploadedImages, ...nextImages];
     },
-    [uploadedImages, setGroups]
+    [batchNumber, uploadedImages, setGroups]
   );
 
   const clearIntakeState = useCallback(() => {
@@ -443,6 +597,78 @@ export function AcvLocalStateProvider({ children }: { children: React.ReactNode 
     setAssignedSkus(entry.assignedSkus);
     setBatchHistory((current) => current.map((batch) => (batch.batchId === entry.batchId ? { ...batch, lastOpened: new Date().toLocaleString() } : batch)));
     setStatusMessage(`Restored ${entry.batchName}. Images remain if browser storage retained them.`);
+  }, []);
+
+  const saveBatchSnapshotToBackend = useCallback(async (entry: BatchHistoryEntry) => {
+    if (!isSupabaseConfigured()) return;
+    try {
+      await saveBatchSnapshotToSupabase(entry);
+      setBackendStatus((current) => ({
+        ...current,
+        connectionState: "connected",
+        storageState: "connected",
+        mode: "Supabase",
+        lastSyncAt: new Date().toLocaleString(),
+        message: "Batch snapshot saved to Supabase."
+      }));
+    } catch (error) {
+      setBackendStatus((current) => ({
+        ...current,
+        connectionState: "offline",
+        mode: "Local Fallback",
+        message: error instanceof Error ? error.message : "Could not save batch to Supabase. Local fallback retained."
+      }));
+    }
+  }, []);
+
+  const approveGroupToBackend = useCallback(async (entry: BatchHistoryEntry, group: IntakeGroup, approvedItem: ApprovedInventoryItem) => {
+    if (!isSupabaseConfigured()) return;
+    try {
+      await approveGroupToSupabase(entry, group, approvedItem);
+      const remote = await loadSupabaseState();
+      setApprovedInventory((current) => {
+        const bySku = new Map(current.map((item) => [item.sku, item]));
+        remote.approvedInventory.forEach((item) => bySku.set(item.sku, item));
+        return Array.from(bySku.values());
+      });
+      setBackendStatus((current) => ({
+        ...current,
+        connectionState: "connected",
+        storageState: "connected",
+        mode: "Supabase",
+        lastSyncAt: new Date().toLocaleString(),
+        message: `${approvedItem.sku} saved to Supabase.`
+      }));
+    } catch (error) {
+      setBackendStatus((current) => ({
+        ...current,
+        connectionState: "offline",
+        mode: "Local Fallback",
+        message: error instanceof Error ? error.message : "Could not approve to Supabase. Local fallback retained."
+      }));
+    }
+  }, []);
+
+  const updateGroupStatusInBackend = useCallback(async (entry: BatchHistoryEntry, group: IntakeGroup, status: "Rejected" | "Needs Research") => {
+    if (!isSupabaseConfigured()) return;
+    try {
+      await updateIntakeGroupStatusInSupabase(entry, group, status);
+      setBackendStatus((current) => ({
+        ...current,
+        connectionState: "connected",
+        storageState: current.storageState === "not-configured" ? "not-configured" : "connected",
+        mode: "Supabase",
+        lastSyncAt: new Date().toLocaleString(),
+        message: `${group.batch} / ${group.id} saved as ${status} in Supabase.`
+      }));
+    } catch (error) {
+      setBackendStatus((current) => ({
+        ...current,
+        connectionState: "offline",
+        mode: "Local Fallback",
+        message: error instanceof Error ? error.message : "Could not update Supabase group status. Local fallback retained."
+      }));
+    }
   }, []);
 
   return (
@@ -486,10 +712,14 @@ export function AcvLocalStateProvider({ children }: { children: React.ReactNode 
         setBatchHistory,
         statusMessage,
         setStatusMessage,
+        backendStatus,
         skuCounterRef,
         addUploadedFiles,
         clearIntakeState,
-        restoreBatch
+        restoreBatch,
+        saveBatchSnapshotToBackend,
+        approveGroupToBackend,
+        updateGroupStatusInBackend
       }}
     >
       {children}

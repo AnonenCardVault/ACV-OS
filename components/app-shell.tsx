@@ -7,9 +7,29 @@ import { Bell, Search } from "lucide-react";
 import { navItems } from "@/data/mock";
 import { cn } from "@/lib/utils";
 import { StatusPill } from "@/components/status-pill";
+import { useAcvLocalState } from "@/lib/acv-local-state";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const { backendStatus } = useAcvLocalState();
+  const databaseStatus =
+    backendStatus.connectionState === "connected"
+      ? "Supabase Connected"
+      : backendStatus.connectionState === "offline"
+        ? "Supabase Offline"
+        : backendStatus.configured
+          ? "Connecting"
+          : "Local Fallback";
+  const storageStatus =
+    backendStatus.storageState === "connected"
+      ? "Storage Connected"
+      : backendStatus.storageState === "offline"
+        ? "Storage Fallback"
+        : backendStatus.configured
+          ? "Connecting"
+          : "Image Fallback";
+  const databaseTone = backendStatus.connectionState === "connected" ? "teal" : backendStatus.configured ? "gold" : "purple";
+  const storageTone = backendStatus.storageState === "connected" ? "teal" : backendStatus.configured ? "gold" : "purple";
 
   return (
     <div className="min-h-screen overflow-x-clip bg-acv-black text-acv-text">
@@ -60,13 +80,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <div className="space-y-2 text-xs">
                 {[
                   ["eBay", "Mock / Not connected", "pink"],
-                  ["Database", "Mock", "purple"],
-                  ["Images", "Mock", "purple"],
+                  ["Database", databaseStatus, databaseTone],
+                  ["Images", storageStatus, storageTone],
                   ["AI", "Mock", "purple"]
                 ].map(([label, value, tone]) => (
                   <div key={label} className="flex items-center justify-between gap-3">
                     <span className="text-acv-muted">{label}</span>
-                    <StatusPill tone={tone as "pink" | "purple"} className="max-w-32 justify-center truncate">
+                    <StatusPill tone={tone as "pink" | "purple" | "teal" | "gold"} className="max-w-32 justify-center truncate">
                       {value}
                     </StatusPill>
                   </div>
@@ -75,7 +95,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <div className="mt-3 border-t border-acv-border pt-3">
                 <div className="flex items-center justify-between gap-3 text-xs">
                   <span className="text-acv-muted">Last sync</span>
-                  <span className="font-semibold text-acv-teal">Jul 05, 12:14 PM mock</span>
+                  <span className="truncate text-right font-semibold text-acv-teal">{backendStatus.lastSyncAt || "Local fallback"}</span>
                 </div>
               </div>
             </div>

@@ -472,7 +472,7 @@ function approvedItemToRow(item: ApprovedInventoryItem): Row {
       compSummary: "Approved locally from Photo Intake. Market placeholder remains $0 until pricing comps run.",
       skuHistory: [`Assigned ${item.sku} from Photo Intake local approval`, `Batch ${item.batch} / Group ${item.group}`],
       lifecycleTimeline: ["Uploaded in Photo Intake", "Approved locally", "Needs pricing"],
-      auditHistory: [`Mock approval ${item.approvedAt}`, "No database write yet"]
+      auditHistory: item.auditHistory?.length ? item.auditHistory : [`Mock approval ${item.approvedAt}`, "No database write yet"]
     }
   };
 }
@@ -976,7 +976,7 @@ function listedDateMatches(row: Row, filter: string) {
 }
 
 export default function InventoryPage() {
-  const { approvedInventory } = useAcvLocalState();
+  const { approvedInventory, backendStatus } = useAcvLocalState();
   const rows = useMemo(() => [...inventoryItems.map(rowWithOps), ...approvedInventory.map(approvedItemToRow)], [approvedInventory]);
   const [selectedRow, setSelectedRow] = useState<Row | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("Listings");
@@ -1187,6 +1187,9 @@ export default function InventoryPage() {
           <div className="min-w-0">
             <div className="mb-1 flex flex-wrap items-center gap-2">
               <StatusPill tone="purple">Mock data</StatusPill>
+              <StatusPill tone={backendStatus.connectionState === "connected" ? "teal" : "gold"}>
+                {backendStatus.connectionState === "connected" ? "Supabase" : "Local fallback"}
+              </StatusPill>
               <StatusPill tone="teal">ACV OS v1 shell</StatusPill>
             </div>
             <h1 className="truncate text-lg font-semibold text-acv-text">Inventory Workstation</h1>
@@ -1359,7 +1362,7 @@ export default function InventoryPage() {
             <span>
               {filteredRows.length ? `1-${filteredRows.length} of ${filteredRows.length}` : "No records match the current controls"}
             </span>
-            <span>Mock inventory data - no live eBay sync</span>
+            <span>{backendStatus.connectionState === "connected" ? "Supabase inventory + mock marketplace data" : "Local fallback inventory - no live eBay sync"}</span>
           </div>
         </section>
 
@@ -1377,8 +1380,8 @@ export default function InventoryPage() {
               </div>
             </div>
             <div className="rounded-md border border-acv-border bg-acv-panel2 p-3">
-              <p className="font-semibold text-acv-text">Mock Mode</p>
-              <p className="mt-2 leading-5">Detailed card attributes live in the drawer. Bulk actions and SKU pushes are staged mock controls only.</p>
+              <p className="font-semibold text-acv-text">{backendStatus.connectionState === "connected" ? "Supabase Mode" : "Mock Mode"}</p>
+              <p className="mt-2 leading-5">Detailed card attributes live in the drawer. Bulk actions and SKU pushes are staged controls only.</p>
             </div>
           </div>
         </details>
