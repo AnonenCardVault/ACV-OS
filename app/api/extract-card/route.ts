@@ -1,44 +1,16 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { extractCardFromImages, extractCardFromImagesWithProvider, type CardExtractionInput, type ExtractionImage, type ExtractionResult } from "@/lib/extraction";
-import { OpenAiVisionProvider } from "@/lib/extraction/providers/openai-vision-provider";
+import { createDefaultAIProviders, prepareImagesForExtraction, providerEnvironmentSummary, runAIExtraction, type AIExtractionInput, type AIExtractionResult } from "@/lib/ai";
 import { logExtractionAttempt } from "@/lib/supabase/extraction-attempts";
 
 export const runtime = "nodejs";
 
-type ExtractCardRequest = CardExtractionInput & {
+type ExtractCardRequest = AIExtractionInput & {
   batchId?: string;
   groupId?: string;
   frontBackOnly?: boolean;
 };
 
-const closeupRoles = new Set(["Detail / Closeup", "Serial Closeup", "Holo / Surface", "Auto Closeup", "Patch / Relic Closeup"]);
-
-function sendableUrl(image: ExtractionImage) {
-  const value = image.url || image.dataUrl || "";
-  if (!value || value.startsWith("blob:")) return "";
-  return value;
-}
-
-function selectImagesForCostControl(images: ExtractionImage[], frontBackOnly?: boolean) {
-  const ordered = [...images].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-  const selected: ExtractionImage[] = [];
-  const add = (image: ExtractionImage | undefined) => {
-    if (!image || !sendableUrl(image) || selected.some((item) => item.id === image.id)) return;
-    selected.push(image);
-  };
-
-  add(ordered.find((image) => image.role === "Front"));
-  add(ordered.find((image) => image.role === "Back"));
-
-  if (!frontBackOnly) {
-    ordered.filter((image) => closeupRoles.has(String(image.role))).forEach(add);
-  }
-
-  ordered.forEach(add);
-  return selected.slice(0, frontBackOnly ? 2 : 4);
-}
-
-function warningMessages(result: ExtractionResult) {
+function warningMessages(result: AIExtractionResult) {
   return result.warnings.map((warning) => warning.message);
 }
 
@@ -63,59 +35,56 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "At least one image is required for extraction." }, { status: 400 });
   }
 
-  const images = selectImagesForCostControl(payload.images, payload.frontBackOnly);
+  const images = prepareImagesForExtraction(payload.images, { frontBackOnly: payload.frontBackOnly, maxImages: 4 });
   if (images.length === 0) {
     return NextResponse.json({ ok: false, error: "No usable image URL or image data was available for extraction." }, { status: 400 });
   }
 
-  const input: CardExtractionInput = {
+  const input: AIExtractionInput = {
     images,
     categoryHint: payload.categoryHint,
-    existingFields: payload.existingFields
+    existingFields: payload.existingFields,
+    batchId: payload.batchId,
+    groupId: payload.groupId
   };
-  const apiKey = process.env.OPENAI_API_KEY;
-  const model = process.env.OPENAI_VISION_MODEL || "gpt-4.1-mini";
-
-  if (!apiKey) {
-    const result = extractCardFromImages(input);
-    await safeLogAttempt({
-      batchId: payload.batchId,
-      groupId: payload.groupId,
-      provider: "mock",
-      model: "ACV Extraction Engine v2",
-      status: result.extractionStatus,
-      confidence: result.confidence,
-      warnings: warningMessages(result),
-      metadata: { reason: "OPENAI_API_KEY missing", imageCount: images.length }
-    });
-
-    return NextResponse.json({
-      ok: true,
-      provider: "mock",
-      modelLabel: "Mock AI / ACV local extraction",
-      result,
-      imageCount: images.length
-    });
-  }
+  const providerEnv = providerEnvironmentSummary({
+    cardsightApiKey: process.env.CARDSIGHT_API_KEY,
+    openAiApiKey: process.env.OPENAI_API_KEY,
+    ocrProvider: process.env.OCR_PROVIDER
+  });
 
   try {
-    const provider = new OpenAiVisionProvider({ apiKey, model });
-    const result = await extractCardFromImagesWithProvider(input, provider, { forceVisionProvider: true });
+    const result = await runAIExtraction({
+      input,
+      providers: createDefaultAIProviders({
+        cardsightApiKey: process.env.CARDSIGHT_API_KEY,
+        openAiApiKey: process.env.OPENAI_API_KEY,
+        ocrProvider: process.env.OCR_PROVIDER
+      })
+    });
     await safeLogAttempt({
       batchId: payload.batchId,
       groupId: payload.groupId,
-      provider: "openai",
-      model,
+      provider: "acv-ai-orchestrator",
+      model: "mock-provider-pipeline",
       status: result.extractionStatus,
       confidence: result.confidence,
       warnings: warningMessages(result),
-      metadata: { imageCount: images.length, frontBackOnly: Boolean(payload.frontBackOnly) }
+      metadata: {
+        imageCount: images.length,
+        frontBackOnly: Boolean(payload.frontBackOnly),
+        providersUsed: result.providersUsed,
+        providerMetadata: result.log.providerMetadata,
+        elapsedMs: result.log.elapsedMs,
+        imageProcessing: result.log.imageProcessing,
+        providerEnv
+      }
     });
 
     return NextResponse.json({
       ok: true,
-      provider: "openai",
-      modelLabel: `OpenAI Vision / server-side (${model})`,
+      provider: "acv-ai-orchestrator",
+      modelLabel: "ACV AI Orchestrator / mock providers",
       result,
       imageCount: images.length
     });
@@ -123,11 +92,11 @@ export async function POST(request: NextRequest) {
     await safeLogAttempt({
       batchId: payload.batchId,
       groupId: payload.groupId,
-      provider: "openai",
-      model,
+      provider: "acv-ai-orchestrator",
+      model: "mock-provider-pipeline",
       status: "Failed",
-      warnings: [error instanceof Error ? error.message : "OpenAI extraction failed"],
-      metadata: { imageCount: images.length }
+      warnings: [error instanceof Error ? error.message : "AI orchestrator extraction failed"],
+      metadata: { imageCount: images.length, providerEnv }
     });
 
     return NextResponse.json(

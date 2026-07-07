@@ -900,7 +900,7 @@ function ReviewDrawer({
   const fieldConfidenceEntries = Object.entries(fieldConfidence).filter(([, value]) => typeof value === "number");
   const draftTitle = group.aiExtraction?.suggestedTitle || generatedTitleForRecord(group.proposed);
   const hasAiSuggestion = Boolean(group.aiExtraction?.extracted || group.aiExtraction?.suggestedTitle);
-  const aiProviderLabel = group.aiExtraction?.modelLabel?.includes("OpenAI") ? "OpenAI Vision / server-side" : group.aiExtraction?.modelLabel ? "Mock AI" : "Ready";
+  const aiProviderLabel = group.aiExtraction?.modelLabel ? "ACV AI Orchestrator" : "Ready";
 
   return (
     <div className="fixed inset-y-0 left-0 right-0 z-50 flex justify-end bg-black/70 backdrop-blur-sm sm:left-56">
@@ -985,7 +985,7 @@ function ReviewDrawer({
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <StatusPill tone={toneForAiStatus(aiStatus)}>AI Extraction: {aiStatus}</StatusPill>
-                        {(aiStatus === "Extracted" || aiStatus === "Needs Review") && <StatusPill tone={aiProviderLabel.includes("OpenAI") ? "purple" : "teal"}>{aiProviderLabel}</StatusPill>}
+                        {(aiStatus === "Extracted" || aiStatus === "Needs Review") && <StatusPill tone="teal">{aiProviderLabel}</StatusPill>}
                         {group.aiExtraction?.confidenceScore !== undefined && <StatusPill tone={confidenceTone(group.aiExtraction.confidenceScore)}>AI {group.aiExtraction.confidenceScore}%</StatusPill>}
                       </div>
                       <p className="mt-2 text-xs leading-5 text-acv-muted">
@@ -1710,8 +1710,7 @@ export default function PhotoIntakePage() {
           extractionSources: result.extractionSources
         }
       }));
-      const sourceLabel = result.modelLabel.includes("OpenAI") ? "OpenAI Vision" : "Mock AI";
-      setStatusMessage(`${groupId} ${sourceLabel} extraction complete. Review editable fields before approving.`);
+      setStatusMessage(`${groupId} ACV AI Orchestrator extraction complete. Review editable fields before approving.`);
     } catch (error) {
       updateGroup(groupId, (currentGroup) => ({
         ...currentGroup,

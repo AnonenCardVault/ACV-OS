@@ -1,4 +1,4 @@
-import { extractCardFromImages as runExtractionOrchestrator, type ExtractedCardFields, type ExtractionImage, type ExtractionResult as EngineExtractionResult } from "@/lib/extraction";
+import { createDefaultAIProviders, runAIExtraction, type AIExtractionResult as EngineExtractionResult, type AIImageInput as ExtractionImage, type ExtractedCardFields } from "@/lib/ai";
 import type { AiExtractionStatus, AiFieldConfidenceMap, IntakeImage, ProposedRecord } from "@/lib/acv-local-state";
 
 export type ExtractCardInput = {
@@ -60,7 +60,7 @@ function engineImage(image: IntakeImage): ExtractionImage {
 
 function engineStatusToIntakeStatus(result: EngineExtractionResult): AiExtractionStatus {
   if (result.extractionStatus === "Ready to Approve") return "Extracted";
-  if (result.extractionStatus === "Blocked" || result.extractionStatus === "Failed") return "Failed";
+  if (result.extractionStatus === "Blocked" || result.extractionStatus === "Failed" || result.extractionStatus === "Retake Image") return "Failed";
   return "Needs Review";
 }
 
@@ -132,8 +132,15 @@ function engineInput(input: ExtractCardInput) {
   };
 }
 
-export function extractCardFromImages(input: ExtractCardInput): ExtractionResult {
-  const result = runExtractionOrchestrator(engineInput(input));
+export async function extractCardFromImages(input: ExtractCardInput): Promise<ExtractionResult> {
+  const result = await runAIExtraction({
+    input: {
+      ...engineInput(input),
+      batchId: input.batchId,
+      groupId: input.groupId
+    },
+    providers: createDefaultAIProviders()
+  });
   return adaptEngineResult(result, input.existingValues, "ACV Extraction Engine v2 / local mock");
 }
 
