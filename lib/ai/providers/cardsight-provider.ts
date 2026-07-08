@@ -20,11 +20,27 @@ type CardSightNormalizedResponse = {
 };
 
 function cleanText(value: unknown) {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "object") return "";
   return String(value ?? "").trim();
 }
 
 function firstValue(...values: unknown[]) {
   return values.map(cleanText).find(Boolean) || "";
+}
+
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined;
+}
+
+function records(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  const output: Record<string, unknown>[] = [];
+  for (const item of value) {
+    const record = asRecord(item);
+    if (record) output.push(record);
+  }
+  return output;
 }
 
 function booleanValue(value: unknown) {
@@ -34,16 +50,17 @@ function booleanValue(value: unknown) {
 }
 
 function confidenceValue(...values: unknown[]) {
+  const confidenceLabel = values.map(cleanText).find((value) => /^(high|medium|low)$/i.test(value));
+  if (confidenceLabel) {
+    const normalized = confidenceLabel.toLowerCase();
+    if (normalized === "high") return 95;
+    if (normalized === "medium") return 82;
+    return 62;
+  }
   const next = values.map(Number).find((value) => Number.isFinite(value));
   if (next === undefined || !Number.isFinite(next)) return 45;
   const normalized = next <= 1 ? next * 100 : next;
   return Math.max(0, Math.min(100, Math.round(normalized)));
-}
-
-function dataUrlBase64(value: string) {
-  const marker = ";base64,";
-  const index = value.indexOf(marker);
-  return index >= 0 ? value.slice(index + marker.length) : value;
 }
 
 function endpointUrl(baseUrl: string, recognitionPath: string) {
@@ -51,21 +68,53 @@ function endpointUrl(baseUrl: string, recognitionPath: string) {
   return new URL(recognitionPath.replace(/^\/+/, ""), base).toString();
 }
 
-function frontImagePayload(image: AIImageInput) {
-  const value = image.url || image.dataUrl || "";
-  const isDataUrl = value.startsWith("data:");
+function dataUrlParts(value: string) {
+  const match = value.match(/^data:([^;,]+)?(;base64)?,(.*)$/);
+  if (!match) return undefined;
   return {
-    image_url: isDataUrl ? undefined : value,
-    image_base64: isDataUrl ? dataUrlBase64(value) : undefined,
-    role: "front",
-    filename: image.fileName,
-    image_id: image.id
+    contentType: match[1] || "image/jpeg",
+    base64: Boolean(match[2]),
+    body: match[3] || ""
   };
+}
+
+function blobFromDataUrl(value: string) {
+  const parts = dataUrlParts(value);
+  if (!parts) throw new Error("Front image data URL was invalid.");
+  const binary = parts.base64 ? atob(parts.body) : decodeURIComponent(parts.body);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return new Blob([bytes], { type: parts.contentType });
+}
+
+async function frontImageBlob(image: AIImageInput) {
+  if (image.dataUrl?.startsWith("data:")) return blobFromDataUrl(image.dataUrl);
+  const imageUrl = image.url || image.dataUrl || "";
+  if (!imageUrl) throw new Error("Front image has no uploadable URL or data.");
+  if (imageUrl.startsWith("blob:")) throw new Error("Front image is a browser blob URL; re-upload or use Supabase storage before CardSight extraction.");
+
+  const response = await fetchWithTimeout(imageUrl, {}, 12000);
+  if (!response.ok) throw new Error(`Front image could not be fetched for CardSight upload: ${response.status} ${response.statusText}`);
+  return response.blob();
 }
 
 function candidateFromPayload(payload: unknown): Record<string, unknown> {
   if (!payload || typeof payload !== "object") return {};
   const record = payload as Record<string, unknown>;
+  const detection = records(record.detections).find((item) => asRecord(item.card));
+  if (detection) {
+    const card = asRecord(detection.card) || {};
+    return {
+      ...card,
+      detectionConfidence: detection.confidence,
+      grading: detection.grading,
+      requestId: record.requestId,
+      success: record.success,
+      messages: record.messages
+    };
+  }
   const wrappers = [record.card, record.result, record.data, record.prediction, record.recognition, record.identification];
 
   for (const wrapper of wrappers) {
@@ -88,23 +137,50 @@ function nested(record: Record<string, unknown>, ...keys: string[]) {
   return undefined;
 }
 
+function fieldValues(card: Record<string, unknown>) {
+  const values: Record<string, string> = {};
+  for (const field of records(card.fields)) {
+    const key = cleanText(field.key).toLowerCase();
+    const value = cleanText(field.value);
+    if (key && value) values[key] = value;
+  }
+  return values;
+}
+
+function hasAttribute(card: Record<string, unknown>, pattern: RegExp) {
+  const attributes = Array.isArray(card.attributes) ? card.attributes.map(cleanText).join(" ") : "";
+  return pattern.test(attributes);
+}
+
 function normalizeCardSightResponse(payload: unknown): CardSightNormalizedResponse {
   const card = candidateFromPayload(payload);
+  const fieldsMap = fieldValues(card);
+  const parallelRecord = asRecord(card.parallel);
+  const gradingRecord = asRecord(card.grading);
+  const gradeRecord = asRecord(gradingRecord?.grade);
+  const companyRecord = asRecord(gradingRecord?.company);
   const manufacturer = firstValue(nested(card, "manufacturer", "maker"), nested(card, "brand"));
-  const product = firstValue(nested(card, "product", "product_name"), nested(card, "set", "set_name", "setName"));
+  const releaseName = firstValue(nested(card, "releaseName", "release_name", "product", "product_name"));
+  const setName = firstValue(nested(card, "setName", "set_name", "set"));
+  const product = firstValue(releaseName, setName);
   const insert = firstValue(nested(card, "insert", "insert_name", "subset"));
-  const parallel = firstValue(nested(card, "parallel", "parallel_name"), insert);
-  const confidence = confidenceValue(nested(card, "confidence", "score", "match_confidence"), nested(card, "probability"));
+  const parallel = firstValue(nested(parallelRecord || {}, "name"), nested(card, "parallel_name"), insert);
+  const confidence = confidenceValue(nested(card, "detectionConfidence"), nested(card, "confidence", "score", "match_confidence"), nested(card, "probability"));
   const fields: Partial<ExtractedCardFields> = {
-    playerOrCharacter: firstValue(nested(card, "player", "player_name", "athlete"), nested(card, "character", "character_name", "subject")),
-    team: firstValue(nested(card, "team", "team_name")),
-    sportCategory: firstValue(nested(card, "sport", "sport_category", "category")),
+    playerOrCharacter: firstValue(nested(card, "name"), nested(card, "player", "player_name", "athlete"), nested(card, "character", "character_name", "subject")),
+    team: firstValue(nested(card, "team", "team_name"), fieldsMap.team),
+    sportCategory: firstValue(nested(card, "sport", "sport_category", "category"), fieldsMap.sport, fieldsMap.segment),
     year: firstValue(nested(card, "year", "season")),
     brand: manufacturer,
     set: product,
     parallel,
     cardNumber: firstValue(nested(card, "card_number", "cardNumber", "number")),
-    rookie: booleanValue(nested(card, "rookie", "is_rookie", "rc"))
+    rookie: booleanValue(nested(card, "rookie", "is_rookie", "rc")) || hasAttribute(card, /\b(rookie|rc)\b/i),
+    auto: booleanValue(nested(card, "auto", "autograph")) || hasAttribute(card, /\b(auto|autograph)\b/i),
+    relic: booleanValue(nested(card, "relic", "memorabilia", "patch")) || hasAttribute(card, /\b(relic|patch|memorabilia)\b/i),
+    variation: Boolean(cleanText(nested(card, "variationOf"))) || booleanValue(nested(card, "variation", "is_variation")),
+    grader: firstValue(nested(companyRecord || {}, "name")),
+    grade: firstValue(nested(gradeRecord || {}, "value"), nested(gradeRecord || {}, "condition"))
   };
   const fieldConfidence: AIFieldConfidenceMap = {
     playerOrCharacter: confidenceValue(nested(card, "player_confidence"), confidence),
@@ -116,16 +192,26 @@ function normalizeCardSightResponse(payload: unknown): CardSightNormalizedRespon
     cardNumber: confidenceValue(nested(card, "card_number_confidence", "number_confidence"), confidence),
     parallel: confidenceValue(nested(card, "parallel_confidence", "insert_confidence"), confidence),
     rookie: confidenceValue(nested(card, "rookie_confidence"), confidence),
+    auto: confidenceValue(nested(card, "auto_confidence"), confidence),
+    relic: confidenceValue(nested(card, "relic_confidence"), confidence),
+    grader: confidenceValue(nested(gradingRecord || {}, "confidence"), fields.grader ? confidence : 0),
+    grade: confidenceValue(nested(gradingRecord || {}, "confidence"), fields.grade ? confidence : 0),
     overall: confidence
   };
-  const payloadWarnings = Array.isArray((payload as Record<string, unknown>)?.warnings) ? ((payload as Record<string, unknown>).warnings as unknown[]).map(cleanText).filter(Boolean) : [];
+  const payloadRecord = asRecord(payload) || {};
+  const payloadWarnings = Array.isArray(payloadRecord.warnings) ? payloadRecord.warnings.map(cleanText).filter(Boolean) : [];
+  const messageWarnings = records(card.messages)
+    .map((message) => cleanText(message.message))
+    .filter(Boolean);
   const cardWarnings = Array.isArray(card.warnings) ? card.warnings.map(cleanText).filter(Boolean) : [];
-  const warnings = [...payloadWarnings, ...cardWarnings];
+  const warnings = [...payloadWarnings, ...messageWarnings, ...cardWarnings];
   const evidence = [
     "CardSight front-image recognition",
+    cleanText(card.requestId) ? `request: ${cleanText(card.requestId)}` : "",
     fields.playerOrCharacter ? `player: ${fields.playerOrCharacter}` : "",
     fields.brand ? `brand: ${fields.brand}` : "",
-    fields.set ? `product/set: ${fields.set}` : "",
+    releaseName ? `release: ${releaseName}` : "",
+    setName ? `set: ${setName}` : "",
     insert ? `insert: ${insert}` : "",
     fields.parallel ? `parallel: ${fields.parallel}` : "",
     fields.cardNumber ? `card number: ${fields.cardNumber}` : ""
@@ -136,7 +222,7 @@ function normalizeCardSightResponse(payload: unknown): CardSightNormalizedRespon
     fieldConfidence,
     warnings,
     evidence,
-    raw: { payload, normalizedCandidate: card, insert },
+    raw: { payload, normalizedCandidate: card, releaseName, setName, insert },
     confidence
   };
 }
@@ -232,7 +318,7 @@ export class CardSightRestProvider implements CardSightProvider {
   private timeoutMs: number;
   private fallback = new MockCardSightProvider();
 
-  constructor({ apiKey, baseUrl = "https://api.cardsight.ai/v1/", recognitionPath = "recognize", timeoutMs = 12000 }: CardSightRestProviderOptions) {
+  constructor({ apiKey, baseUrl = "https://api.cardsight.ai/v1/", recognitionPath = "identify/card", timeoutMs = 12000 }: CardSightRestProviderOptions) {
     this.apiKey = apiKey;
     this.baseUrl = baseUrl;
     this.recognitionPath = recognitionPath;
@@ -259,15 +345,16 @@ export class CardSightRestProvider implements CardSightProvider {
     }
 
     try {
+      const upload = new FormData();
+      upload.append("image", await frontImageBlob(frontImage), frontImage.fileName || "front-card.jpg");
       const response = await fetchWithTimeout(
         endpointUrl(this.baseUrl, this.recognitionPath),
         {
           method: "POST",
           headers: {
-            "Content-Type": "application/json",
             "X-API-Key": this.apiKey
           },
-          body: JSON.stringify(frontImagePayload(frontImage))
+          body: upload
         },
         this.timeoutMs
       );

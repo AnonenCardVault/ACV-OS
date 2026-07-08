@@ -35,7 +35,7 @@ export function providerEnvironmentSummary(env: AIProviderEnvironment = {}) {
     cardsightConfigured: Boolean(env.cardsightApiKey),
     cardsightMode: env.cardsightApiKey ? "rest" : "mock",
     cardsightBaseUrl: env.cardsightBaseUrl || "https://api.cardsight.ai/v1/",
-    cardsightRecognitionPath: env.cardsightRecognitionPath || "recognize",
+    cardsightRecognitionPath: env.cardsightRecognitionPath || "identify/card",
     openAiConfigured: Boolean(env.openAiApiKey),
     openAiModel: env.openAiApiKey ? env.openAiModel || "gpt-5.5" : "mock",
     ocrProvider: env.ocrProvider || "mock",
