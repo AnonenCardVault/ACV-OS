@@ -449,21 +449,27 @@ function flagLabel(value: boolean) {
 
 function cleanTitlePart(value: string | undefined) {
   const text = String(value || "").trim();
-  if (!text || text === "-" || text.toLowerCase() === "pending") return "";
+  const normalized = text.toLowerCase();
+  if (!text || text === "-" || normalized === "pending" || normalized === "pending manual review") return "";
   return text;
 }
 
 function generatedTitleForRecord(record: ProposedRecord) {
+  const gradedLabel =
+    cleanTitlePart(record.grader) && record.grader !== "Raw" && cleanTitlePart(record.grade) && record.grade !== "Raw" ? `${record.grader} ${record.grade}` : "";
   const parts = [
     cleanTitlePart(record.year),
     cleanTitlePart(record.brand),
     cleanTitlePart(record.set),
     cleanTitlePart(record.playerCharacter),
+    cleanTitlePart(record.team),
     cleanTitlePart(record.parallel),
     cleanTitlePart(record.cardNumber) ? `#${cleanTitlePart(record.cardNumber).replace(/^#/, "")}` : "",
+    cleanTitlePart(record.serialNumber) ? `SN ${cleanTitlePart(record.serialNumber)}` : "",
     record.rookieFlag ? "RC" : "",
     record.autoFlag ? "Auto" : "",
-    record.relicFlag ? "Relic" : ""
+    record.relicFlag ? "Relic" : "",
+    gradedLabel
   ];
 
   return parts.filter(Boolean).join(" ").replace(/\s+/g, " ").trim() || cleanTitlePart(record.cardName) || "Untitled card";
@@ -898,7 +904,7 @@ function ReviewDrawer({
   const aiWarnings = group.aiExtraction?.warnings || [];
   const fieldConfidence = group.aiExtraction?.fieldConfidence || {};
   const fieldConfidenceEntries = Object.entries(fieldConfidence).filter(([, value]) => typeof value === "number");
-  const draftTitle = group.aiExtraction?.suggestedTitle || generatedTitleForRecord(group.proposed);
+  const draftTitle = generatedTitleForRecord(group.proposed);
   const hasAiSuggestion = Boolean(group.aiExtraction?.extracted || group.aiExtraction?.suggestedTitle);
   const aiProviderLabel = group.aiExtraction?.modelLabel ? "ACV AI Orchestrator" : "Ready";
 
@@ -1755,7 +1761,7 @@ export default function PhotoIntakePage() {
     const group = groups.find((item) => item.id === groupId);
     if (!group) return;
 
-    const title = previewTitle || group.aiExtraction?.suggestedTitle || generatedTitleForRecord(group.proposed);
+    const title = previewTitle || generatedTitleForRecord(group.proposed);
     if (!hasFieldValue(title)) {
       setStatusMessage(`${groupId} does not have a usable suggested title yet.`);
       return;
