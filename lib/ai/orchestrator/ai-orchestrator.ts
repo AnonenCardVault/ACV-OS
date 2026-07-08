@@ -11,6 +11,39 @@ function runId() {
   return `ai-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function diagnosticsEnabled() {
+  return process.env.NODE_ENV !== "production" || process.env.ACV_AI_DIAGNOSTICS === "true";
+}
+
+function imageDiagnostics(images: AIExtractionInput["images"]) {
+  return images.map((image) => ({
+    id: image.id,
+    fileName: image.fileName,
+    role: image.role,
+    order: image.order,
+    hasUrl: Boolean(image.url),
+    hasDataUrl: Boolean(image.dataUrl),
+    needsReupload: Boolean(image.needsReupload)
+  }));
+}
+
+function rawDiagnostics(raw: AIProviderOutput["raw"]) {
+  if (!raw) return undefined;
+  return {
+    keys: Object.keys(raw),
+    cardsightError: typeof raw.cardsightError === "string" ? raw.cardsightError : undefined,
+    responseId: typeof raw.responseId === "string" ? raw.responseId : undefined,
+    suggestedTitle: typeof raw.suggestedTitle === "string" ? raw.suggestedTitle : undefined,
+    usage: raw.usage && typeof raw.usage === "object" ? raw.usage : undefined,
+    normalizedCandidate: raw.normalizedCandidate && typeof raw.normalizedCandidate === "object" ? Object.keys(raw.normalizedCandidate as Record<string, unknown>) : undefined
+  };
+}
+
+function logExtraction(label: string, payload: Record<string, unknown>) {
+  if (!diagnosticsEnabled()) return;
+  console.info(`[ACV AI] ${label}`, payload);
+}
+
 function outputPriority(kind: AIProviderOutput["providerKind"]) {
   const priority: Record<AIProviderOutput["providerKind"], number> = {
     checklist: 5,
@@ -36,7 +69,7 @@ function chooseFieldValue(field: keyof ExtractedCardFields, input: AIExtractionI
     }))
     .filter((candidate) => typeof candidate.value === "boolean" || hasFieldValue(candidate.value));
 
-  if (candidates.length === 0) return input.existingFields?.[field];
+  if (candidates.length === 0) return undefined;
 
   candidates.sort((a, b) => {
     const confidenceDelta = b.confidence - a.confidence;
@@ -58,7 +91,7 @@ function mergeProviderOutputs(input: AIExtractionInput, outputs: AIProviderOutpu
     return memo;
   }, {});
 
-  return mergeCardFields(input.existingFields, fields, input.categoryHint || input.existingFields?.sportCategory || "Other");
+  return mergeCardFields({}, fields, input.categoryHint || "Other");
 }
 
 function dedupeWarnings(outputs: AIProviderOutput[], confidenceWarnings: AIExtractionResult["warnings"]) {
@@ -74,16 +107,37 @@ function dedupeWarnings(outputs: AIProviderOutput[], confidenceWarnings: AIExtra
 }
 
 async function runProvider(provider: AIProvider, input: AIExtractionInput, context: AIProviderContext): Promise<AIProviderOutput> {
-  try {
-    const providerInput =
-      provider.kind === "cardsight"
-        ? {
-            ...input,
-            images: input.images.filter((image) => image.id === context.imageProcessing.frontImageId)
-          }
-        : input;
+  const providerInput =
+    provider.kind === "cardsight"
+      ? {
+          ...input,
+          images: input.images.filter((image) => image.id === context.imageProcessing.frontImageId)
+        }
+      : input;
 
-    return await provider.extract(providerInput, context);
+  logExtraction("provider:start", {
+    runId: context.runId,
+    providerId: provider.id,
+    providerName: provider.label,
+    providerStatus: provider.status,
+    providerKind: provider.kind,
+    images: imageDiagnostics(providerInput.images)
+  });
+
+  try {
+    const output = await provider.extract(providerInput, context);
+    logExtraction("provider:finish", {
+      runId: context.runId,
+      providerId: provider.id,
+      providerName: provider.label,
+      status: output.status,
+      confidence: output.providerConfidence,
+      fields: output.fields,
+      warnings: output.warnings.map((item) => item.message),
+      evidence: output.evidence.slice(0, 6),
+      raw: rawDiagnostics(output.raw)
+    });
+    return output;
   } catch (error) {
     const timestamp = new Date().toISOString();
     const metadata = {
@@ -96,7 +150,7 @@ async function runProvider(provider: AIProvider, input: AIExtractionInput, conte
       costTier: provider.costTier
     };
 
-    return {
+    const output: AIProviderOutput = {
       providerId: provider.id,
       providerKind: provider.kind,
       providerLabel: provider.label,
@@ -121,6 +175,13 @@ async function runProvider(provider: AIProvider, input: AIExtractionInput, conte
       evidence: [],
       metadata
     };
+    logExtraction("provider:failed", {
+      runId: context.runId,
+      providerId: provider.id,
+      providerName: provider.label,
+      error: error instanceof Error ? error.message : `${provider.label} failed`
+    });
+    return output;
   }
 }
 
@@ -148,7 +209,7 @@ function retakeResult({
   imageProcessing: AIImageProcessingResult;
   decisionTrace: AIDecision[];
 }): AIExtractionResult {
-  const fields = mergeCardFields(input.existingFields, {}, input.categoryHint || input.existingFields?.sportCategory || "Other");
+  const fields = mergeCardFields({}, {}, input.categoryHint || "Other");
   const warnings: AIWarning[] = [
     {
       code: "retake_image_required",
@@ -203,6 +264,30 @@ export async function runAIExtraction({
     providerOutputs: [],
     decisionTrace: []
   };
+  const cardSightProviders = runOutputsByKind(providers, "cardsight");
+  const gptProviders = runOutputsByKind(providers, "gpt-vision");
+  const hasRealCardSight = cardSightProviders.some((provider) => provider.status === "available");
+  const hasRealGpt = gptProviders.some((provider) => provider.status === "available");
+  const hasLiveVisualProvider = hasRealCardSight || hasRealGpt;
+  const checklistProviders = runOutputsByKind(providers, "checklist").filter((provider) => !hasLiveVisualProvider || provider.status !== "mock");
+
+  logExtraction("run:start", {
+    runId: context.runId,
+    batchId: input.batchId,
+    groupId: input.groupId,
+    images: imageDiagnostics(input.images),
+    providers: providers.map((provider) => ({
+      id: provider.id,
+      name: provider.label,
+      kind: provider.kind,
+      status: provider.status,
+      costTier: provider.costTier
+    })),
+    existingFieldKeys: Object.entries(input.existingFields || {})
+      .filter(([, value]) => hasFieldValue(value))
+      .map(([key]) => key)
+  });
+
   const imageDecision = decideAfterImageProcessing(imageProcessing.qualityScore, config);
   context.decisionTrace.push(imageDecision);
 
@@ -218,23 +303,19 @@ export async function runAIExtraction({
   }
   context.decisionTrace.push(decideAfterOCR(context.providerOutputs, config));
 
-  for (const provider of runOutputsByKind(providers, "checklist")) {
+  for (const provider of checklistProviders) {
     upsertOutput(context, await runProvider(provider, input, context));
   }
   const localDecision = decideAfterLocalRules(context.providerOutputs, config);
   context.decisionTrace.push(localDecision);
 
-  const cardSightProviders = runOutputsByKind(providers, "cardsight");
-  const gptProviders = runOutputsByKind(providers, "gpt-vision");
-  const hasRealCardSight = cardSightProviders.some((provider) => provider.status === "available");
-  const hasRealGpt = gptProviders.some((provider) => provider.status === "available");
-  const shouldRunVisualIdentity = localDecision.route !== "skip-provider" || hasRealCardSight;
+  const shouldRunVisualIdentity = localDecision.route !== "skip-provider" || hasLiveVisualProvider;
 
   if (shouldRunVisualIdentity) {
     for (const provider of cardSightProviders) {
       upsertOutput(context, await runProvider(provider, input, context));
     }
-    for (const provider of runOutputsByKind(providers, "checklist")) {
+    for (const provider of checklistProviders) {
       upsertOutput(context, await runProvider(provider, input, context));
     }
     context.decisionTrace.push(decideAfterProvider(context.providerOutputs, config));
@@ -257,7 +338,7 @@ export async function runAIExtraction({
   }
 
   const hasStrongFields = context.providerOutputs.some((output) => hasFieldValue(output.fields.cardTitle) || hasFieldValue(output.fields.playerOrCharacter));
-  if (!hasStrongFields) {
+  if (!hasStrongFields && !hasLiveVisualProvider) {
     for (const provider of runOutputsByKind(providers, "mock")) {
       upsertOutput(context, await runProvider(provider, input, context));
     }
@@ -280,6 +361,21 @@ export async function runAIExtraction({
     imageProcessing,
     warnings,
     finalValues: fields
+  });
+  logExtraction("run:final", {
+    runId: context.runId,
+    batchId: input.batchId,
+    groupId: input.groupId,
+    confidence: confidence.overall,
+    status: confidence.status,
+    finalFields: fields,
+    warnings: warnings.map((item) => item.message),
+    providersUsed: context.providerOutputs.map((output) => ({
+      id: output.providerId,
+      name: output.providerLabel,
+      status: output.status,
+      confidence: output.providerConfidence
+    }))
   });
 
   return {

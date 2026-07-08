@@ -14,6 +14,27 @@ function warningMessages(result: AIExtractionResult) {
   return result.warnings.map((warning) => warning.message);
 }
 
+function diagnosticsEnabled() {
+  return process.env.NODE_ENV !== "production" || process.env.ACV_AI_DIAGNOSTICS === "true";
+}
+
+function routeImageDiagnostics(images: AIExtractionInput["images"]) {
+  return images.map((image) => ({
+    id: image.id,
+    fileName: image.fileName,
+    role: image.role,
+    order: image.order,
+    hasUrl: Boolean(image.url),
+    hasDataUrl: Boolean(image.dataUrl),
+    needsReupload: Boolean(image.needsReupload)
+  }));
+}
+
+function routeLog(label: string, payload: Record<string, unknown>) {
+  if (!diagnosticsEnabled()) return;
+  console.info(`[ACV AI Route] ${label}`, payload);
+}
+
 async function safeLogAttempt(args: Parameters<typeof logExtractionAttempt>[0]) {
   try {
     await logExtractionAttempt(args);
@@ -65,6 +86,21 @@ export async function POST(request: NextRequest) {
   });
   const modelLabel = providerEnv.openAiConfigured ? `ACV AI Orchestrator / OpenAI ${providerEnv.openAiModel}` : "ACV AI Orchestrator / mock providers";
 
+  routeLog("request", {
+    batchId: payload.batchId,
+    groupId: payload.groupId,
+    imageCount: images.length,
+    images: routeImageDiagnostics(images),
+    providerEnv,
+    categoryHint: input.categoryHint || "none",
+    existingFieldKeys: Object.entries(input.existingFields || {})
+      .filter(([, value]) => {
+        const text = String(value ?? "").trim();
+        return Boolean(text && text !== "-" && text.toLowerCase() !== "raw");
+      })
+      .map(([key]) => key)
+  });
+
   try {
     const result = await runAIExtraction({
       input,
@@ -87,6 +123,29 @@ export async function POST(request: NextRequest) {
         imageProcessing: result.log.imageProcessing,
         providerEnv
       }
+    });
+
+    routeLog("result", {
+      batchId: payload.batchId,
+      groupId: payload.groupId,
+      confidence: result.confidence,
+      status: result.extractionStatus,
+      final: {
+        title: result.cardTitle,
+        player: result.playerOrCharacter,
+        year: result.year,
+        brand: result.brand,
+        set: result.set,
+        cardNumber: result.cardNumber,
+        parallel: result.parallel
+      },
+      providers: result.providerOutputs.map((output) => ({
+        id: output.providerId,
+        name: output.providerLabel,
+        status: output.status,
+        confidence: output.providerConfidence,
+        warnings: output.warnings.map((warning) => warning.message)
+      }))
     });
 
     return NextResponse.json({

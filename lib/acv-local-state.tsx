@@ -76,6 +76,15 @@ export type AiExtractionStatus = "Not Run" | "Extracted" | "Needs Review" | "Fai
 
 export type AiFieldConfidenceMap = Partial<Record<keyof ProposedRecord | "suggestedTitle", number>>;
 
+export type AiProviderDiagnostic = {
+  providerName: string;
+  status: "used" | "skipped" | "failed" | "fallback";
+  reason: string;
+  confidence?: number;
+  mode: "live" | "mock" | "local";
+  mappedFields?: Array<{ label: string; value: string }>;
+};
+
 export type AiExtractionSnapshot = {
   status: AiExtractionStatus;
   extracted?: Partial<ProposedRecord>;
@@ -86,6 +95,7 @@ export type AiExtractionSnapshot = {
   confidenceScore?: number;
   modelLabel?: string;
   extractionSources?: string[];
+  providerDiagnostics?: AiProviderDiagnostic[];
 };
 
 export type IntakeGroup = {

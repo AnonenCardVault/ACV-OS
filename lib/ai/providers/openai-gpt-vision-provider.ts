@@ -199,6 +199,15 @@ function providerContextSummary(context: AIProviderContext) {
   }));
 }
 
+function imagePromptSummary(input: AIExtractionInput) {
+  return input.images.map((image) => ({
+    id: image.id,
+    fileName: image.fileName,
+    role: image.role,
+    order: image.order
+  }));
+}
+
 function buildPrompt(input: AIExtractionInput, context: AIProviderContext) {
   return [
     sportsCardExtractionPrompt,
@@ -209,9 +218,10 @@ function buildPrompt(input: AIExtractionInput, context: AIProviderContext) {
     "Never guess uncertain details. If a detail is not visible, leave it empty and add a warning.",
     "Distinguish real autograph/relic/patch from printed/facsimile only when visible.",
     "Use provider context as hints, but visible card images should win over weak filename guesses.",
+    "Use only the current uploaded images in this request. Do not reuse prior extraction values or old editable-form values as card identity evidence.",
     "",
     `Category hint: ${input.categoryHint || input.existingFields?.sportCategory || "none"}`,
-    `Existing form values: ${JSON.stringify(input.existingFields || {})}`,
+    `Current image files and roles: ${JSON.stringify(imagePromptSummary(input))}`,
     `Previous provider context: ${JSON.stringify(providerContextSummary(context))}`
   ].join("\n");
 }

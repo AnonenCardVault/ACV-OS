@@ -316,7 +316,6 @@ export class CardSightRestProvider implements CardSightProvider {
   private baseUrl: string;
   private recognitionPath: string;
   private timeoutMs: number;
-  private fallback = new MockCardSightProvider();
 
   constructor({ apiKey, baseUrl = "https://api.cardsight.ai/v1/", recognitionPath = "identify/card", timeoutMs = 12000 }: CardSightRestProviderOptions) {
     this.apiKey = apiKey;
@@ -386,35 +385,28 @@ export class CardSightRestProvider implements CardSightProvider {
         raw: normalized.raw
       });
     } catch (error) {
-      const fallbackOutput = await this.fallback.extract(input, context);
-      return {
-        ...fallbackOutput,
+      return createProviderOutput({
         providerId: this.id,
-        providerLabel: "CardSight REST (mock fallback)",
+        providerKind: this.kind,
+        providerLabel: this.label,
         providerVersion: this.version,
         modelName: this.modelName,
         promptVersion: this.promptVersion,
-        timestamp: new Date().toISOString(),
         costTier: this.costTier,
-        warnings: [
-          warning("cardsight_fallback", error instanceof Error ? error.message : "CardSight failed; mock CardSight fallback used", "warning", undefined, this.id),
-          ...fallbackOutput.warnings
-        ],
-        evidence: ["CardSight fallback path", ...fallbackOutput.evidence],
-        metadata: {
-          ...fallbackOutput.metadata,
-          providerName: "CardSight REST (mock fallback)",
-          providerVersion: this.version,
-          modelName: this.modelName,
-          promptVersion: this.promptVersion,
-          timestamp: new Date().toISOString(),
-          costTier: this.costTier
-        },
+        startedAt,
+        status: "failed",
+        warnings: [warning("cardsight_failed", error instanceof Error ? error.message : "CardSight failed", "warning", undefined, this.id)],
+        evidence: ["CardSight REST failure; GPT may continue with current front/back images"],
         raw: {
           cardsightError: error instanceof Error ? error.message : "Unknown CardSight error",
-          fallbackRaw: fallbackOutput.raw
+          endpoint: endpointUrl(this.baseUrl, this.recognitionPath),
+          frontImage: {
+            id: frontImage.id,
+            fileName: frontImage.fileName,
+            role: frontImage.role
+          }
         }
-      };
+      });
     }
   }
 }

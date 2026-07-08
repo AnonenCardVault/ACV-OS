@@ -97,6 +97,15 @@ type ProposedRecord = {
 
 type AiFieldConfidenceMap = Partial<Record<keyof ProposedRecord | "suggestedTitle", number>>;
 
+type AiProviderDiagnostic = {
+  providerName: string;
+  status: "used" | "skipped" | "failed" | "fallback";
+  reason: string;
+  confidence?: number;
+  mode: "live" | "mock" | "local";
+  mappedFields?: Array<{ label: string; value: string }>;
+};
+
 type AiExtractionSnapshot = {
   status: AiExtractionStatus;
   extracted?: Partial<ProposedRecord>;
@@ -107,6 +116,7 @@ type AiExtractionSnapshot = {
   confidenceScore?: number;
   modelLabel?: string;
   extractionSources?: string[];
+  providerDiagnostics?: AiProviderDiagnostic[];
 };
 
 type IntakeGroup = {
@@ -190,85 +200,31 @@ function defaultRoleForImage(index: number, total: number, mode: ImageCountMode)
 }
 
 function defaultProposedRecord(groupNumber: number): ProposedRecord {
-  const samples: ProposedRecord[] = [
-    {
-      cardName: "Unidentified Football Card",
-      playerCharacter: "Pending manual review",
-      team: "Pending",
-      category: "Football",
-      year: "2023",
-      brand: "Panini",
-      set: "Prizm",
-      cardNumber: "-",
-      parallel: "-",
-      serialNumber: "-",
-      rookieFlag: false,
-      autoFlag: false,
-      relicFlag: false,
-      variationFlag: false,
-      grader: "Raw",
-      grade: "Raw",
-      conditionNotes: "Local mock record generated from uploaded images. No OCR or AI has run yet.",
-      uncertaintyNotes: "Review card name, player, set, and numbering before approval.",
-      purchaseCost: 0,
-      quantity: 1,
-      acquisitionSource: "Computer Upload",
-      location: "Photo Intake",
-      internalNotes: ""
-    },
-    {
-      cardName: "Unidentified Baseball Card",
-      playerCharacter: "Pending manual review",
-      team: "Pending",
-      category: "Baseball",
-      year: "2024",
-      brand: "Topps",
-      set: "Chrome",
-      cardNumber: "-",
-      parallel: "-",
-      serialNumber: "-",
-      rookieFlag: false,
-      autoFlag: false,
-      relicFlag: false,
-      variationFlag: false,
-      grader: "Raw",
-      grade: "Raw",
-      conditionNotes: "Local mock record generated from uploaded images. No OCR or AI has run yet.",
-      uncertaintyNotes: "Confirm player, set, and image pairing.",
-      purchaseCost: 0,
-      quantity: 1,
-      acquisitionSource: "Computer Upload",
-      location: "Photo Intake",
-      internalNotes: ""
-    },
-    {
-      cardName: "Unidentified TCG Card",
-      playerCharacter: "Pending manual review",
-      team: "Pending",
-      category: "TCG",
-      year: "2024",
-      brand: "Pokemon",
-      set: "Pending",
-      cardNumber: "-",
-      parallel: "-",
-      serialNumber: "-",
-      rookieFlag: false,
-      autoFlag: false,
-      relicFlag: false,
-      variationFlag: false,
-      grader: "Raw",
-      grade: "Raw",
-      conditionNotes: "Local mock record generated from uploaded images. No OCR or AI has run yet.",
-      uncertaintyNotes: "Confirm set, card number, and surface image role.",
-      purchaseCost: 0,
-      quantity: 1,
-      acquisitionSource: "Computer Upload",
-      location: "Photo Intake",
-      internalNotes: ""
-    }
-  ];
-
-  return { ...samples[(groupNumber - 1) % samples.length] };
+  return {
+    cardName: `Unidentified Card ${groupNumber}`,
+    playerCharacter: "",
+    team: "",
+    category: "Other",
+    year: "",
+    brand: "",
+    set: "",
+    cardNumber: "",
+    parallel: "",
+    serialNumber: "",
+    rookieFlag: false,
+    autoFlag: false,
+    relicFlag: false,
+    variationFlag: false,
+    grader: "Raw",
+    grade: "Raw",
+    conditionNotes: "Local record generated from uploaded images. No OCR or AI has run yet.",
+    uncertaintyNotes: "Review card identity, set, and numbering before approval.",
+    purchaseCost: 0,
+    quantity: 1,
+    acquisitionSource: "Computer Upload",
+    location: "Photo Intake",
+    internalNotes: ""
+  };
 }
 
 function pairingStatusForGroup(group: IntakeGroup) {
@@ -307,6 +263,19 @@ function toneForAiStatus(status: AiExtractionStatus): StatusTone {
   if (status === "Failed") return "pink";
   if (status === "Cleared") return "neutral";
   return "purple";
+}
+
+function toneForProviderDiagnostic(status: AiProviderDiagnostic["status"]): StatusTone {
+  if (status === "used") return "teal";
+  if (status === "fallback" || status === "skipped") return "gold";
+  if (status === "failed") return "pink";
+  return "neutral";
+}
+
+function toneForProviderMode(mode: AiProviderDiagnostic["mode"]): StatusTone {
+  if (mode === "live") return "green";
+  if (mode === "mock") return "purple";
+  return "neutral";
 }
 
 function fieldConfidenceLabel(key: string) {
@@ -902,6 +871,7 @@ function ReviewDrawer({
   const readinessIssues = readinessIssuesForGroup(group);
   const aiStatus = aiStatusForGroup(group);
   const aiWarnings = group.aiExtraction?.warnings || [];
+  const providerDiagnostics = group.aiExtraction?.providerDiagnostics || [];
   const fieldConfidence = group.aiExtraction?.fieldConfidence || {};
   const fieldConfidenceEntries = Object.entries(fieldConfidence).filter(([, value]) => typeof value === "number");
   const draftTitle = generatedTitleForRecord(group.proposed);
@@ -1041,6 +1011,33 @@ function ReviewDrawer({
                           </div>
                         </div>
                       )}
+                    </div>
+                  )}
+
+                  {providerDiagnostics.length > 0 && (
+                    <div className="mt-3 rounded-md border border-acv-border bg-black/20 p-2">
+                      <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-acv-muted">Provider Diagnostics</p>
+                      <div className="grid min-w-0 gap-2 lg:grid-cols-2">
+                        {providerDiagnostics.map((diagnostic) => (
+                          <div key={`${diagnostic.providerName}-${diagnostic.status}`} className="min-w-0 rounded-md border border-acv-border bg-acv-panel2 p-2">
+                            <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                              <StatusPill tone={toneForProviderDiagnostic(diagnostic.status)}>{diagnostic.providerName}: {diagnostic.status}</StatusPill>
+                              <StatusPill tone={toneForProviderMode(diagnostic.mode)}>{diagnostic.mode}</StatusPill>
+                              {diagnostic.confidence !== undefined && <StatusPill tone={confidenceTone(diagnostic.confidence)}>{diagnostic.confidence}%</StatusPill>}
+                            </div>
+                            <p className="mt-2 break-words text-[11px] leading-5 text-acv-muted">{diagnostic.reason}</p>
+                            {diagnostic.mappedFields && diagnostic.mappedFields.length > 0 && (
+                              <div className="mt-2 flex min-w-0 flex-wrap gap-1.5">
+                                {diagnostic.mappedFields.map((field) => (
+                                  <StatusPill key={`${diagnostic.providerName}-${field.label}-${field.value}`} tone="neutral" className="max-w-full !whitespace-normal break-words text-left leading-4 tracking-[0.04em]">
+                                    {field.label}: {field.value}
+                                  </StatusPill>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1695,7 +1692,23 @@ export default function PhotoIntakePage() {
     if (extractingGroupId) return;
 
     setExtractingGroupId(groupId);
+    updateGroup(groupId, (currentGroup) => ({
+      ...currentGroup,
+      aiExtraction: defaultAiExtraction()
+    }));
     try {
+      console.info("[ACV Photo Intake] Run AI Extraction", {
+        batchId: currentBatchEntry.batchId,
+        groupId: group.id,
+        images: group.images.map((image) => ({
+          id: image.id,
+          fileName: image.fileName,
+          role: image.role,
+          order: image.order,
+          hasUrl: Boolean(image.publicUrl || image.url),
+          hasDataUrl: Boolean(image.dataUrl)
+        }))
+      });
       const result = await extractCardFromImagesViaApi({
         images: group.images,
         imageRoles: group.images.map((image) => ({ id: image.id, role: image.role })),
@@ -1717,9 +1730,18 @@ export default function PhotoIntakePage() {
           extractedAt: result.extractedAt,
           confidenceScore: result.confidenceScore,
           modelLabel: result.modelLabel,
-          extractionSources: result.extractionSources
+          extractionSources: result.extractionSources,
+          providerDiagnostics: result.providerDiagnostics
         }
       }));
+      console.info("[ACV Photo Intake] AI Extraction Result", {
+        batchId: currentBatchEntry.batchId,
+        groupId: group.id,
+        status: result.status,
+        confidence: result.confidenceScore,
+        extracted: result.extracted,
+        providerDiagnostics: result.providerDiagnostics
+      });
       setStatusMessage(`${groupId} ACV AI Orchestrator extraction complete. Review editable fields before approving.`);
     } catch (error) {
       updateGroup(groupId, (currentGroup) => ({
@@ -1731,7 +1753,15 @@ export default function PhotoIntakePage() {
           warnings: [error instanceof Error ? error.message : "AI extraction failed"],
           suggestedTitle: "",
           extractedAt: new Date().toISOString(),
-          modelLabel: "ACV extraction route"
+          modelLabel: "ACV extraction route",
+          providerDiagnostics: [
+            {
+              providerName: "ACV extraction route",
+              status: "failed",
+              reason: error instanceof Error ? error.message : "AI extraction failed",
+              mode: "local"
+            }
+          ]
         }
       }));
       setStatusMessage(`${groupId} AI extraction failed. Manual field values were preserved.`);

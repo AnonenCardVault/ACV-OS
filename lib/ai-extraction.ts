@@ -1,4 +1,4 @@
-import { createDefaultAIProviders, runAIExtraction, type AIExtractionResult as EngineExtractionResult, type AIImageInput as ExtractionImage, type ExtractedCardFields } from "@/lib/ai";
+import { createDefaultAIProviders, runAIExtraction, type AIExtractionResult as EngineExtractionResult, type AIImageInput as ExtractionImage } from "@/lib/ai";
 import type { AiExtractionStatus, AiFieldConfidenceMap, IntakeImage, ProposedRecord } from "@/lib/acv-local-state";
 
 export type ExtractCardInput = {
@@ -20,30 +20,15 @@ export type ExtractionResult = {
   extractedAt: string;
   modelLabel: string;
   extractionSources: string[];
+  providerDiagnostics: Array<{
+    providerName: string;
+    status: "used" | "skipped" | "failed" | "fallback";
+    reason: string;
+    confidence?: number;
+    mode: "live" | "mock" | "local";
+    mappedFields?: Array<{ label: string; value: string }>;
+  }>;
 };
-
-function proposedToExtractedFields(record: ProposedRecord): Partial<ExtractedCardFields> {
-  return {
-    cardTitle: record.cardName,
-    playerOrCharacter: record.playerCharacter,
-    team: record.team,
-    sportCategory: record.category,
-    year: record.year,
-    brand: record.brand,
-    set: record.set,
-    cardNumber: record.cardNumber,
-    parallel: record.parallel,
-    serialNumber: record.serialNumber,
-    rookie: record.rookieFlag,
-    auto: record.autoFlag,
-    relic: record.relicFlag,
-    variation: record.variationFlag,
-    grader: record.grader,
-    grade: record.grade,
-    conditionNotes: record.conditionNotes,
-    uncertaintyNotes: record.uncertaintyNotes
-  };
-}
 
 function engineImage(image: IntakeImage): ExtractionImage {
   return {
@@ -110,6 +95,59 @@ function engineResultToProposed(result: EngineExtractionResult, existing: Propos
   };
 }
 
+function hasDiagnosticValue(value: unknown) {
+  if (typeof value === "boolean") return value;
+  const text = String(value ?? "").trim();
+  return Boolean(text && text !== "-" && text.toLowerCase() !== "raw");
+}
+
+function mappedFieldLabel(key: string) {
+  const labels: Record<string, string> = {
+    cardTitle: "Title",
+    playerOrCharacter: "Player",
+    team: "Team",
+    sportCategory: "Category",
+    year: "Year",
+    brand: "Brand",
+    set: "Set",
+    cardNumber: "Card #",
+    parallel: "Parallel",
+    serialNumber: "Serial",
+    rookie: "Rookie",
+    auto: "Auto",
+    relic: "Relic",
+    variation: "Variation",
+    grader: "Grader",
+    grade: "Grade"
+  };
+  return labels[key] || key;
+}
+
+function providerDiagnostics(result: EngineExtractionResult): ExtractionResult["providerDiagnostics"] {
+  return result.providerOutputs.map((output) => {
+    const fallback = output.providerKind === "mock" || output.providerLabel.toLowerCase().includes("fallback") || output.warnings.some((item) => item.code.toLowerCase().includes("fallback"));
+    const mode = output.providerLabel.toLowerCase().includes("mock") ? "mock" : output.costTier === "paid" ? "live" : "local";
+    const status = output.status === "failed" ? "failed" : fallback ? "fallback" : output.status === "skipped" ? "skipped" : "used";
+    const reason = output.warnings[0]?.message || output.evidence[0] || (status === "used" ? `${mode} provider completed` : "Provider did not return usable output");
+    const mappedFields = Object.entries(output.fields)
+      .filter(([, value]) => hasDiagnosticValue(value))
+      .slice(0, 8)
+      .map(([key, value]) => ({
+        label: mappedFieldLabel(key),
+        value: typeof value === "boolean" ? "Yes" : String(value)
+      }));
+
+    return {
+      providerName: output.providerLabel,
+      status,
+      reason,
+      confidence: output.providerConfidence || undefined,
+      mode,
+      mappedFields
+    };
+  });
+}
+
 function adaptEngineResult(result: EngineExtractionResult, existingValues: ProposedRecord, modelLabel: string): ExtractionResult {
   return {
     status: engineStatusToIntakeStatus(result),
@@ -120,15 +158,16 @@ function adaptEngineResult(result: EngineExtractionResult, existingValues: Propo
     suggestedTitle: result.suggestedTitle,
     extractedAt: new Date().toISOString(),
     modelLabel,
-    extractionSources: result.extractionSources
+    extractionSources: result.extractionSources,
+    providerDiagnostics: providerDiagnostics(result)
   };
 }
 
 function engineInput(input: ExtractCardInput) {
   return {
     images: input.images.map(engineImage),
-    categoryHint: input.categoryHint,
-    existingFields: proposedToExtractedFields(input.existingValues)
+    categoryHint: undefined,
+    existingFields: {}
   };
 }
 
