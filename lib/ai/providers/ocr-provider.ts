@@ -1,16 +1,5 @@
 import type { AIExtractionInput, AIProviderContext, OCRProvider } from "@/lib/ai/types";
-import { imageTextBlob } from "@/lib/ai/utils/fields";
 import { createProviderOutput, warning } from "@/lib/ai/utils/provider-output";
-
-function detectCardNumber(text: string) {
-  const match = text.match(/(?:#|card\s*number\s*)?([A-Z]{0,3}\d{1,4}[A-Z]{0,2})/i);
-  return match?.[1] || "";
-}
-
-function detectSerial(text: string) {
-  const match = text.match(/\b\d{1,4}\s*\/\s*\d{1,4}\b/);
-  return match?.[0]?.replace(/\s+/g, "") || "";
-}
 
 export class MockOCRProvider implements OCRProvider {
   id = "mock-ocr";
@@ -24,10 +13,12 @@ export class MockOCRProvider implements OCRProvider {
 
   async extract(input: AIExtractionInput, context: AIProviderContext) {
     const startedAt = Date.now();
-    const textBlob = imageTextBlob(input.images, input.existingFields);
-    const cardNumber = detectCardNumber(textBlob) || input.existingFields?.cardNumber || "";
-    const serialNumber = detectSerial(textBlob) || input.existingFields?.serialNumber || "";
-    const hasReadableText = textBlob.length > 0;
+    const filenameMetadata = input.images.map((image) => ({
+      id: image.id,
+      fileName: image.fileName,
+      role: image.role,
+      order: image.order
+    }));
 
     return createProviderOutput({
       providerId: this.id,
@@ -38,19 +29,14 @@ export class MockOCRProvider implements OCRProvider {
       promptVersion: this.promptVersion,
       costTier: this.costTier,
       startedAt,
-      fields: {
-        cardNumber,
-        serialNumber
-      },
-      fieldConfidence: {
-        cardNumber: cardNumber ? 72 : 28,
-        serialNumber: serialNumber ? 82 : 35
-      },
-      warnings: hasReadableText ? [] : [warning("ocr_no_text", "OCR quick pass found no readable text", "warning", undefined, this.id)],
-      evidence: ["filenames", "image roles", "existing form values"],
+      fields: {},
+      fieldConfidence: {},
+      warnings: [warning("ocr_mock_no_visible_text", "Mock OCR does not read visible card text; filenames were ignored for identity fields", "info", undefined, this.id)],
+      evidence: ["filename metadata logged for diagnostics only"],
       raw: {
-        detectedText: textBlob ? [textBlob] : [],
-        imageQuality: hasReadableText ? "mock-readable" : "mock-low-text",
+        detectedText: [],
+        filenameMetadata,
+        imageQuality: "mock-no-visible-text",
         routingPurpose: "OCR quick pass only; not final identification."
       }
     });

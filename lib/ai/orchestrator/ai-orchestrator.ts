@@ -46,13 +46,24 @@ function logExtraction(label: string, payload: Record<string, unknown>) {
 
 function outputPriority(kind: AIProviderOutput["providerKind"]) {
   const priority: Record<AIProviderOutput["providerKind"], number> = {
-    checklist: 5,
-    "gpt-vision": 4,
-    cardsight: 3,
+    "gpt-vision": 5,
+    cardsight: 4,
+    checklist: 3,
     ocr: 2,
     mock: 1
   };
   return priority[kind] || 0;
+}
+
+const gptVisibleTextFields = new Set<keyof ExtractedCardFields>(["cardNumber", "serialNumber", "conditionNotes", "uncertaintyNotes", "auto", "relic", "grader", "grade"]);
+
+function providerMergeRank(output: AIProviderOutput, field: keyof ExtractedCardFields) {
+  if (output.providerKind === "gpt-vision") return gptVisibleTextFields.has(field) ? 90 : 72;
+  if (output.providerKind === "cardsight") return gptVisibleTextFields.has(field) ? 62 : 86;
+  if (output.providerKind === "checklist") return 55;
+  if (output.providerKind === "ocr") return output.providerLabel.toLowerCase().includes("mock") ? 12 : 70;
+  if (output.providerKind === "mock") return 8;
+  return outputPriority(output.providerKind) * 10;
 }
 
 function fieldConfidence(output: AIProviderOutput, field: AIFieldKey) {
@@ -60,18 +71,27 @@ function fieldConfidence(output: AIProviderOutput, field: AIFieldKey) {
 }
 
 function chooseFieldValue(field: keyof ExtractedCardFields, input: AIExtractionInput, outputs: AIProviderOutput[]) {
+  const manualValue = input.existingFields?.[field];
+  if (manualValue !== undefined && (typeof manualValue === "boolean" || hasFieldValue(manualValue))) {
+    return manualValue;
+  }
+
   const candidates = outputs
+    .filter((output) => output.status === "success")
     .filter((output) => Object.prototype.hasOwnProperty.call(output.fields, field))
     .map((output) => ({
       output,
       value: output.fields[field],
-      confidence: fieldConfidence(output, field)
+      confidence: fieldConfidence(output, field),
+      rank: providerMergeRank(output, field)
     }))
     .filter((candidate) => typeof candidate.value === "boolean" || hasFieldValue(candidate.value));
 
   if (candidates.length === 0) return undefined;
 
   candidates.sort((a, b) => {
+    const rankDelta = b.rank - a.rank;
+    if (rankDelta !== 0) return rankDelta;
     const confidenceDelta = b.confidence - a.confidence;
     if (confidenceDelta !== 0) return confidenceDelta;
     return outputPriority(b.output.providerKind) - outputPriority(a.output.providerKind);

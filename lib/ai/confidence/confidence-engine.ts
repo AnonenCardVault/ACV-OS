@@ -4,11 +4,11 @@ import { hasBackImage, hasFrontImage, hasFieldValue } from "@/lib/ai/utils/field
 import type { AIImageInput } from "@/lib/ai/types";
 
 const providerWeights: Record<string, number> = {
-  ocr: 0.75,
-  cardsight: 0.9,
-  checklist: 1.15,
-  "gpt-vision": 1,
-  mock: 0.65
+  ocr: 0.55,
+  cardsight: 1.05,
+  checklist: 0.85,
+  "gpt-vision": 1.15,
+  mock: 0.35
 };
 
 const keyFields: AIFieldKey[] = ["cardTitle", "playerOrCharacter", "sportCategory", "year", "brand", "set", "cardNumber"];

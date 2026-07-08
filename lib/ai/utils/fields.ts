@@ -64,7 +64,7 @@ export function createSuggestedTitle(fields: Partial<ExtractedCardFields>) {
 
 export function imageTextBlob(images: AIImageInput[], existingFields?: Partial<ExtractedCardFields>) {
   const imageText = images
-    .map((image) => [image.fileName, image.label, image.role].map(cleanValue).join(" "))
+    .map((image) => [image.role].map(cleanValue).join(" "))
     .join(" ");
   const fieldText = Object.values(existingFields || {}).map(cleanValue).join(" ");
   return `${imageText} ${fieldText}`.replace(/\s+/g, " ").trim();
