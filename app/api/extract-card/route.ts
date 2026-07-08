@@ -121,6 +121,7 @@ export async function POST(request: NextRequest) {
         providerMetadata: result.log.providerMetadata,
         elapsedMs: result.log.elapsedMs,
         imageProcessing: result.log.imageProcessing,
+        catalogValidation: result.catalogValidation,
         providerEnv
       }
     });
@@ -145,7 +146,8 @@ export async function POST(request: NextRequest) {
         status: output.status,
         confidence: output.providerConfidence,
         warnings: output.warnings.map((warning) => warning.message)
-      }))
+      })),
+      catalogValidation: result.catalogValidation
     });
 
     return NextResponse.json({

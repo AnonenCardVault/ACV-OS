@@ -1,4 +1,4 @@
-import { createDefaultAIProviders, runAIExtraction, type AIExtractionResult as EngineExtractionResult, type AIImageInput as ExtractionImage } from "@/lib/ai";
+import type { AIExtractionResult as EngineExtractionResult, AIImageInput as ExtractionImage } from "@/lib/ai";
 import type { AiExtractionStatus, AiFieldConfidenceMap, IntakeImage, ProposedRecord } from "@/lib/acv-local-state";
 
 export type ExtractCardInput = {
@@ -20,6 +20,15 @@ export type ExtractionResult = {
   extractedAt: string;
   modelLabel: string;
   extractionSources: string[];
+  catalogDiagnostics?: {
+    providerName: string;
+    status: string;
+    confidence?: number;
+    matchedCard?: string;
+    matchedSet?: string;
+    matchedNumber?: string;
+    warnings: string[];
+  };
   providerDiagnostics: Array<{
     providerName: string;
     status: "used" | "skipped" | "failed" | "fallback";
@@ -148,6 +157,20 @@ function providerDiagnostics(result: EngineExtractionResult): ExtractionResult["
   });
 }
 
+function catalogDiagnostics(result: EngineExtractionResult): ExtractionResult["catalogDiagnostics"] {
+  const validation = result.catalogValidation;
+  if (!validation) return undefined;
+  return {
+    providerName: validation.providerName,
+    status: validation.status,
+    confidence: validation.confidence,
+    matchedCard: validation.matchedCard?.name,
+    matchedSet: validation.matchedCard?.set,
+    matchedNumber: validation.matchedCard?.number,
+    warnings: validation.warnings.map((warning) => warning.message)
+  };
+}
+
 function adaptEngineResult(result: EngineExtractionResult, existingValues: ProposedRecord, modelLabel: string): ExtractionResult {
   return {
     status: engineStatusToIntakeStatus(result),
@@ -159,6 +182,7 @@ function adaptEngineResult(result: EngineExtractionResult, existingValues: Propo
     extractedAt: new Date().toISOString(),
     modelLabel,
     extractionSources: result.extractionSources,
+    catalogDiagnostics: catalogDiagnostics(result),
     providerDiagnostics: providerDiagnostics(result)
   };
 }
@@ -172,15 +196,7 @@ function engineInput(input: ExtractCardInput) {
 }
 
 export async function extractCardFromImages(input: ExtractCardInput): Promise<ExtractionResult> {
-  const result = await runAIExtraction({
-    input: {
-      ...engineInput(input),
-      batchId: input.batchId,
-      groupId: input.groupId
-    },
-    providers: createDefaultAIProviders()
-  });
-  return adaptEngineResult(result, input.existingValues, "ACV Extraction Engine v2 / local mock");
+  return extractCardFromImagesViaApi(input);
 }
 
 export async function extractCardFromImagesViaApi(input: ExtractCardInput): Promise<ExtractionResult> {

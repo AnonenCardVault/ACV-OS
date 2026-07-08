@@ -6,6 +6,7 @@ import { createExtractionLog } from "@/lib/ai/orchestrator/extraction-logger";
 import type { AIDecision, AIExtractionInput, AIExtractionResult, AIFieldKey, AIImageProcessingResult, AIProvider, AIProviderContext, AIProviderOutput, AIWarning, DecisionEngineConfig, ExtractedCardFields } from "@/lib/ai/types";
 import { blankCardFields, createSuggestedTitle, hasFieldValue, mergeCardFields } from "@/lib/ai/utils/fields";
 import { createLearningEvent } from "@/lib/ai/learning";
+import { validateCatalogFields } from "@/lib/catalog";
 
 function runId() {
   return `ai-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -42,6 +43,10 @@ function rawDiagnostics(raw: AIProviderOutput["raw"]) {
 function logExtraction(label: string, payload: Record<string, unknown>) {
   if (!diagnosticsEnabled()) return;
   console.info(`[ACV AI] ${label}`, payload);
+}
+
+function clampConfidence(value: number) {
+  return Math.max(0, Math.min(99, Math.round(value)));
 }
 
 function outputPriority(kind: AIProviderOutput["providerKind"]) {
@@ -364,20 +369,25 @@ export async function runAIExtraction({
     }
   }
 
-  const fields = mergeProviderOutputs(input, context.providerOutputs);
+  let fields = mergeProviderOutputs(input, context.providerOutputs);
   if (!hasFieldValue(fields.cardTitle)) {
     fields.cardTitle = createSuggestedTitle(fields) || "Unidentified Card";
   }
+  const catalog = await validateCatalogFields(fields);
+  fields = catalog.fields;
   const suggestedTitle = createSuggestedTitle(fields) || fields.cardTitle;
   const confidence = calculateAIConfidence({ fields, images: input.images, providerOutputs: context.providerOutputs, config });
-  const warnings = dedupeWarnings(context.providerOutputs, confidence.warnings);
+  const adjustedOverall = clampConfidence(confidence.overall + catalog.confidenceAdjustment);
+  const fieldConfidence = { ...confidence.fieldConfidence, ...catalog.fieldConfidence };
+  const warnings = dedupeWarnings(context.providerOutputs, [...confidence.warnings, ...catalog.warnings]);
+  const extractionStatus = catalog.validation?.status === "disagreement" && confidence.status === "Ready to Approve" ? "Needs Review" : confidence.status;
   const learningEvent = createLearningEvent({ input, providerOutputs: context.providerOutputs });
   const log = createExtractionLog({
     runId: context.runId,
     input,
     startedAt,
     providerOutputs: context.providerOutputs,
-    confidence: confidence.overall,
+    confidence: adjustedOverall,
     imageProcessing,
     warnings,
     finalValues: fields
@@ -386,10 +396,18 @@ export async function runAIExtraction({
     runId: context.runId,
     batchId: input.batchId,
     groupId: input.groupId,
-    confidence: confidence.overall,
-    status: confidence.status,
+    confidence: adjustedOverall,
+    status: extractionStatus,
     finalFields: fields,
     warnings: warnings.map((item) => item.message),
+    catalogValidation: catalog.validation
+      ? {
+          provider: catalog.validation.providerName,
+          status: catalog.validation.status,
+          confidence: catalog.validation.confidence,
+          matchedCard: catalog.validation.matchedCard
+        }
+      : undefined,
     providersUsed: context.providerOutputs.map((output) => ({
       id: output.providerId,
       name: output.providerLabel,
@@ -400,14 +418,15 @@ export async function runAIExtraction({
 
   return {
     ...fields,
-    confidence: confidence.overall,
-    fieldConfidence: confidence.fieldConfidence,
+    confidence: adjustedOverall,
+    fieldConfidence,
     warnings,
     suggestedTitle,
-    extractionStatus: confidence.status,
+    extractionStatus,
     extractionSources: context.providerOutputs.flatMap((output) => [output.providerLabel, ...output.evidence]),
     providersUsed: context.providerOutputs.map((output) => output.providerId),
     providerOutputs: context.providerOutputs,
+    catalogValidation: catalog.validation,
     decisionTrace: context.decisionTrace as AIDecision[],
     learningEvent,
     log

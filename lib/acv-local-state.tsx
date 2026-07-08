@@ -85,6 +85,16 @@ export type AiProviderDiagnostic = {
   mappedFields?: Array<{ label: string; value: string }>;
 };
 
+export type CatalogDiagnostic = {
+  providerName: string;
+  status: string;
+  confidence?: number;
+  matchedCard?: string;
+  matchedSet?: string;
+  matchedNumber?: string;
+  warnings: string[];
+};
+
 export type AiExtractionSnapshot = {
   status: AiExtractionStatus;
   extracted?: Partial<ProposedRecord>;
@@ -95,6 +105,7 @@ export type AiExtractionSnapshot = {
   confidenceScore?: number;
   modelLabel?: string;
   extractionSources?: string[];
+  catalogDiagnostics?: CatalogDiagnostic;
   providerDiagnostics?: AiProviderDiagnostic[];
 };
 

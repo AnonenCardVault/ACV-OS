@@ -1,3 +1,5 @@
+import type { CatalogValidationResult } from "@/lib/catalog/types";
+
 export type AIImageRole =
   | "Front"
   | "Back"
@@ -232,6 +234,7 @@ export type AIExtractionResult = ExtractedCardFields & {
   extractionSources: string[];
   providersUsed: string[];
   providerOutputs: AIProviderOutput[];
+  catalogValidation?: CatalogValidationResult;
   decisionTrace: AIDecision[];
   learningEvent: AILearningEvent;
   log: AIExtractionLog;

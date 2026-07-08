@@ -106,6 +106,16 @@ type AiProviderDiagnostic = {
   mappedFields?: Array<{ label: string; value: string }>;
 };
 
+type CatalogDiagnostic = {
+  providerName: string;
+  status: string;
+  confidence?: number;
+  matchedCard?: string;
+  matchedSet?: string;
+  matchedNumber?: string;
+  warnings: string[];
+};
+
 type AiExtractionSnapshot = {
   status: AiExtractionStatus;
   extracted?: Partial<ProposedRecord>;
@@ -116,6 +126,7 @@ type AiExtractionSnapshot = {
   confidenceScore?: number;
   modelLabel?: string;
   extractionSources?: string[];
+  catalogDiagnostics?: CatalogDiagnostic;
   providerDiagnostics?: AiProviderDiagnostic[];
 };
 
@@ -276,6 +287,13 @@ function toneForProviderMode(mode: AiProviderDiagnostic["mode"]): StatusTone {
   if (mode === "live") return "green";
   if (mode === "mock") return "purple";
   return "neutral";
+}
+
+function toneForCatalogStatus(status: string): StatusTone {
+  if (status === "matched") return "teal";
+  if (status === "disagreement" || status === "not_found") return "gold";
+  if (status === "unavailable") return "neutral";
+  return "purple";
 }
 
 function fieldConfidenceLabel(key: string) {
@@ -871,6 +889,7 @@ function ReviewDrawer({
   const readinessIssues = readinessIssuesForGroup(group);
   const aiStatus = aiStatusForGroup(group);
   const aiWarnings = group.aiExtraction?.warnings || [];
+  const catalogDiagnostics = group.aiExtraction?.catalogDiagnostics;
   const providerDiagnostics = group.aiExtraction?.providerDiagnostics || [];
   const fieldConfidence = group.aiExtraction?.fieldConfidence || {};
   const fieldConfidenceEntries = Object.entries(fieldConfidence).filter(([, value]) => typeof value === "number");
@@ -1009,6 +1028,30 @@ function ReviewDrawer({
                               </StatusPill>
                             ))}
                           </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {catalogDiagnostics && (
+                    <div className="mt-3 rounded-md border border-acv-border bg-black/20 p-2">
+                      <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-acv-muted">Catalog Validation</p>
+                      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                        <StatusPill tone={toneForCatalogStatus(catalogDiagnostics.status)}>
+                          {catalogDiagnostics.providerName}: {catalogDiagnostics.status.replace("_", " ")}
+                        </StatusPill>
+                        {catalogDiagnostics.confidence !== undefined && <StatusPill tone={confidenceTone(catalogDiagnostics.confidence)}>{catalogDiagnostics.confidence}%</StatusPill>}
+                        {catalogDiagnostics.matchedCard && <StatusPill tone="teal">{catalogDiagnostics.matchedCard}</StatusPill>}
+                        {catalogDiagnostics.matchedSet && <StatusPill tone="purple">{catalogDiagnostics.matchedSet}</StatusPill>}
+                        {catalogDiagnostics.matchedNumber && <StatusPill tone="gold">#{catalogDiagnostics.matchedNumber}</StatusPill>}
+                      </div>
+                      {catalogDiagnostics.warnings.length > 0 && (
+                        <div className="mt-2 flex min-w-0 flex-wrap gap-1.5">
+                          {catalogDiagnostics.warnings.map((warning) => (
+                            <StatusPill key={warning} tone={warning.toLowerCase().includes("unavailable") ? "neutral" : "gold"} className="max-w-full !whitespace-normal break-words text-left leading-4 tracking-[0.04em]">
+                              {warning}
+                            </StatusPill>
+                          ))}
                         </div>
                       )}
                     </div>
@@ -1731,6 +1774,7 @@ export default function PhotoIntakePage() {
           confidenceScore: result.confidenceScore,
           modelLabel: result.modelLabel,
           extractionSources: result.extractionSources,
+          catalogDiagnostics: result.catalogDiagnostics,
           providerDiagnostics: result.providerDiagnostics
         }
       }));
@@ -1740,6 +1784,7 @@ export default function PhotoIntakePage() {
         status: result.status,
         confidence: result.confidenceScore,
         extracted: result.extracted,
+        catalogDiagnostics: result.catalogDiagnostics,
         providerDiagnostics: result.providerDiagnostics
       });
       setStatusMessage(`${groupId} ACV AI Orchestrator extraction complete. Review editable fields before approving.`);
