@@ -1,5 +1,5 @@
 export { MockOCRProvider } from "@/lib/ai/providers/ocr-provider";
-export { MockCardSightProvider } from "@/lib/ai/providers/cardsight-provider";
+export { CardSightRestProvider, MockCardSightProvider } from "@/lib/ai/providers/cardsight-provider";
 export { MockChecklistProvider } from "@/lib/ai/providers/checklist-provider";
 export { MockGPTVisionProvider } from "@/lib/ai/providers/gpt-vision-provider";
 export { OpenAIGPTVisionProvider } from "@/lib/ai/providers/openai-gpt-vision-provider";

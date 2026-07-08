@@ -224,8 +224,14 @@ export async function runAIExtraction({
   const localDecision = decideAfterLocalRules(context.providerOutputs, config);
   context.decisionTrace.push(localDecision);
 
-  if (localDecision.route !== "skip-provider") {
-    for (const provider of runOutputsByKind(providers, "cardsight")) {
+  const cardSightProviders = runOutputsByKind(providers, "cardsight");
+  const gptProviders = runOutputsByKind(providers, "gpt-vision");
+  const hasRealCardSight = cardSightProviders.some((provider) => provider.status === "available");
+  const hasRealGpt = gptProviders.some((provider) => provider.status === "available");
+  const shouldRunVisualIdentity = localDecision.route !== "skip-provider" || hasRealCardSight;
+
+  if (shouldRunVisualIdentity) {
+    for (const provider of cardSightProviders) {
       upsertOutput(context, await runProvider(provider, input, context));
     }
     for (const provider of runOutputsByKind(providers, "checklist")) {
@@ -235,8 +241,8 @@ export async function runAIExtraction({
 
     const gptDecision = decideGPTNeed(context.providerOutputs, config);
     context.decisionTrace.push(gptDecision);
-    if (gptDecision.route === "run-additional-provider") {
-      for (const provider of runOutputsByKind(providers, "gpt-vision")) {
+    if (gptDecision.route === "run-additional-provider" || hasRealGpt) {
+      for (const provider of gptProviders) {
         upsertOutput(context, await runProvider(provider, input, context));
       }
     }

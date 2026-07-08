@@ -49,12 +49,16 @@ export async function POST(request: NextRequest) {
   };
   const providerEnv = providerEnvironmentSummary({
     cardsightApiKey: process.env.CARDSIGHT_API_KEY,
+    cardsightBaseUrl: process.env.CARDSIGHT_API_BASE_URL,
+    cardsightRecognitionPath: process.env.CARDSIGHT_RECOGNITION_PATH,
     openAiApiKey: process.env.OPENAI_API_KEY,
     openAiModel: process.env.OPENAI_EXTRACTION_MODEL || process.env.OPENAI_MODEL,
     ocrProvider: process.env.OCR_PROVIDER
   });
   const providers = createDefaultAIProviders({
     cardsightApiKey: process.env.CARDSIGHT_API_KEY,
+    cardsightBaseUrl: process.env.CARDSIGHT_API_BASE_URL,
+    cardsightRecognitionPath: process.env.CARDSIGHT_RECOGNITION_PATH,
     openAiApiKey: process.env.OPENAI_API_KEY,
     openAiModel: process.env.OPENAI_EXTRACTION_MODEL || process.env.OPENAI_MODEL,
     ocrProvider: process.env.OCR_PROVIDER
