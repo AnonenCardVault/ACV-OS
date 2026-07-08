@@ -98,5 +98,5 @@ export function decideGPTNeed(outputs: AIProviderOutput[], config: DecisionEngin
     return { stage: "GPT Verification", route: "run-additional-provider", reason: "Provider confidence is medium; GPT verification is allowed", thresholdKey: "mediumConfidence", confidence };
   }
 
-  return { stage: "GPT Verification", route: "manual-review", reason: "Confidence remains too low for paid verification", thresholdKey: "mediumConfidence", confidence };
+  return { stage: "GPT Verification", route: "run-additional-provider", reason: "Local confidence is low; run GPT vision once before manual review", thresholdKey: "lowConfidence", confidence };
 }

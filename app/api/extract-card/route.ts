@@ -50,23 +50,27 @@ export async function POST(request: NextRequest) {
   const providerEnv = providerEnvironmentSummary({
     cardsightApiKey: process.env.CARDSIGHT_API_KEY,
     openAiApiKey: process.env.OPENAI_API_KEY,
+    openAiModel: process.env.OPENAI_EXTRACTION_MODEL || process.env.OPENAI_MODEL,
     ocrProvider: process.env.OCR_PROVIDER
   });
+  const providers = createDefaultAIProviders({
+    cardsightApiKey: process.env.CARDSIGHT_API_KEY,
+    openAiApiKey: process.env.OPENAI_API_KEY,
+    openAiModel: process.env.OPENAI_EXTRACTION_MODEL || process.env.OPENAI_MODEL,
+    ocrProvider: process.env.OCR_PROVIDER
+  });
+  const modelLabel = providerEnv.openAiConfigured ? `ACV AI Orchestrator / OpenAI ${providerEnv.openAiModel}` : "ACV AI Orchestrator / mock providers";
 
   try {
     const result = await runAIExtraction({
       input,
-      providers: createDefaultAIProviders({
-        cardsightApiKey: process.env.CARDSIGHT_API_KEY,
-        openAiApiKey: process.env.OPENAI_API_KEY,
-        ocrProvider: process.env.OCR_PROVIDER
-      })
+      providers
     });
     await safeLogAttempt({
       batchId: payload.batchId,
       groupId: payload.groupId,
       provider: "acv-ai-orchestrator",
-      model: "mock-provider-pipeline",
+      model: providerEnv.openAiConfigured ? String(providerEnv.openAiModel) : "mock-provider-pipeline",
       status: result.extractionStatus,
       confidence: result.confidence,
       warnings: warningMessages(result),
@@ -84,7 +88,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       ok: true,
       provider: "acv-ai-orchestrator",
-      modelLabel: "ACV AI Orchestrator / mock providers",
+      modelLabel,
       result,
       imageCount: images.length
     });
@@ -93,7 +97,7 @@ export async function POST(request: NextRequest) {
       batchId: payload.batchId,
       groupId: payload.groupId,
       provider: "acv-ai-orchestrator",
-      model: "mock-provider-pipeline",
+      model: providerEnv.openAiConfigured ? String(providerEnv.openAiModel) : "mock-provider-pipeline",
       status: "Failed",
       warnings: [error instanceof Error ? error.message : "AI orchestrator extraction failed"],
       metadata: { imageCount: images.length, providerEnv }
