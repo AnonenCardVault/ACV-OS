@@ -14,22 +14,33 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { backendStatus } = useAcvLocalState();
   const databaseStatus =
     backendStatus.connectionState === "connected"
-      ? "Supabase Connected"
+      ? "Connected"
       : backendStatus.connectionState === "offline"
-        ? "Supabase Offline"
+        ? "Offline"
         : backendStatus.configured
           ? "Connecting"
-          : "Local Fallback";
+          : "Local";
   const storageStatus =
     backendStatus.storageState === "connected"
-      ? "Storage Connected"
+      ? "Connected"
       : backendStatus.storageState === "offline"
-        ? "Storage Fallback"
+        ? "Fallback"
         : backendStatus.configured
           ? "Connecting"
-          : "Image Fallback";
+          : "Local";
   const databaseTone = backendStatus.connectionState === "connected" ? "teal" : backendStatus.configured ? "gold" : "purple";
   const storageTone = backendStatus.storageState === "connected" ? "teal" : backendStatus.configured ? "gold" : "purple";
+  const lastSyncLabel = (() => {
+    if (!backendStatus.lastSyncAt) return backendStatus.configured ? "Pending" : "Local";
+    const date = new Date(backendStatus.lastSyncAt);
+    if (Number.isNaN(date.getTime())) return backendStatus.lastSyncAt.length > 14 ? `${backendStatus.lastSyncAt.slice(0, 14)}...` : backendStatus.lastSyncAt;
+    return new Intl.DateTimeFormat("en-US", {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit"
+    }).format(date);
+  })();
 
   return (
     <div className="min-h-screen overflow-x-clip bg-acv-black text-acv-text">
@@ -79,23 +90,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </div>
               <div className="space-y-2 text-xs">
                 {[
-                  ["eBay", "Mock / Not connected", "pink"],
+                  ["eBay", "Mock", "pink"],
                   ["Database", databaseStatus, databaseTone],
-                  ["Images", storageStatus, storageTone],
+                  ["Storage", storageStatus, storageTone],
                   ["AI", "Mock", "purple"]
                 ].map(([label, value, tone]) => (
-                  <div key={label} className="flex items-center justify-between gap-3">
+                  <div key={label} className="grid grid-cols-[58px_minmax(0,1fr)] items-center gap-2">
                     <span className="text-acv-muted">{label}</span>
-                    <StatusPill tone={tone as "pink" | "purple" | "teal" | "gold"} className="max-w-32 justify-center truncate">
+                    <StatusPill tone={tone as "pink" | "purple" | "teal" | "gold"} className="w-full justify-center !whitespace-normal px-1.5 text-center text-[9px] leading-3 tracking-[0.05em]">
                       {value}
                     </StatusPill>
                   </div>
                 ))}
               </div>
               <div className="mt-3 border-t border-acv-border pt-3">
-                <div className="flex items-center justify-between gap-3 text-xs">
-                  <span className="text-acv-muted">Last sync</span>
-                  <span className="truncate text-right font-semibold text-acv-teal">{backendStatus.lastSyncAt || "Local fallback"}</span>
+                <div className="grid grid-cols-[58px_minmax(0,1fr)] items-center gap-2 text-[11px]">
+                  <span className="text-acv-muted">Sync</span>
+                  <span className="min-w-0 break-words text-right font-semibold leading-4 text-acv-teal">{lastSyncLabel}</span>
                 </div>
               </div>
             </div>

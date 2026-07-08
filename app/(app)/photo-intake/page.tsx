@@ -883,7 +883,7 @@ function ReviewDrawer({
   onRunExtraction: (groupId: string) => void | Promise<void>;
   onClearExtraction: (groupId: string) => void;
   onApplyAiSuggestion: (groupId: string) => void;
-  onApplySuggestedTitle: (groupId: string) => void;
+  onApplySuggestedTitle: (groupId: string, title: string) => void;
   onApprove: (id: string) => void;
   onResearch: (id: string) => void;
   onReject: (id: string) => void;
@@ -1022,9 +1022,13 @@ function ReviewDrawer({
                       {aiWarnings.length > 0 && (
                         <div className="min-w-0 rounded-md border border-acv-border bg-black/20 p-2">
                           <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-acv-muted">AI Warnings</p>
-                          <div className="flex flex-wrap gap-1.5">
+                          <div className="flex min-w-0 flex-wrap items-start gap-1.5">
                             {aiWarnings.map((warning) => (
-                              <StatusPill key={warning} tone={warning.toLowerCase().includes("missing") || warning.toLowerCase().includes("low confidence") ? "pink" : "gold"}>
+                              <StatusPill
+                                key={warning}
+                                tone={warning.toLowerCase().includes("missing") || warning.toLowerCase().includes("low confidence") ? "pink" : "gold"}
+                                className="max-w-full !whitespace-normal break-words text-left leading-4 tracking-[0.04em]"
+                              >
                                 {warning}
                               </StatusPill>
                             ))}
@@ -1045,7 +1049,7 @@ function ReviewDrawer({
                       <MiniButton
                         tone="teal"
                         onClick={() => {
-                          onApplySuggestedTitle(group.id);
+                          onApplySuggestedTitle(group.id, draftTitle);
                         }}
                       >
                         Apply Suggested Title
@@ -1696,7 +1700,7 @@ export default function PhotoIntakePage() {
       });
       updateGroup(groupId, (currentGroup) => ({
         ...currentGroup,
-        confidence: result.confidenceScore,
+        confidence: result.status === "Failed" ? Math.min(currentGroup.confidence, result.confidenceScore) : Math.max(currentGroup.confidence, result.confidenceScore),
         proposed: { ...currentGroup.proposed, ...result.extracted },
         aiExtraction: {
           status: result.status,
@@ -1747,11 +1751,15 @@ export default function PhotoIntakePage() {
     setStatusMessage(`${groupId} AI suggestion applied to editable fields. Mock only.`);
   }
 
-  function applySuggestedTitle(groupId: string) {
+  function applySuggestedTitle(groupId: string, previewTitle?: string) {
     const group = groups.find((item) => item.id === groupId);
     if (!group) return;
 
-    const title = group.aiExtraction?.suggestedTitle || generatedTitleForRecord(group.proposed);
+    const title = previewTitle || group.aiExtraction?.suggestedTitle || generatedTitleForRecord(group.proposed);
+    if (!hasFieldValue(title)) {
+      setStatusMessage(`${groupId} does not have a usable suggested title yet.`);
+      return;
+    }
     updateProposed(groupId, "cardName", title);
     setStatusMessage(`${groupId} suggested title applied to Card title.`);
   }
