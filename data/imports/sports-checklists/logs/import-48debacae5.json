@@ -1,0 +1,77 @@
+{
+  "runId": "48debacae5",
+  "generatedAt": "2026-07-09T16:23:10.986Z",
+  "force": false,
+  "cachedOnly": true,
+  "candidates": 2,
+  "liveRequests": 0,
+  "rawPages": 2,
+  "normalizedRows": 3314,
+  "diagnosticsSummary": {
+    "rowsFound": 10452,
+    "rowsAccepted": 3314,
+    "rowsRejected": 7138,
+    "duplicateCount": 2939,
+    "navigationRowsRemoved": 637
+  },
+  "errors": [],
+  "entries": [
+    {
+      "targetId": "baseball-2023-topps-series-1",
+      "sourceUrl": "https://www.beckett.com/news/2023-topps-series-1-baseball-cards/",
+      "sourceName": "Beckett",
+      "rawPath": "data/imports/sports-checklists/raw/baseball-2023-topps-series-1/beckett-ba337afcdfdc.html",
+      "fetched": false,
+      "rows": 2000,
+      "diagnostics": {
+        "provider": "Beckett",
+        "rowsFound": 6038,
+        "rowsAccepted": 2000,
+        "rowsRejected": 4038,
+        "duplicateCount": 1136,
+        "navigationRowsRemoved": 448,
+        "validationFailures": {
+          "navigation_term": 191,
+          "invalid_card_number": 2443,
+          "non_checklist_content": 70,
+          "year_heading": 49,
+          "row_too_long": 13,
+          "heading_player": 51,
+          "duplicate": 1136,
+          "configuration_row": 85
+        },
+        "acceptanceRate": 0.3312
+      },
+      "normalizedPath": "data/imports/sports-checklists/normalized/baseball-2023-topps-series-1.json"
+    },
+    {
+      "targetId": "baseball-2023-topps-series-1",
+      "sourceUrl": "https://www.cardboardconnection.com/2023-topps-series-1-baseball-cards",
+      "sourceName": "Cardboard Connection",
+      "rawPath": "data/imports/sports-checklists/raw/baseball-2023-topps-series-1/cardboard-connection-a630d950a591.html",
+      "fetched": false,
+      "rows": 1314,
+      "diagnostics": {
+        "provider": "Cardboard Connection",
+        "rowsFound": 4414,
+        "rowsAccepted": 1314,
+        "rowsRejected": 3100,
+        "duplicateCount": 1803,
+        "navigationRowsRemoved": 189,
+        "validationFailures": {
+          "invalid_card_number": 1102,
+          "non_checklist_content": 76,
+          "navigation_term": 19,
+          "heading_player": 55,
+          "configuration_row": 11,
+          "row_too_long": 5,
+          "duplicate": 1803,
+          "row_too_short": 1,
+          "year_heading": 28
+        },
+        "acceptanceRate": 0.2977
+      },
+      "normalizedPath": "data/imports/sports-checklists/normalized/baseball-2023-topps-series-1.json"
+    }
+  ]
+}
