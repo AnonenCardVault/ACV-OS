@@ -8,7 +8,8 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "discover:sports-checklists": "node --experimental-strip-types scripts/discover-sports-checklist-urls.ts",
-    "import:sports-checklists": "node --experimental-strip-types scripts/import-sports-checklists.ts"
+    "import:sports-checklists": "node --experimental-strip-types scripts/import-sports-checklists.ts",
+    "build:sports-catalog-index": "node --experimental-strip-types scripts/build-sports-catalog-index.ts"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",

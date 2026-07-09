@@ -9,7 +9,8 @@ Tracked files:
 Generated local artifacts are intentionally ignored and should not be committed:
 - `raw/`
 - `normalized/`
+- `index/`
 - `logs/`
 - `discovered-urls/checklist-url-candidates.json`
 
-Run discovery/import scripts locally to regenerate these artifacts when needed. The large raw HTML, normalized JSON, and diagnostic logs are working outputs, not source data.
+Run discovery/import/index scripts locally to regenerate these artifacts when needed. The large raw HTML, normalized JSON, generated lookup indexes, and diagnostic logs are working outputs, not source data.

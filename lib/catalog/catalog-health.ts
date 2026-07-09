@@ -29,6 +29,13 @@ type SportsCatalogFile = {
   rows?: SportsCatalogRow[];
 };
 
+type SportsCatalogIndexManifest = {
+  generatedAt?: string;
+  indexedRecordCount?: number;
+  rowCount?: number;
+  bucketCount?: number;
+};
+
 type ImportLogError = {
   targetId?: string;
   sourceName?: string;
@@ -100,6 +107,13 @@ export type CatalogHealthSummary = {
     discoveredTargetCount?: number;
     missingTargetCount?: number;
     latestImportLogAt?: string;
+    index: {
+      status: CatalogHealthStatus;
+      generatedAt?: string;
+      indexedRecordCount: number;
+      bucketCount: number;
+      message?: string;
+    };
     failedTargets: Array<{
       targetId?: string;
       sourceName?: string;
@@ -110,6 +124,7 @@ export type CatalogHealthSummary = {
 };
 
 const sportsCatalogPath = path.join(process.cwd(), "data", "imports", "sports-checklists", "normalized", "all-normalized.json");
+const sportsIndexManifestPath = path.join(process.cwd(), "data", "imports", "sports-checklists", "index", "manifest.json");
 const sportsTargetsPath = path.join(process.cwd(), "data", "imports", "sports-checklists", "targets", "sports-checklist-targets.json");
 const sportsUrlManifestPath = path.join(process.cwd(), "data", "imports", "sports-checklists", "discovered-urls", "checklist-urls.json");
 const sportsLogsDir = path.join(process.cwd(), "data", "imports", "sports-checklists", "logs");
@@ -253,9 +268,38 @@ async function getLatestImportLog() {
   }
 }
 
+async function getSportsIndexHealth(): Promise<CatalogHealthSummary["sports"]["index"]> {
+  try {
+    const manifest = await readJson<SportsCatalogIndexManifest>(sportsIndexManifestPath);
+    if (!manifest) {
+      return {
+        status: "missing",
+        indexedRecordCount: 0,
+        bucketCount: 0,
+        message: "Sports index manifest could not be read."
+      };
+    }
+
+    return {
+      status: "available",
+      generatedAt: manifest.generatedAt,
+      indexedRecordCount: manifest.indexedRecordCount || manifest.rowCount || 0,
+      bucketCount: manifest.bucketCount || 0
+    };
+  } catch (error) {
+    return {
+      status: "missing",
+      indexedRecordCount: 0,
+      bucketCount: 0,
+      message: error instanceof Error ? error.message : "Sports catalog index was not found."
+    };
+  }
+}
+
 async function getSportsCatalogHealth(): Promise<CatalogHealthSummary["sports"]> {
   const manifestCounts = await getSportsManifestCounts();
   const latestLog = await getLatestImportLog();
+  const index = await getSportsIndexHealth();
 
   try {
     const fileStat = await stat(sportsCatalogPath);
@@ -286,6 +330,7 @@ async function getSportsCatalogHealth(): Promise<CatalogHealthSummary["sports"]>
       countsByBrandProduct: mapToCounts(countsByBrandProduct, 18),
       diagnostics,
       latestImportLogAt: latestLog?.generatedAt,
+      index,
       failedTargets: (latestLog?.errors || []).slice(0, 10).map((error) => ({
         targetId: error.targetId,
         sourceName: error.sourceName,
@@ -306,6 +351,7 @@ async function getSportsCatalogHealth(): Promise<CatalogHealthSummary["sports"]>
       countsByBrandProduct: [],
       diagnostics: latestLog?.diagnosticsSummary,
       latestImportLogAt: latestLog?.generatedAt,
+      index,
       failedTargets: (latestLog?.errors || []).slice(0, 10).map((logError) => ({
         targetId: logError.targetId,
         sourceName: logError.sourceName,

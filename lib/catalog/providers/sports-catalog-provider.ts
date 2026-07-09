@@ -24,9 +24,31 @@ type SportsCatalogFile = {
   rows?: SportsCatalogRow[];
 };
 
+type SportsCatalogIndexBucket = {
+  records?: SportsCatalogRow[];
+  indexes?: {
+    exactCard?: Record<string, number[]>;
+    productPlayer?: Record<string, number[]>;
+    player?: Record<string, number[]>;
+    product?: Record<string, number[]>;
+    playerSearch?: Record<string, number[]>;
+  };
+};
+
+type SportsCatalogIndexManifest = {
+  generatedAt?: string;
+  indexedRecordCount?: number;
+  buckets?: Record<string, { file: string; rowCount: number }>;
+};
+
 type LoadedSportsCatalog = {
   rows: SportsCatalogRow[];
   bySportYear: Map<string, SportsCatalogRow[]>;
+  loadError?: string;
+};
+
+type SportsSearchResult = {
+  rows: SportsCatalogRow[];
   loadError?: string;
 };
 
@@ -40,6 +62,8 @@ type ScoredSportsRow = {
 const sportsCategories = new Set(["baseball", "football", "basketball"]);
 const maxCatalogCandidates = 5;
 let catalogPromise: Promise<LoadedSportsCatalog> | undefined;
+let indexManifestPromise: Promise<{ manifest?: SportsCatalogIndexManifest; loadError?: string }> | undefined;
+const indexBucketPromises = new Map<string, Promise<SportsCatalogIndexBucket | undefined>>();
 
 function normalize(value: unknown) {
   return String(value || "")
@@ -78,6 +102,19 @@ function sportsCatalogPath() {
   return process.env.ACV_SPORTS_CATALOG_PATH || path.join(process.cwd(), "data", "imports", "sports-checklists", "normalized", "all-normalized.json");
 }
 
+function sportsCatalogIndexDir() {
+  return process.env.ACV_SPORTS_CATALOG_INDEX_DIR || path.join(process.cwd(), "data", "imports", "sports-checklists", "index");
+}
+
+function sportsCatalogIndexManifestPath() {
+  return path.join(sportsCatalogIndexDir(), "manifest.json");
+}
+
+function indexKey(...parts: unknown[]) {
+  const normalizedParts = parts.map((part) => normalize(part));
+  return normalizedParts.every(Boolean) ? normalizedParts.join("|") : "";
+}
+
 async function loadSportsCatalog(): Promise<LoadedSportsCatalog> {
   if (catalogPromise) return catalogPromise;
   catalogPromise = (async () => {
@@ -105,8 +142,40 @@ async function loadSportsCatalog(): Promise<LoadedSportsCatalog> {
   return catalogPromise;
 }
 
+async function loadSportsCatalogIndexManifest() {
+  if (indexManifestPromise) return indexManifestPromise;
+  indexManifestPromise = (async () => {
+    try {
+      const raw = await readFile(sportsCatalogIndexManifestPath(), "utf8");
+      return { manifest: JSON.parse(raw) as SportsCatalogIndexManifest };
+    } catch (error) {
+      return { loadError: error instanceof Error ? error.message : String(error) };
+    }
+  })();
+
+  return indexManifestPromise;
+}
+
+async function loadSportsCatalogIndexBucket(bucketKey: string) {
+  if (indexBucketPromises.has(bucketKey)) return indexBucketPromises.get(bucketKey);
+  const promise = (async () => {
+    const { manifest } = await loadSportsCatalogIndexManifest();
+    const bucket = manifest?.buckets?.[bucketKey];
+    if (!bucket?.file) return undefined;
+
+    try {
+      const raw = await readFile(path.join(sportsCatalogIndexDir(), bucket.file), "utf8");
+      return JSON.parse(raw) as SportsCatalogIndexBucket;
+    } catch {
+      return undefined;
+    }
+  })();
+  indexBucketPromises.set(bucketKey, promise);
+  return promise;
+}
+
 function sportYearKey(sport: unknown, year: unknown) {
-  return `${normalize(sport)}|${normalize(year)}`;
+  return indexKey(sport, year);
 }
 
 function rowSubject(row: SportsCatalogRow) {
@@ -244,7 +313,76 @@ function scoreRow(fields: ExtractedCardFields, row: SportsCatalogRow): ScoredSpo
   return { row, score: Math.max(0, score), warnings, evidence };
 }
 
-function searchableRows(catalog: LoadedSportsCatalog, fields: ExtractedCardFields) {
+function addRowsFromIndex(target: Set<number>, index: Record<string, number[]> | undefined, key: string) {
+  if (!index || !key) return;
+  for (const rowIndex of index[key] || []) target.add(rowIndex);
+}
+
+function playerSearchKeys(value: unknown) {
+  const normalized = normalize(value);
+  const compact = normalizeCompact(value);
+  const tokens = normalized.split(" ").filter((token) => token.length >= 3);
+  const lastToken = tokens.at(-1);
+  return [...new Set([normalized, compact, lastToken].filter((key): key is string => Boolean(key)))];
+}
+
+function productCandidates(fields: ExtractedCardFields) {
+  const candidates = [fields.set, fields.cardTitle].filter(hasValue);
+  const brand = normalize(fields.brand);
+  return [
+    ...candidates,
+    ...candidates.map((candidate) => {
+      const normalized = normalize(candidate);
+      return brand && normalized.startsWith(`${brand} `) ? normalized.slice(brand.length + 1) : normalized;
+    })
+  ];
+}
+
+function playerCandidates(fields: ExtractedCardFields) {
+  return [fields.playerOrCharacter, fields.cardTitle].filter(hasValue);
+}
+
+function rowsFromIndexBucket(bucket: SportsCatalogIndexBucket, fields: ExtractedCardFields) {
+  const records = Array.isArray(bucket.records) ? bucket.records : [];
+  const indexes = bucket.indexes || {};
+  const rowIndexes = new Set<number>();
+  const sport = specificSport(fields.sportCategory);
+  const year = normalize(fields.year);
+  const brand = fields.brand;
+  const cardNumber = normalizeNumber(fields.cardNumber);
+  const products = productCandidates(fields);
+  const players = playerCandidates(fields);
+
+  for (const product of products) {
+    addRowsFromIndex(rowIndexes, indexes.product, indexKey(sport, year, brand, product));
+    if (cardNumber) addRowsFromIndex(rowIndexes, indexes.exactCard, indexKey(sport, year, brand, product, cardNumber));
+    for (const player of players) addRowsFromIndex(rowIndexes, indexes.productPlayer, indexKey(sport, year, product, player));
+  }
+
+  for (const player of players) {
+    addRowsFromIndex(rowIndexes, indexes.player, indexKey(sport, year, player));
+    for (const key of playerSearchKeys(player)) addRowsFromIndex(rowIndexes, indexes.playerSearch, key);
+  }
+
+  if (rowIndexes.size === 0) return records;
+
+  return [...rowIndexes]
+    .map((rowIndex) => records[rowIndex])
+    .filter(Boolean);
+}
+
+async function searchableIndexedRows(fields: ExtractedCardFields): Promise<SportsSearchResult | undefined> {
+  const sport = specificSport(fields.sportCategory);
+  const year = normalize(fields.year);
+  if (!sport || !year) return undefined;
+
+  const bucket = await loadSportsCatalogIndexBucket(sportYearKey(sport, year));
+  if (!bucket) return undefined;
+
+  return { rows: rowsFromIndexBucket(bucket, fields) };
+}
+
+function searchableRowsFromCatalog(catalog: LoadedSportsCatalog, fields: ExtractedCardFields) {
   const bySportYear = catalog.bySportYear.get(sportYearKey(fields.sportCategory, fields.year));
   if (bySportYear) return bySportYear;
 
@@ -252,6 +390,17 @@ function searchableRows(catalog: LoadedSportsCatalog, fields: ExtractedCardField
   if (sport) return catalog.rows.filter((row) => normalize(row.sport) === sport);
 
   return catalog.rows;
+}
+
+async function searchableRows(fields: ExtractedCardFields): Promise<SportsSearchResult> {
+  const indexedRows = await searchableIndexedRows(fields);
+  if (indexedRows) return indexedRows;
+
+  const catalog = await loadSportsCatalog();
+  return {
+    rows: searchableRowsFromCatalog(catalog, fields),
+    loadError: catalog.loadError
+  };
 }
 
 function distinctCandidateKey(row: SportsCatalogRow) {
@@ -321,10 +470,10 @@ export class SportsCatalogProvider implements CatalogProvider {
   }
 
   async validate(input: CatalogValidationInput): Promise<CatalogValidationResult> {
-    const catalog = await loadSportsCatalog();
+    const search = await searchableRows(input.fields);
     const category = input.fields.sportCategory || "Sports";
 
-    if (catalog.rows.length === 0) {
+    if (search.rows.length === 0) {
       return {
         providerId: this.id,
         providerName: this.name,
@@ -335,7 +484,7 @@ export class SportsCatalogProvider implements CatalogProvider {
         warnings: [
           {
             code: "sports_catalog_unavailable",
-            message: catalog.loadError ? `Sports catalog unavailable: ${catalog.loadError}` : "Sports catalog dataset was not found on the server.",
+            message: search.loadError ? `Sports catalog unavailable: ${search.loadError}` : "Sports catalog dataset was not found on the server.",
             severity: "warning"
           }
         ],
@@ -362,7 +511,7 @@ export class SportsCatalogProvider implements CatalogProvider {
       };
     }
 
-    const scored = searchableRows(catalog, input.fields)
+    const scored = search.rows
       .map((row) => scoreRow(input.fields, row))
       .filter((candidate) => candidate.score >= 45)
       .sort((a, b) => {

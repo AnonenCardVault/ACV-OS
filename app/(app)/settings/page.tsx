@@ -124,7 +124,7 @@ function CatalogHealthPanel({ health }: { health: CatalogHealthSummary }) {
       action={<StatusPill tone="purple">Server summary</StatusPill>}
     >
       <div className="space-y-4">
-        <div className="grid min-w-0 gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid min-w-0 gap-3 md:grid-cols-2 xl:grid-cols-5">
           <CatalogStatusCard
             title="Pokémon catalog"
             status={pokemon.status}
@@ -138,6 +138,13 @@ function CatalogHealthPanel({ health }: { health: CatalogHealthSummary }) {
             primary={`${formatNumber(sports.totalRows)} rows`}
             secondary={sports.message || `Generated ${formatDate(sports.generatedAt)}`}
             icon={<ListChecks className="h-4 w-4" />}
+          />
+          <CatalogStatusCard
+            title="Sports index"
+            status={sports.index.status}
+            primary={`${formatNumber(sports.index.indexedRecordCount)} indexed`}
+            secondary={sports.index.message || `${formatNumber(sports.index.bucketCount)} buckets · ${formatDate(sports.index.generatedAt)}`}
+            icon={<Database className="h-4 w-4" />}
           />
           <CatalogStatusCard
             title="Targets"
