@@ -201,6 +201,73 @@ export async function upsertApprovedInventoryItem(item: ApprovedInventoryItem) {
   return profile;
 }
 
+export async function saveApprovedInventoryItemChanges(item: ApprovedInventoryItem, removedImageIds: string[] = []) {
+  const profile = await upsertApprovedInventoryItem(item);
+  const now = new Date().toISOString();
+
+  if (removedImageIds.length > 0) {
+    for (const imageId of removedImageIds) {
+      await patchRows<ImageRow>("images", `id=eq.${encodeURIComponent(imageId)}`, { deleted_at: now });
+    }
+  }
+
+  await insertAuditEvent({
+    profileId: profile.id,
+    type: "inventory.updated",
+    summary: `Updated Universal Card Profile: ${item.sku}`,
+    payload: { sku: item.sku, removedImageIds }
+  });
+
+  return profile;
+}
+
+async function findProfileBySku(sku: string) {
+  const user = await getOrCreateAcvUser();
+  const [profile] = await selectRows<UniversalCardProfileRow>("universal_card_profiles", `select=*&user_id=eq.${user.id}&sku=eq.${encodeURIComponent(sku)}&deleted_at=is.null&limit=1`);
+  return { user, profile };
+}
+
+export async function archiveApprovedInventoryItemBySku(sku: string) {
+  const { profile } = await findProfileBySku(sku);
+  if (!profile) return null;
+  const now = new Date().toISOString();
+
+  await Promise.all([
+    patchRows<UniversalCardProfileRow>("universal_card_profiles", `id=eq.${profile.id}`, { status: "Archived", deleted_at: now }),
+    patchRows<InventoryRow>("inventory", `universal_card_profile_id=eq.${profile.id}`, { workflow_status: "Archived", deleted_at: now })
+  ]);
+
+  await insertAuditEvent({
+    profileId: profile.id,
+    type: "inventory.archived",
+    summary: `Archived inventory item: ${sku}`,
+    payload: { sku }
+  });
+
+  return profile;
+}
+
+export async function softDeleteApprovedInventoryItemBySku(sku: string, archiveImages = false) {
+  const { profile } = await findProfileBySku(sku);
+  if (!profile) return null;
+  const now = new Date().toISOString();
+
+  await Promise.all([
+    patchRows<UniversalCardProfileRow>("universal_card_profiles", `id=eq.${profile.id}`, { status: "Deleted", deleted_at: now }),
+    patchRows<InventoryRow>("inventory", `universal_card_profile_id=eq.${profile.id}`, { workflow_status: "Deleted", deleted_at: now }),
+    archiveImages ? patchRows<ImageRow>("images", `universal_card_profile_id=eq.${profile.id}`, { deleted_at: now }) : Promise.resolve([])
+  ]);
+
+  await insertAuditEvent({
+    profileId: profile.id,
+    type: "inventory.deleted",
+    summary: `Soft deleted inventory item: ${sku}`,
+    payload: { sku, archiveImages }
+  });
+
+  return profile;
+}
+
 export async function insertAuditEvent({
   profileId,
   type,

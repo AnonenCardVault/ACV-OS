@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Archive,
   CheckCircle2,
   Columns3,
+  Eye,
   FileClock,
   Plus,
   RefreshCcw,
@@ -13,6 +14,7 @@ import {
   Send,
   SlidersHorizontal,
   Tag,
+  Trash2,
   Upload,
   X
 } from "lucide-react";
@@ -21,6 +23,7 @@ import { DataTable } from "@/components/data-table";
 import { StatusPill } from "@/components/status-pill";
 import { inventoryItems } from "@/data/mock";
 import { useAcvLocalState, type ApprovedInventoryItem, type IntakeImage, type ProposedRecord } from "@/lib/acv-local-state";
+import { archiveApprovedInventoryItemBySku, saveApprovedInventoryItemChanges, softDeleteApprovedInventoryItemBySku } from "@/lib/supabase/cards";
 import { cn, formatCurrency, formatPercent } from "@/lib/utils";
 
 type InventoryItem = (typeof inventoryItems)[number];
@@ -477,6 +480,68 @@ function approvedItemToRow(item: ApprovedInventoryItem): Row {
   };
 }
 
+function splitBrandSet(value: string) {
+  const parts = value.trim().split(/\s+/);
+  return {
+    brand: parts[0] || "",
+    set: parts.slice(1).join(" ")
+  };
+}
+
+function rowToProposed(row: Row): ProposedRecord {
+  const brandSet = splitBrandSet(row.brandSet);
+  return {
+    cardName: row.name,
+    playerCharacter: row.localProposed?.playerCharacter || row.ops.playerCharacter || row.name,
+    team: row.localProposed?.team || row.ops.team || "",
+    category: row.category,
+    year: row.year === "-" ? "" : row.year,
+    brand: row.localProposed?.brand || brandSet.brand,
+    set: row.localProposed?.set || brandSet.set,
+    cardNumber: row.cardNumber === "-" ? "" : row.cardNumber,
+    parallel: row.parallel === "-" ? "" : row.parallel,
+    serialNumber: row.serialNumber === "-" ? "" : row.serialNumber,
+    rookieFlag: Boolean(row.localProposed?.rookieFlag),
+    autoFlag: Boolean(row.localProposed?.autoFlag),
+    relicFlag: Boolean(row.localProposed?.relicFlag),
+    variationFlag: Boolean(row.localProposed?.variationFlag),
+    grader: row.localProposed?.grader || "Raw",
+    grade: row.localProposed?.grade || "Raw",
+    conditionNotes: row.localProposed?.conditionNotes || row.ops.conditionNotes || "",
+    uncertaintyNotes: row.localProposed?.uncertaintyNotes || "",
+    purchaseCost: row.purchaseCost || 0,
+    quantity: row.quantity || 1,
+    acquisitionSource: row.localProposed?.acquisitionSource || row.source || "Inventory",
+    location: row.location || "",
+    internalNotes: row.localProposed?.internalNotes || row.notes || ""
+  };
+}
+
+function rowToApprovedItem(row: Row, proposed: ProposedRecord, images: IntakeImage[]): ApprovedInventoryItem {
+  const primary = images.find((image) => image.role === "Front") || images[0];
+  return {
+    sku: row.sku,
+    batch: row.localBatch || "Inventory",
+    group: row.localGroup || row.id,
+    source: row.source as ApprovedInventoryItem["source"],
+    primaryImageUrl: primary?.publicUrl || primary?.url || primary?.dataUrl || "",
+    images,
+    proposed,
+    approvedAt: row.lastUpdated || new Date().toLocaleString(),
+    needsImageReupload: images.length === 0 || !primary?.url,
+    auditHistory: row.ops.auditHistory
+  };
+}
+
+function fileToDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
 function statusTone(status: string): "green" | "teal" | "gold" | "pink" | "purple" | "neutral" {
   if (["Active", "Listed", "Ready for Draft", "Sold", "Approved", "Reviewed", "Generated", "In sync", "BIN"].includes(status)) return "teal";
   if (["Auction", "Draft", "Future eBay Draft", "ACV Draft", "Review", "Paused", "Suggested", "Medium"].includes(status)) return "gold";
@@ -531,16 +596,22 @@ function CardImageTile({
 function MiniActionButton({
   children,
   onClick,
-  tone = "neutral"
+  tone = "neutral",
+  disabled,
+  title
 }: {
   children: React.ReactNode;
   onClick?: () => void;
   tone?: "neutral" | "teal" | "gold" | "pink";
+  disabled?: boolean;
+  title?: string;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
+      title={title}
       className={cn(
         "inline-flex h-8 items-center justify-center gap-1.5 whitespace-nowrap rounded-md border px-2.5 text-[11px] font-semibold transition",
         tone === "teal"
@@ -549,7 +620,8 @@ function MiniActionButton({
             ? "border-acv-gold/35 bg-acv-gold/10 text-acv-gold hover:bg-acv-gold/15"
             : tone === "pink"
               ? "border-acv-pink/40 bg-acv-pink/10 text-acv-pink hover:bg-acv-pink/15"
-              : "border-acv-border bg-white/[0.03] text-acv-muted hover:border-acv-teal/45 hover:text-acv-teal"
+              : "border-acv-border bg-white/[0.03] text-acv-muted hover:border-acv-teal/45 hover:text-acv-teal",
+        disabled && "cursor-not-allowed opacity-45 hover:border-acv-border hover:text-acv-muted"
       )}
     >
       {children}
@@ -699,19 +771,162 @@ function DetailField({ label, value, tone }: { label: string; value: React.React
   );
 }
 
+function EditableProfileField({
+  label,
+  value,
+  onChange,
+  multiline,
+  type = "text"
+}: {
+  label: string;
+  value: string | number;
+  onChange: (value: string) => void;
+  multiline?: boolean;
+  type?: "text" | "number";
+}) {
+  return (
+    <label className="min-w-0 rounded-md border border-acv-border bg-acv-panel2 px-3 py-2">
+      <span className="block truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-acv-muted">{label}</span>
+      {multiline ? (
+        <textarea value={value} onChange={(event) => onChange(event.target.value)} className="mt-1 min-h-20 w-full resize-y bg-transparent text-xs font-semibold leading-5 text-acv-text outline-none" />
+      ) : (
+        <input value={value} type={type} onChange={(event) => onChange(event.target.value)} className="mt-1 w-full min-w-0 bg-transparent text-xs font-semibold text-acv-text outline-none" />
+      )}
+    </label>
+  );
+}
+
+function EditableProfileFlag({ label, checked, onChange }: { label: string; checked: boolean; onChange: (checked: boolean) => void }) {
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className={cn(
+        "flex min-w-0 items-center justify-between gap-2 rounded-md border px-3 py-2 text-left text-xs font-semibold transition",
+        checked ? "border-acv-teal/35 bg-acv-teal/10 text-acv-teal" : "border-acv-border bg-acv-panel2 text-acv-muted hover:border-acv-teal/40 hover:text-acv-text"
+      )}
+    >
+      <span>{label}</span>
+      <span className={cn("h-3 w-3 shrink-0 rounded-[3px] border", checked ? "border-acv-teal bg-acv-teal" : "border-acv-border bg-black/20")} />
+    </button>
+  );
+}
+
 function ItemDetailDrawer({
   row,
   onClose,
-  onMockSave
+  onSave,
+  onArchive,
+  onDelete,
+  onMockAction
 }: {
   row: Row;
   onClose: () => void;
-  onMockSave: (sku: string) => void;
+  onSave: (row: Row, proposed: ProposedRecord, images: IntakeImage[], removedImageIds: string[]) => void | Promise<void>;
+  onArchive: (row: Row) => void;
+  onDelete: (row: Row) => void;
+  onMockAction: (label: string) => void;
 }) {
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [draft, setDraft] = useState<ProposedRecord>(() => rowToProposed(row));
+  const [draftImages, setDraftImages] = useState<IntakeImage[]>(() => row.localImages || []);
+  const [removedImageIds, setRemovedImageIds] = useState<string[]>([]);
+  const [viewerImage, setViewerImage] = useState<IntakeImage | null>(null);
+  const [replaceTargetId, setReplaceTargetId] = useState<string | null>(null);
+  const primaryDraftImage = draftImages.find((image) => image.role === "Front") || draftImages[0];
+
+  useEffect(() => {
+    setDraft(rowToProposed(row));
+    setDraftImages(row.localImages || []);
+    setRemovedImageIds([]);
+    setViewerImage(null);
+    setReplaceTargetId(null);
+  }, [row]);
+
+  function updateDraft<K extends keyof ProposedRecord>(key: K, value: ProposedRecord[K]) {
+    setDraft((current) => ({ ...current, [key]: value }));
+  }
+
+  function setImageRole(imageId: string, role: IntakeImage["role"]) {
+    setDraftImages((current) =>
+      current.map((image) => {
+        if (image.id === imageId) return { ...image, role };
+        if (role === "Front" && image.role === "Front") return { ...image, role: "Detail / Closeup" };
+        if (role === "Back" && image.role === "Back") return { ...image, role: "Detail / Closeup" };
+        return image;
+      })
+    );
+  }
+
+  function moveImage(imageId: string, direction: -1 | 1) {
+    setDraftImages((current) => {
+      const index = current.findIndex((image) => image.id === imageId);
+      const target = index + direction;
+      if (index < 0 || target < 0 || target >= current.length) return current;
+      const next = [...current];
+      const [moved] = next.splice(index, 1);
+      next.splice(target, 0, moved);
+      return next.map((image, order) => ({ ...image, order }));
+    });
+  }
+
+  function removeImage(image: IntakeImage) {
+    if (!window.confirm(`Remove ${image.fileName || image.role} from this Universal Card Profile? The image record will be archived on save.`)) return;
+    setRemovedImageIds((current) => (image.supabaseImageId ? Array.from(new Set([...current, image.supabaseImageId])) : current));
+    setDraftImages((current) => {
+      const next = current.filter((item) => item.id !== image.id);
+      if (image.role === "Front" && next.length > 0 && !next.some((item) => item.role === "Front")) {
+        return next.map((item, index) => (index === 0 ? { ...item, role: "Front", order: index } : { ...item, order: index }));
+      }
+      return next.map((item, index) => ({ ...item, order: index }));
+    });
+  }
+
+  async function handleReplacement(file: File | undefined) {
+    if (!file || !replaceTargetId) return;
+    const dataUrl = await fileToDataUrl(file);
+    setDraftImages((current) =>
+      current.map((image) =>
+        image.id === replaceTargetId
+          ? {
+              ...image,
+              label: file.name,
+              fileName: file.name,
+              url: dataUrl,
+              dataUrl,
+              publicUrl: undefined,
+              storageBucket: "inventory-images",
+              storagePath: undefined,
+              needsReupload: false
+            }
+          : image
+      )
+    );
+    setReplaceTargetId(null);
+  }
+
+  function resetDraft() {
+    setDraft(rowToProposed(row));
+    setDraftImages(row.localImages || []);
+    setRemovedImageIds([]);
+  }
+
   return (
     <div className="fixed inset-y-0 left-0 right-0 z-50 flex justify-end bg-black/70 backdrop-blur-sm sm:left-56">
       <button type="button" aria-label="Close item detail drawer" className="absolute inset-0 cursor-default" onClick={onClose} />
       <aside className="relative z-10 flex h-full w-full max-w-4xl flex-col border-l border-acv-border bg-acv-black shadow-glow">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".jpg,.jpeg,.png,.webp,.heic,.heif,image/jpeg,image/png,image/webp,image/heic,image/heif"
+          className="hidden"
+          onChange={(event) => {
+            void handleReplacement(event.target.files?.[0]);
+            event.target.value = "";
+          }}
+        />
         <div className="flex items-center justify-between gap-3 border-b border-acv-border px-5 py-4">
           <div className="min-w-0">
             <div className="mb-2 flex flex-wrap gap-2">
@@ -719,7 +934,7 @@ function ItemDetailDrawer({
               <StatusPill tone={statusTone(row.ops.listingType)}>{row.ops.listingType === "None" ? "No live listing" : row.ops.listingType}</StatusPill>
               <StatusPill tone={statusTone(confidenceBand(row.aiConfidence))}>{formatPercent(row.aiConfidence)} confidence</StatusPill>
             </div>
-            <h2 className="truncate text-lg font-semibold text-acv-text">{row.name}</h2>
+            <h2 className="truncate text-lg font-semibold text-acv-text">{draft.cardName || row.name}</h2>
             <p className="mt-1 text-xs text-acv-muted">{row.sku}</p>
           </div>
           <button
@@ -735,26 +950,51 @@ function ItemDetailDrawer({
         <div className="acv-scrollbar flex-1 overflow-y-auto p-5">
           <div className="grid min-w-0 gap-5 lg:grid-cols-[224px_1fr]">
             <div className="space-y-3">
-              <CardImageTile label={row.name} category={row.category} large imageUrl={row.localPrimaryImageUrl} needsReupload={row.localNeedsImageReupload} />
-              <div className="grid grid-cols-3 gap-2">
-                {row.localImages?.length
-                  ? row.localImages.slice(0, 6).map((image) => (
-                      <div key={image.id} className="overflow-hidden rounded-md border border-acv-border bg-acv-panel2">
+              <button type="button" className="block w-full text-left" onClick={() => primaryDraftImage && setViewerImage(primaryDraftImage)}>
+                <CardImageTile label={draft.cardName || row.name} category={draft.category || row.category} large imageUrl={primaryDraftImage?.url || primaryDraftImage?.dataUrl || row.localPrimaryImageUrl} needsReupload={row.localNeedsImageReupload} />
+              </button>
+              <div className="space-y-2">
+                {draftImages.length ? (
+                  draftImages.map((image, index) => (
+                    <div key={image.id} className="rounded-md border border-acv-border bg-acv-panel2 p-2">
+                      <button type="button" className="block w-full overflow-hidden rounded border border-acv-border bg-black/20" onClick={() => setViewerImage(image)}>
                         {image.url || image.dataUrl ? (
-                          <img src={image.url || image.dataUrl} alt={image.label} className="h-16 w-full object-cover" />
+                          <img src={image.url || image.dataUrl} alt={image.label} className="h-24 w-full object-cover" />
                         ) : (
-                          <div className="flex h-16 items-center justify-center px-2 text-center text-[10px] font-semibold text-acv-muted">
-                            {image.needsReupload ? "Re-upload" : image.role}
-                          </div>
+                          <div className="flex h-24 items-center justify-center px-2 text-center text-[10px] font-semibold text-acv-muted">{image.needsReupload ? "Re-upload" : image.role}</div>
                         )}
-                        <div className="truncate border-t border-acv-border px-2 py-1 text-center text-[10px] font-semibold text-acv-muted">{image.role}</div>
+                      </button>
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                        <StatusPill tone={image.role === "Front" ? "teal" : image.role === "Back" ? "gold" : "purple"}>{image.role}</StatusPill>
+                        <MiniActionButton tone="teal" onClick={() => setViewerImage(image)}>
+                          <Eye className="h-3.5 w-3.5" />
+                          View
+                        </MiniActionButton>
+                        <MiniActionButton onClick={() => setImageRole(image.id, "Front")}>Set Front</MiniActionButton>
+                        <MiniActionButton onClick={() => setImageRole(image.id, "Back")}>Set Back</MiniActionButton>
+                        <MiniActionButton
+                          onClick={() => {
+                            setReplaceTargetId(image.id);
+                            fileInputRef.current?.click();
+                          }}
+                        >
+                          Replace
+                        </MiniActionButton>
+                        <MiniActionButton tone="pink" onClick={() => removeImage(image)}>
+                          Remove
+                        </MiniActionButton>
+                        <MiniActionButton disabled={index === 0} title={index === 0 ? "Coming soon: already first image" : undefined} onClick={() => moveImage(image.id, -1)}>
+                          Up
+                        </MiniActionButton>
+                        <MiniActionButton disabled={index === draftImages.length - 1} title={index === draftImages.length - 1 ? "Coming soon: already last image" : undefined} onClick={() => moveImage(image.id, 1)}>
+                          Down
+                        </MiniActionButton>
                       </div>
-                    ))
-                  : ["Front", "Back", "Crop"].map((label) => (
-                      <div key={label} className="rounded-md border border-acv-border bg-acv-panel2 px-2 py-2 text-center text-[11px] font-semibold text-acv-muted">
-                        {label}
-                      </div>
-                    ))}
+                    </div>
+                  ))
+                ) : (
+                  <div className="rounded-md border border-acv-border bg-acv-panel2 px-3 py-3 text-center text-xs font-semibold text-acv-muted">No images attached. Replace/add image controls coming soon.</div>
+                )}
               </div>
               {row.localNeedsImageReupload && (
                 <div className="rounded-md border border-acv-pink/35 bg-acv-pink/10 px-3 py-2 text-xs font-semibold text-acv-pink">
@@ -771,22 +1011,26 @@ function ItemDetailDrawer({
                 </div>
                 <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-3">
                   <DetailField label="SKU" value={row.sku} tone="gold" />
-                  <DetailField label="Card / Title" value={row.name} />
-                  <DetailField label="Category" value={row.category} />
-                  <DetailField label="Year" value={row.year} />
-                  <DetailField label="Brand / Set" value={row.brandSet} />
-                  <DetailField label="Player / Character" value={row.ops.playerCharacter} />
-                  <DetailField label="Team" value={row.ops.team} />
-                  <DetailField label="Card Number" value={row.cardNumber} />
-                  <DetailField label="Parallel" value={row.parallel} />
-                  <DetailField label="Serial Number" value={row.serialNumber} />
-                  {row.localProposed && <DetailField label="Grader" value={row.localProposed.grader || "Raw"} />}
-                  {row.localProposed && <DetailField label="Grade" value={row.localProposed.grade || "Raw"} />}
-                  <DetailField label="Auto / Relic" value={row.ops.autoRelicFlags} />
+                  <EditableProfileField label="Card / Title" value={draft.cardName} onChange={(value) => updateDraft("cardName", value)} />
+                  <EditableProfileField label="Category" value={draft.category} onChange={(value) => updateDraft("category", value)} />
+                  <EditableProfileField label="Year" value={draft.year} onChange={(value) => updateDraft("year", value)} />
+                  <EditableProfileField label="Brand" value={draft.brand} onChange={(value) => updateDraft("brand", value)} />
+                  <EditableProfileField label="Set" value={draft.set} onChange={(value) => updateDraft("set", value)} />
+                  <EditableProfileField label="Player / Character" value={draft.playerCharacter} onChange={(value) => updateDraft("playerCharacter", value)} />
+                  <EditableProfileField label="Team" value={draft.team} onChange={(value) => updateDraft("team", value)} />
+                  <EditableProfileField label="Card Number" value={draft.cardNumber} onChange={(value) => updateDraft("cardNumber", value)} />
+                  <EditableProfileField label="Parallel" value={draft.parallel} onChange={(value) => updateDraft("parallel", value)} />
+                  <EditableProfileField label="Serial Number" value={draft.serialNumber} onChange={(value) => updateDraft("serialNumber", value)} />
+                  <EditableProfileField label="Grader" value={draft.grader || "Raw"} onChange={(value) => updateDraft("grader", value)} />
+                  <EditableProfileField label="Grade" value={draft.grade || "Raw"} onChange={(value) => updateDraft("grade", value)} />
+                  <EditableProfileFlag label="Rookie" checked={draft.rookieFlag} onChange={(value) => updateDraft("rookieFlag", value)} />
+                  <EditableProfileFlag label="Auto" checked={draft.autoFlag} onChange={(value) => updateDraft("autoFlag", value)} />
+                  <EditableProfileFlag label="Relic" checked={draft.relicFlag} onChange={(value) => updateDraft("relicFlag", value)} />
+                  <EditableProfileFlag label="Variation" checked={draft.variationFlag} onChange={(value) => updateDraft("variationFlag", value)} />
                   <DetailField label="Status" value={row.status} tone={statusTone(row.status) === "pink" ? "pink" : "teal"} />
-                  <DetailField label="Location" value={row.location || "Missing"} tone={row.location ? undefined : "pink"} />
+                  <EditableProfileField label="Location" value={draft.location} onChange={(value) => updateDraft("location", value)} />
                   <DetailField label="Lot" value={lotLabel(row)} />
-                  <DetailField label="Purchase Cost" value={row.purchaseCost ? formatCurrency(row.purchaseCost) : "Missing"} tone={row.purchaseCost ? "pink" : "pink"} />
+                  <EditableProfileField label="Purchase Cost" type="number" value={draft.purchaseCost} onChange={(value) => updateDraft("purchaseCost", Number(value) || 0)} />
                   <DetailField label={row.ops.listingType === "Auction" ? "Listed / Start Price" : "Ask / Listed"} value={row.askingPrice ? formatCurrency(row.askingPrice) : "—"} tone="gold" />
                   {row.ops.listingType === "Auction" && (
                     <>
@@ -796,8 +1040,8 @@ function ItemDetailDrawer({
                     </>
                   )}
                   <DetailField label="Market Value" value={formatCurrency(row.marketValue)} tone="green" />
-                  <DetailField label="Quantity" value={row.quantity} />
-                  <DetailField label="Source" value={row.source} />
+                  <EditableProfileField label="Quantity" type="number" value={draft.quantity} onChange={(value) => updateDraft("quantity", Math.max(1, Number(value) || 1))} />
+                  <EditableProfileField label="Source" value={draft.acquisitionSource} onChange={(value) => updateDraft("acquisitionSource", value)} />
                   {row.localBatch && <DetailField label="Intake Batch" value={row.localBatch} tone="gold" />}
                   {row.localGroup && <DetailField label="Intake Group" value={row.localGroup} tone="gold" />}
                   <DetailField label="AI Confidence" value={formatPercent(row.aiConfidence)} tone={confidenceBand(row.aiConfidence) === "Low" ? "pink" : confidenceBand(row.aiConfidence) === "Medium" ? "gold" : "teal"} />
@@ -817,14 +1061,14 @@ function ItemDetailDrawer({
           <div className="mt-5 grid min-w-0 gap-4 lg:grid-cols-2">
             <section className="rounded-lg border border-acv-border bg-acv-panel p-4">
               <p className="text-xs font-semibold uppercase tracking-[0.12em] text-acv-gold">Condition Notes</p>
-              <p className="mt-3 rounded-md border border-acv-border bg-acv-panel2 p-3 text-sm leading-6 text-acv-text">{row.ops.conditionNotes}</p>
+              <EditableProfileField label="Condition Notes" value={draft.conditionNotes} multiline onChange={(value) => updateDraft("conditionNotes", value)} />
             </section>
             <section className="rounded-lg border border-acv-border bg-acv-panel p-4">
               <p className="text-xs font-semibold uppercase tracking-[0.12em] text-acv-gold">Internal Notes</p>
-              <textarea
-                defaultValue={row.notes}
-                className="mt-3 min-h-24 w-full rounded-md border border-acv-border bg-acv-panel2 p-3 text-sm leading-6 text-acv-text outline-none transition focus:border-acv-teal/60"
-              />
+              <EditableProfileField label="Internal Notes" value={draft.internalNotes} multiline onChange={(value) => updateDraft("internalNotes", value)} />
+              <div className="mt-3">
+                <EditableProfileField label="Uncertainty Notes" value={draft.uncertaintyNotes} multiline onChange={(value) => updateDraft("uncertaintyNotes", value)} />
+              </div>
             </section>
           </div>
 
@@ -862,38 +1106,67 @@ function ItemDetailDrawer({
           </div>
         </div>
 
-        <div className="grid gap-2 border-t border-acv-border bg-black/70 p-4 sm:grid-cols-3 xl:grid-cols-6">
-          <MiniActionButton tone="teal" onClick={() => onMockSave(row.sku)}>
+        <div className="grid gap-2 border-t border-acv-border bg-black/70 p-4 sm:grid-cols-3 xl:grid-cols-7">
+          <MiniActionButton tone="teal" onClick={() => void onSave(row, draft, draftImages, removedImageIds)}>
             <Save className="h-3.5 w-3.5" />
             Save Changes
           </MiniActionButton>
-          <MiniActionButton>
+          <MiniActionButton tone="gold" onClick={resetDraft}>
+            <RefreshCcw className="h-3.5 w-3.5" />
+            Cancel / Revert
+          </MiniActionButton>
+          <MiniActionButton disabled title="Coming soon">
             <RefreshCcw className="h-3.5 w-3.5" />
             Send to Pricing
           </MiniActionButton>
-          <MiniActionButton tone="gold">
+          <MiniActionButton tone="gold" disabled title="Coming soon">
             <FileClock className="h-3.5 w-3.5" />
             Generate Draft
           </MiniActionButton>
-          <MiniActionButton tone="teal">
+          <MiniActionButton tone="teal" disabled title="Coming soon">
             <Tag className="h-3.5 w-3.5" />
             Stage Listing
           </MiniActionButton>
-          <MiniActionButton tone="gold">
+          <MiniActionButton tone="gold" disabled title="Coming soon">
             <Send className="h-3.5 w-3.5" />
             Push SKU to eBay
           </MiniActionButton>
-          <MiniActionButton tone="pink">
+          <MiniActionButton tone="pink" onClick={() => onArchive(row)}>
             <Archive className="h-3.5 w-3.5" />
             Archive
           </MiniActionButton>
+          <MiniActionButton tone="pink" onClick={() => onDelete(row)}>
+            <Trash2 className="h-3.5 w-3.5" />
+            Delete
+          </MiniActionButton>
         </div>
       </aside>
+      {viewerImage && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/85 p-4">
+          <button type="button" aria-label="Close image viewer" className="absolute inset-0 cursor-default" onClick={() => setViewerImage(null)} />
+          <div className="relative z-10 max-h-[90vh] w-full max-w-4xl overflow-hidden rounded-lg border border-acv-border bg-acv-black p-3 shadow-glow">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-acv-gold">{viewerImage.role}</p>
+                <p className="truncate text-sm font-semibold text-acv-text">{viewerImage.fileName || viewerImage.label}</p>
+              </div>
+              <button type="button" title="Close" onClick={() => setViewerImage(null)} className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-acv-border text-acv-muted hover:text-acv-teal">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            {viewerImage.url || viewerImage.dataUrl ? (
+              <img src={viewerImage.url || viewerImage.dataUrl} alt={viewerImage.label} className="max-h-[78vh] w-full object-contain" />
+            ) : (
+              <div className="flex h-96 items-center justify-center text-sm font-semibold text-acv-muted">Image needs to be re-uploaded.</div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function ActionMenu({ row, onOpen }: { row: Row; onOpen: (row: Row) => void }) {
+function ActionMenu({ row, onOpen, onArchive }: { row: Row; onOpen: (row: Row) => void; onArchive: (row: Row) => void }) {
   return (
     <select
       aria-label={`Actions for ${row.sku}`}
@@ -902,16 +1175,17 @@ function ActionMenu({ row, onOpen }: { row: Row; onOpen: (row: Row) => void }) {
       onChange={(event) => {
         event.stopPropagation();
         if (event.target.value === "details") onOpen(row);
+        if (event.target.value === "archive") onArchive(row);
         event.currentTarget.value = "";
       }}
       className="h-8 w-28 rounded-md border border-acv-border bg-acv-panel2 px-2 text-[11px] font-semibold text-acv-text outline-none transition hover:border-acv-teal/45"
     >
       <option value="">Actions</option>
       <option value="details">Open details</option>
-      <option value="price">Edit price</option>
-      <option value="location">Update location</option>
-      <option value="comps">Refresh comps</option>
-      <option value="stage">Stage to eBay</option>
+      <option value="price" disabled>Edit price - coming soon</option>
+      <option value="location" disabled>Update location - coming soon</option>
+      <option value="comps" disabled>Refresh comps - coming soon</option>
+      <option value="stage" disabled>Stage to eBay - coming soon</option>
       <option value="archive">Archive</option>
     </select>
   );
@@ -976,8 +1250,18 @@ function listedDateMatches(row: Row, filter: string) {
 }
 
 export default function InventoryPage() {
-  const { approvedInventory, backendStatus } = useAcvLocalState();
-  const rows = useMemo(() => [...inventoryItems.map(rowWithOps), ...approvedInventory.map(approvedItemToRow)], [approvedInventory]);
+  const { approvedInventory, setApprovedInventory, backendStatus } = useAcvLocalState();
+  const [archivedSkus, setArchivedSkus] = useState<Set<string>>(new Set());
+  const [deletedSkus, setDeletedSkus] = useState<Set<string>>(new Set());
+  const [mockOverrides, setMockOverrides] = useState<Record<string, Partial<InventoryItem>>>({});
+  const rows = useMemo(() => {
+    const inactiveSkus = new Set([...Array.from(archivedSkus), ...Array.from(deletedSkus)]);
+    const mockRows = inventoryItems
+      .filter((item) => !inactiveSkus.has(item.sku))
+      .map((item) => rowWithOps({ ...item, ...(mockOverrides[item.sku] || {}) }));
+    const approvedRows = approvedInventory.filter((item) => !inactiveSkus.has(item.sku)).map(approvedItemToRow);
+    return [...mockRows, ...approvedRows];
+  }, [approvedInventory, archivedSkus, deletedSkus, mockOverrides]);
   const [selectedRow, setSelectedRow] = useState<Row | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("Listings");
   const [listingSubTab, setListingSubTab] = useState<ListingSubTab>("All Listings");
@@ -1071,8 +1355,85 @@ export default function InventoryPage() {
     setSelectedIds(new Set());
   }
 
-  function mockSave(sku: string) {
-    setSaveMessage(`${sku || "Inventory item"} saved locally in mock mode.`);
+  async function saveInventoryChanges(row: Row, proposed: ProposedRecord, images: IntakeImage[], removedImageIds: string[]) {
+    const nextImages = images.map((image, order) => ({ ...image, order }));
+    const nextItem = rowToApprovedItem(row, proposed, nextImages);
+    const approvedExists = approvedInventory.some((item) => item.sku === row.sku);
+
+    if (approvedExists || row.id.startsWith("local-")) {
+      setApprovedInventory((current) => {
+        const exists = current.some((item) => item.sku === row.sku);
+        return exists ? current.map((item) => (item.sku === row.sku ? nextItem : item)) : [...current, nextItem];
+      });
+
+      try {
+        if (backendStatus.connectionState === "connected") {
+          await saveApprovedInventoryItemChanges(nextItem, removedImageIds);
+          setSaveMessage(`${row.sku} saved to Supabase + local UI.`);
+        } else {
+          setSaveMessage(`${row.sku} saved locally. Supabase is not connected.`);
+        }
+      } catch (error) {
+        console.error("[ACV Inventory] Save failed", error);
+        setSaveMessage(`${row.sku} saved locally. Supabase sync failed; local fallback retained.`);
+      }
+    } else {
+      setMockOverrides((current) => ({
+        ...current,
+        [row.sku]: {
+          name: proposed.cardName,
+          category: proposed.category,
+          year: proposed.year || "-",
+          brandSet: `${proposed.brand} ${proposed.set}`.trim() || row.brandSet,
+          parallel: proposed.parallel || "-",
+          cardNumber: proposed.cardNumber || "-",
+          serialNumber: proposed.serialNumber || "-",
+          location: proposed.location,
+          purchaseCost: proposed.purchaseCost,
+          quantity: proposed.quantity,
+          source: proposed.acquisitionSource,
+          notes: proposed.internalNotes,
+          lastUpdated: new Date().toLocaleString()
+        }
+      }));
+      setSaveMessage(`${row.sku} mock/test row saved locally.`);
+    }
+
+    setSelectedRow(null);
+  }
+
+  async function archiveInventoryRow(row: Row) {
+    if (!window.confirm(`Archive ${row.sku}? It will leave active Inventory views but remain recoverable as a soft-deleted record where Supabase supports it.`)) return;
+    setArchivedSkus((current) => new Set(current).add(row.sku));
+    setSelectedRow(null);
+
+    try {
+      if (backendStatus.connectionState === "connected") await archiveApprovedInventoryItemBySku(row.sku);
+      setSaveMessage(`${row.sku} archived.`);
+    } catch (error) {
+      console.error("[ACV Inventory] Archive failed", error);
+      setSaveMessage(`${row.sku} archived locally. Supabase archive failed; local fallback retained.`);
+    }
+  }
+
+  async function deleteInventoryRow(row: Row) {
+    if (!window.confirm(`Remove ${row.sku} from active Inventory? ACV will use a safe soft delete/archive path and will not permanently delete images by default.`)) return;
+    const archiveImages = window.confirm("Also archive image records for this item? Choose Cancel to keep image records recoverable.");
+    setDeletedSkus((current) => new Set(current).add(row.sku));
+    setApprovedInventory((current) => current.filter((item) => item.sku !== row.sku));
+    setSelectedRow(null);
+
+    try {
+      if (backendStatus.connectionState === "connected") await softDeleteApprovedInventoryItemBySku(row.sku, archiveImages);
+      setSaveMessage(`${row.sku} safely removed from active Inventory.`);
+    } catch (error) {
+      console.error("[ACV Inventory] Delete failed", error);
+      setSaveMessage(`${row.sku} removed locally. Supabase soft delete failed; local fallback retained.`);
+    }
+  }
+
+  function showComingSoon(label: string) {
+    setSaveMessage(`${label} is coming soon. No changes were made.`);
   }
 
   function toggleOptionalColumn(key: DataColumnKey) {
@@ -1164,7 +1525,7 @@ export default function InventoryPage() {
       className: dataColumnDefinitions[key].className,
       cell: dataColumnDefinitions[key].cell
     })),
-    { key: "actions", header: "Actions", className: "sticky right-0 z-30 w-28 min-w-28 bg-acv-panel2 text-right", cell: (row: Row) => <ActionMenu row={row} onOpen={setSelectedRow} /> }
+    { key: "actions", header: "Actions", className: "sticky right-0 z-30 w-28 min-w-28 bg-acv-panel2 text-right", cell: (row: Row) => <ActionMenu row={row} onOpen={setSelectedRow} onArchive={archiveInventoryRow} /> }
   ];
 
   const activeFilterCount = [
@@ -1387,7 +1748,16 @@ export default function InventoryPage() {
         </details>
       </div>
 
-      {selectedRow && <ItemDetailDrawer row={selectedRow} onClose={() => setSelectedRow(null)} onMockSave={mockSave} />}
+      {selectedRow && (
+        <ItemDetailDrawer
+          row={selectedRow}
+          onClose={() => setSelectedRow(null)}
+          onSave={saveInventoryChanges}
+          onArchive={archiveInventoryRow}
+          onDelete={deleteInventoryRow}
+          onMockAction={showComingSoon}
+        />
+      )}
     </>
   );
 }
