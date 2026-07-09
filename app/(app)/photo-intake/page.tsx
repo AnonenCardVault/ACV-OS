@@ -114,6 +114,12 @@ type CatalogDiagnostic = {
   matchedCard?: string;
   matchedSet?: string;
   matchedNumber?: string;
+  matchedTeam?: string;
+  matchedProduct?: string;
+  matchedSubset?: string | null;
+  sourceName?: string;
+  sourceUrl?: string;
+  candidateCount?: number;
   rarity?: string;
   setId?: string;
   setTotal?: number;
@@ -1315,6 +1321,11 @@ function ReviewDrawer({
                             {catalogDiagnostics.matchedCard && <AlertRow tone="neutral">Card: {catalogDiagnostics.matchedCard}</AlertRow>}
                             {catalogDiagnostics.matchedSet && <AlertRow tone="neutral">Set: {catalogDiagnostics.matchedSet}</AlertRow>}
                             {catalogDiagnostics.matchedNumber && <AlertRow tone="neutral">Number: #{catalogDiagnostics.matchedNumber}</AlertRow>}
+                            {catalogDiagnostics.matchedTeam && <AlertRow tone="neutral">Team: {catalogDiagnostics.matchedTeam}</AlertRow>}
+                            {catalogDiagnostics.matchedProduct && <AlertRow tone="neutral">Product: {catalogDiagnostics.matchedProduct}</AlertRow>}
+                            {catalogDiagnostics.matchedSubset && <AlertRow tone="neutral">Subset: {catalogDiagnostics.matchedSubset}</AlertRow>}
+                            {catalogDiagnostics.candidateCount !== undefined && <AlertRow tone="neutral">Candidates: {catalogDiagnostics.candidateCount}</AlertRow>}
+                            {catalogDiagnostics.sourceName && <AlertRow tone="neutral">Source: {catalogDiagnostics.sourceName}</AlertRow>}
                             {catalogDiagnostics.rarity && <AlertRow tone="neutral">Rarity: {catalogDiagnostics.rarity}</AlertRow>}
                           </div>
                           {catalogDiagnostics.warnings.length > 0 && (

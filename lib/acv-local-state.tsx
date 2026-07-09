@@ -93,6 +93,12 @@ export type CatalogDiagnostic = {
   matchedCard?: string;
   matchedSet?: string;
   matchedNumber?: string;
+  matchedTeam?: string;
+  matchedProduct?: string;
+  matchedSubset?: string | null;
+  sourceName?: string;
+  sourceUrl?: string;
+  candidateCount?: number;
   rarity?: string;
   setId?: string;
   setTotal?: number;

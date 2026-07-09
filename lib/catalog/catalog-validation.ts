@@ -15,8 +15,10 @@ function fieldConfidenceFromCatalog(result: CatalogValidationResult): AIFieldCon
   if (result.status !== "matched") return {};
   return {
     playerOrCharacter: result.matchedCard?.name ? result.confidence : undefined,
+    team: result.matchedCard?.team ? result.confidence : undefined,
     sportCategory: result.confidence,
     brand: result.confidence,
+    year: result.matchedCard?.year ? result.confidence : undefined,
     set: result.matchedCard?.set ? result.confidence : undefined,
     cardNumber: result.matchedCard?.number ? result.confidence : undefined
   };
@@ -43,7 +45,7 @@ export async function validateCatalogFields(fields: ExtractedCardFields): Promis
 
   const validation = await provider.validate({ fields });
   const nextFields = validation.status === "matched" && validation.normalizedFields ? { ...fields, ...validation.normalizedFields } : fields;
-  const confidenceAdjustment = validation.status === "matched" ? 6 : validation.status === "disagreement" ? -12 : 0;
+  const confidenceAdjustment = validation.status === "matched" ? 6 : validation.status === "disagreement" ? -12 : validation.status === "ambiguous" ? -6 : 0;
 
   return {
     fields: nextFields,

@@ -150,7 +150,7 @@ function confidenceCapFromEvidence({
     .filter((value): value is number => typeof value === "number");
   const lowestRequired = requiredScores.length ? Math.min(...requiredScores) : 0;
   const hasProviderConflict = warnings.some((warning) => warning.code.startsWith("field_conflict_"));
-  const hasCatalogDisagreement = catalogStatus === "disagreement";
+  const hasCatalogDisagreement = catalogStatus === "disagreement" || catalogStatus === "ambiguous";
   const hasBlocking = warnings.some((warning) => warning.severity === "blocking");
 
   if (hasBlocking) cap = Math.min(cap, 45);
@@ -419,7 +419,7 @@ export async function runAIExtraction({
       catalogStatus: catalog.validation?.status
     })
   );
-  let extractionStatus = catalog.validation?.status === "disagreement" && confidence.status === "Ready to Approve" ? "Needs Review" : confidence.status;
+  let extractionStatus = (catalog.validation?.status === "disagreement" || catalog.validation?.status === "ambiguous") && confidence.status === "Ready to Approve" ? "Needs Review" : confidence.status;
   if (extractionStatus === "Ready to Approve" && adjustedOverall < config.highConfidence) extractionStatus = adjustedOverall < config.mediumConfidence ? "Needs Research" : "Needs Review";
   const learningEvent = createLearningEvent({ input, providerOutputs: context.providerOutputs });
   const log = createExtractionLog({

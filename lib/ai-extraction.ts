@@ -27,6 +27,12 @@ export type ExtractionResult = {
     matchedCard?: string;
     matchedSet?: string;
     matchedNumber?: string;
+    matchedTeam?: string;
+    matchedProduct?: string;
+    matchedSubset?: string | null;
+    sourceName?: string;
+    sourceUrl?: string;
+    candidateCount?: number;
     rarity?: string;
     setId?: string;
     setTotal?: number;
@@ -174,6 +180,12 @@ function catalogDiagnostics(result: EngineExtractionResult): ExtractionResult["c
     matchedCard: validation.matchedCard?.name,
     matchedSet: validation.matchedCard?.set,
     matchedNumber: validation.matchedCard?.number,
+    matchedTeam: validation.matchedCard?.team || undefined,
+    matchedProduct: validation.matchedCard?.product || undefined,
+    matchedSubset: validation.matchedCard?.subset,
+    sourceName: validation.matchedCard?.sourceName,
+    sourceUrl: validation.matchedCard?.sourceUrl,
+    candidateCount: validation.candidateCount,
     rarity: validation.matchedCard?.rarity,
     setId: validation.matchedCard?.setId,
     setTotal: validation.matchedCard?.setTotal,
