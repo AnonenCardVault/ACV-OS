@@ -46,6 +46,23 @@ function supportedVariant(value: string) {
   return supported.some((item) => normalized.includes(item)) ? text : "";
 }
 
+function hasUltraPokemonSubtype(facts: MarketplaceTitleFacts, name: string, rarity: string) {
+  const subtypeText = [...(facts.catalog?.subtypes || []), name, rarity].join(" ");
+  return /(^|\s)(vmax|vstar|gx|ex|v)(\s|$)/i.test(subtypeText);
+}
+
+function marketplaceRarity(facts: MarketplaceTitleFacts, name: string) {
+  const rarity = clean(facts.catalog?.rarity);
+  if (!rarity) return "";
+
+  const normalized = rarity.toLowerCase();
+  const ultraSubtype = hasUltraPokemonSubtype(facts, name, rarity);
+  if (ultraSubtype && normalized.includes("rare holo")) return "Ultra Rare Holo";
+  if (ultraSubtype && normalized.includes("rare") && !normalized.includes("ultra rare")) return "Ultra Rare";
+
+  return rarity.replace(/\b(VMAX|VSTAR|GX|EX|V)\b/g, "").replace(/\bex\b/g, "").replace(/\s+/g, " ").trim();
+}
+
 function trimPokemonTitle(fullParts: string[], rarity: string, variant: string) {
   const attempts = [
     fullParts,
@@ -71,7 +88,7 @@ export function buildPokemonEbayTitle(facts: MarketplaceTitleFacts) {
   const name = clean(facts.catalog?.matchedCard) || clean(facts.playerOrCharacter) || clean(facts.cardTitle) || "Pokemon Card";
   const number = formatNumberPart(clean(facts.cardNumber) || clean(facts.catalog?.matchedNumber), setTotal);
   const setName = clean(facts.catalog?.matchedSet) || clean(facts.setName);
-  const rarity = clean(facts.catalog?.rarity);
+  const rarity = marketplaceRarity(facts, name);
   const candidateVariant = supportedVariant(clean(facts.parallel));
   const variant =
     candidateVariant && (!rarity || (!rarity.toLowerCase().includes(candidateVariant.toLowerCase()) && !candidateVariant.toLowerCase().includes(rarity.toLowerCase())))

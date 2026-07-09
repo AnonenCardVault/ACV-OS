@@ -179,6 +179,7 @@ const categoryOptions = ["Football", "Baseball", "Basketball", "Pokemon", "TCG",
 const graderOptions = ["Raw", "PSA", "SGC", "BGS", "CGC", "Other"];
 const gradeOptions = ["Raw", "10", "9.5", "9", "8.5", "8", "7", "6", "5", "Other"];
 const acquisitionSourceOptions = ["Computer Upload", "Card Show", "Break", "eBay Import", "Trade", "Personal Collection", "Other"];
+const wrappedWarningPillClass = "max-w-full min-w-0 !whitespace-normal break-words [overflow-wrap:anywhere] [word-break:break-word] text-left leading-4 tracking-[0.04em]";
 
 function defaultAiExtraction(): AiExtractionSnapshot {
   return {
@@ -903,6 +904,7 @@ function ReviewDrawer({
   onReject: (id: string) => void;
   onUndoReject: (id: string) => void;
 }) {
+  const [showAiWarnings, setShowAiWarnings] = useState(true);
   const routeStatus: RouteStatus = isRejected ? "Blocked" : isResearch ? "Needs Research" : statusForGroup(group);
   const skuDisplay = skuStatus === "SKU Assigned" ? `${assignedSku} mock` : "Pending Approval";
   const drawerSkuTone = skuStatus === "SKU Assigned" ? "green" : "purple";
@@ -1016,13 +1018,18 @@ function ReviewDrawer({
                       <MiniButton icon={<RefreshCw className="h-3.5 w-3.5" />} disabled={!hasAiSuggestion} onClick={() => onApplyAiSuggestion(group.id)}>
                         Apply AI Suggestion
                       </MiniButton>
+                      {aiWarnings.length > 0 && (
+                        <MiniButton onClick={() => setShowAiWarnings((current) => !current)}>
+                          {showAiWarnings ? "Hide AI Warnings" : `Show AI Warnings (${aiWarnings.length})`}
+                        </MiniButton>
+                      )}
                       <MiniButton tone="pink" icon={<Eraser className="h-3.5 w-3.5" />} disabled={aiStatus === "Not Run"} onClick={() => onClearExtraction(group.id)}>
                         Clear Extraction
                       </MiniButton>
                     </div>
                   </div>
 
-                  {(fieldConfidenceEntries.length > 0 || aiWarnings.length > 0) && (
+                  {(fieldConfidenceEntries.length > 0 || (showAiWarnings && aiWarnings.length > 0)) && (
                     <div className="mt-3 grid min-w-0 gap-2 lg:grid-cols-[1fr_0.8fr]">
                       {fieldConfidenceEntries.length > 0 && (
                         <div className="min-w-0 rounded-md border border-acv-border bg-black/20 p-2">
@@ -1036,15 +1043,15 @@ function ReviewDrawer({
                           </div>
                         </div>
                       )}
-                      {aiWarnings.length > 0 && (
+                      {showAiWarnings && aiWarnings.length > 0 && (
                         <div className="min-w-0 rounded-md border border-acv-border bg-black/20 p-2">
                           <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-acv-muted">AI Warnings</p>
-                          <div className="flex min-w-0 flex-wrap items-start gap-1.5">
+                          <div className="flex min-w-0 max-w-full flex-wrap items-start gap-1.5 overflow-hidden">
                             {aiWarnings.map((warning) => (
                               <StatusPill
                                 key={warning}
                                 tone={warning.toLowerCase().includes("missing") || warning.toLowerCase().includes("low confidence") ? "pink" : "gold"}
-                                className="max-w-full !whitespace-normal break-words text-left leading-4 tracking-[0.04em]"
+                                className={wrappedWarningPillClass}
                               >
                                 {warning}
                               </StatusPill>
@@ -1069,9 +1076,9 @@ function ReviewDrawer({
                         {catalogDiagnostics.rarity && <StatusPill tone="neutral">{catalogDiagnostics.rarity}</StatusPill>}
                       </div>
                       {catalogDiagnostics.warnings.length > 0 && (
-                        <div className="mt-2 flex min-w-0 flex-wrap gap-1.5">
+                        <div className="mt-2 flex min-w-0 max-w-full flex-wrap gap-1.5 overflow-hidden">
                           {catalogDiagnostics.warnings.map((warning) => (
-                            <StatusPill key={warning} tone={warning.toLowerCase().includes("unavailable") ? "neutral" : "gold"} className="max-w-full !whitespace-normal break-words text-left leading-4 tracking-[0.04em]">
+                            <StatusPill key={warning} tone={warning.toLowerCase().includes("unavailable") ? "neutral" : "gold"} className={wrappedWarningPillClass}>
                               {warning}
                             </StatusPill>
                           ))}
@@ -1093,9 +1100,9 @@ function ReviewDrawer({
                             </div>
                             <p className="mt-2 break-words text-[11px] leading-5 text-acv-muted">{diagnostic.reason}</p>
                             {diagnostic.mappedFields && diagnostic.mappedFields.length > 0 && (
-                              <div className="mt-2 flex min-w-0 flex-wrap gap-1.5">
+                              <div className="mt-2 flex min-w-0 max-w-full flex-wrap gap-1.5 overflow-hidden">
                                 {diagnostic.mappedFields.map((field) => (
-                                  <StatusPill key={`${diagnostic.providerName}-${field.label}-${field.value}`} tone="neutral" className="max-w-full !whitespace-normal break-words text-left leading-4 tracking-[0.04em]">
+                                  <StatusPill key={`${diagnostic.providerName}-${field.label}-${field.value}`} tone="neutral" className={wrappedWarningPillClass}>
                                     {field.label}: {field.value}
                                   </StatusPill>
                                 ))}
@@ -1183,9 +1190,9 @@ function ReviewDrawer({
                   <EditableField label="Internal Notes" value={group.proposed.internalNotes || ""} multiline onChange={(value) => onUpdateProposed(group.id, "internalNotes", value)} />
                 </div>
                 {(warnings.length > 0 || readinessIssues.length > 0) && (
-                  <div className="mt-3 flex flex-wrap gap-2">
+                  <div className="mt-3 flex min-w-0 max-w-full flex-wrap gap-2 overflow-hidden">
                     {Array.from(new Set([...readinessIssues, ...warnings])).map((issue) => (
-                      <StatusPill key={issue} tone={issue.toLowerCase().includes("confidence") ? "gold" : "pink"}>
+                      <StatusPill key={issue} tone={issue.toLowerCase().includes("confidence") ? "gold" : "pink"} className={wrappedWarningPillClass}>
                         {issue}
                       </StatusPill>
                     ))}
@@ -2191,9 +2198,9 @@ export default function PhotoIntakePage() {
                             <ImagePlaceholder image={backImage} emptyLabel="Back" />
                           </div>
                           {warnings.length > 0 && (
-                            <div className="mt-2 flex min-h-6 flex-wrap gap-1.5">
+                            <div className="mt-2 flex min-h-6 min-w-0 max-w-full flex-wrap gap-1.5 overflow-hidden">
                               {warnings.slice(0, 2).map((warning) => (
-                                <StatusPill key={warning} tone="pink">
+                                <StatusPill key={warning} tone="pink" className={wrappedWarningPillClass}>
                                   {warning}
                                 </StatusPill>
                               ))}
@@ -2343,9 +2350,9 @@ export default function PhotoIntakePage() {
                 cell: (group) => {
                   const warnings = warningsForGroup(group);
                   return warnings.length ? (
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className="flex min-w-0 max-w-full flex-wrap gap-1.5 overflow-hidden">
                       {warnings.slice(0, 2).map((warning) => (
-                        <StatusPill key={warning} tone="pink">
+                        <StatusPill key={warning} tone="pink" className={wrappedWarningPillClass}>
                           {warning}
                         </StatusPill>
                       ))}
