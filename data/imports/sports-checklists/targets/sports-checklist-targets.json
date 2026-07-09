@@ -2,49 +2,1528 @@
   "schemaVersion": 1,
   "targets": [
     {
-      "sport": "Football",
-      "year": "2024",
-      "brand": "Panini",
-      "product": "Phoenix",
+      "sport": "Baseball",
+      "year": "2023",
+      "brand": "Topps",
+      "product": "Series 1",
       "priority": "high",
       "enabled": true,
-      "preferredSources": ["Beckett", "Cardboard Connection"]
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
     },
     {
-      "sport": "Football",
-      "year": "2024",
-      "brand": "Panini",
-      "product": "Prizm",
+      "sport": "Baseball",
+      "year": "2023",
+      "brand": "Topps",
+      "product": "Series 2",
       "priority": "high",
       "enabled": true,
-      "preferredSources": ["Beckett", "Cardboard Connection"]
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Baseball",
+      "year": "2023",
+      "brand": "Topps",
+      "product": "Update",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Baseball",
+      "year": "2023",
+      "brand": "Topps",
+      "product": "Chrome Platinum Anniversary",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Baseball",
+      "year": "2023",
+      "brand": "Topps",
+      "product": "Heritage",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Baseball",
+      "year": "2023",
+      "brand": "Topps",
+      "product": "Finest",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Baseball",
+      "year": "2023",
+      "brand": "Bowman",
+      "product": "Bowman",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Baseball",
+      "year": "2023",
+      "brand": "Bowman",
+      "product": "Chrome",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Baseball",
+      "year": "2023",
+      "brand": "Bowman",
+      "product": "Draft",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Baseball",
+      "year": "2023",
+      "brand": "Panini",
+      "product": "Donruss Optic Baseball",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Baseball",
+      "year": "2024",
+      "brand": "Topps",
+      "product": "Series 1",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Baseball",
+      "year": "2024",
+      "brand": "Topps",
+      "product": "Series 2",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Baseball",
+      "year": "2024",
+      "brand": "Topps",
+      "product": "Update",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Baseball",
+      "year": "2024",
+      "brand": "Topps",
+      "product": "Chrome Platinum Anniversary",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Baseball",
+      "year": "2024",
+      "brand": "Topps",
+      "product": "Heritage",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Baseball",
+      "year": "2024",
+      "brand": "Topps",
+      "product": "Finest",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Baseball",
+      "year": "2024",
+      "brand": "Bowman",
+      "product": "Bowman",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Baseball",
+      "year": "2024",
+      "brand": "Bowman",
+      "product": "Chrome",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Baseball",
+      "year": "2024",
+      "brand": "Bowman",
+      "product": "Draft",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Baseball",
+      "year": "2024",
+      "brand": "Panini",
+      "product": "Donruss Optic Baseball",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Baseball",
+      "year": "2025",
+      "brand": "Topps",
+      "product": "Series 1",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Baseball",
+      "year": "2025",
+      "brand": "Topps",
+      "product": "Series 2",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Baseball",
+      "year": "2025",
+      "brand": "Topps",
+      "product": "Update",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Baseball",
+      "year": "2025",
+      "brand": "Topps",
+      "product": "Chrome Platinum Anniversary",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Baseball",
+      "year": "2025",
+      "brand": "Topps",
+      "product": "Heritage",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Baseball",
+      "year": "2025",
+      "brand": "Topps",
+      "product": "Finest",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Baseball",
+      "year": "2025",
+      "brand": "Bowman",
+      "product": "Bowman",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Baseball",
+      "year": "2025",
+      "brand": "Bowman",
+      "product": "Chrome",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Baseball",
+      "year": "2025",
+      "brand": "Bowman",
+      "product": "Draft",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Baseball",
+      "year": "2025",
+      "brand": "Panini",
+      "product": "Donruss Optic Baseball",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Baseball",
+      "year": "2026",
+      "brand": "Topps",
+      "product": "Series 1",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Baseball",
+      "year": "2026",
+      "brand": "Topps",
+      "product": "Series 2",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Baseball",
+      "year": "2026",
+      "brand": "Topps",
+      "product": "Update",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Baseball",
+      "year": "2026",
+      "brand": "Topps",
+      "product": "Chrome Platinum Anniversary",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Baseball",
+      "year": "2026",
+      "brand": "Topps",
+      "product": "Heritage",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Baseball",
+      "year": "2026",
+      "brand": "Topps",
+      "product": "Finest",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Baseball",
+      "year": "2026",
+      "brand": "Bowman",
+      "product": "Bowman",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Baseball",
+      "year": "2026",
+      "brand": "Bowman",
+      "product": "Chrome",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Baseball",
+      "year": "2026",
+      "brand": "Bowman",
+      "product": "Draft",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Baseball",
+      "year": "2026",
+      "brand": "Panini",
+      "product": "Donruss Optic Baseball",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
     },
     {
       "sport": "Football",
       "year": "2023",
       "brand": "Panini",
       "product": "Prizm",
-      "priority": "medium",
+      "priority": "high",
       "enabled": true,
-      "preferredSources": ["Beckett", "Cardboard Connection"]
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
     },
     {
-      "sport": "Baseball",
+      "sport": "Football",
+      "year": "2023",
+      "brand": "Panini",
+      "product": "Donruss",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Football",
+      "year": "2023",
+      "brand": "Panini",
+      "product": "Donruss Optic",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Football",
+      "year": "2023",
+      "brand": "Panini",
+      "product": "Mosaic",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Football",
+      "year": "2023",
+      "brand": "Panini",
+      "product": "Select",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Football",
+      "year": "2023",
+      "brand": "Panini",
+      "product": "Phoenix",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Football",
+      "year": "2023",
+      "brand": "Panini",
+      "product": "Prestige",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Football",
+      "year": "2023",
+      "brand": "Panini",
+      "product": "Score",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Football",
+      "year": "2023",
+      "brand": "Panini",
+      "product": "Absolute",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Football",
+      "year": "2023",
+      "brand": "Panini",
+      "product": "Certified",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Football",
+      "year": "2023",
+      "brand": "Panini",
+      "product": "Illusions",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Football",
+      "year": "2023",
+      "brand": "Panini",
+      "product": "Contenders",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Football",
+      "year": "2023",
+      "brand": "Panini",
+      "product": "Elite",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Football",
+      "year": "2023",
+      "brand": "Panini",
+      "product": "Zenith",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Football",
+      "year": "2023",
+      "brand": "Panini",
+      "product": "Chronicles",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Football",
+      "year": "2023",
+      "brand": "Panini",
+      "product": "Legacy",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Football",
+      "year": "2023",
+      "brand": "Topps",
+      "product": "Chrome Football",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Football",
+      "year": "2024",
+      "brand": "Panini",
+      "product": "Prizm",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Football",
+      "year": "2024",
+      "brand": "Panini",
+      "product": "Donruss",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Football",
+      "year": "2024",
+      "brand": "Panini",
+      "product": "Donruss Optic",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Football",
+      "year": "2024",
+      "brand": "Panini",
+      "product": "Mosaic",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Football",
+      "year": "2024",
+      "brand": "Panini",
+      "product": "Select",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Football",
+      "year": "2024",
+      "brand": "Panini",
+      "product": "Phoenix",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Football",
+      "year": "2024",
+      "brand": "Panini",
+      "product": "Prestige",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Football",
+      "year": "2024",
+      "brand": "Panini",
+      "product": "Score",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Football",
+      "year": "2024",
+      "brand": "Panini",
+      "product": "Absolute",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Football",
+      "year": "2024",
+      "brand": "Panini",
+      "product": "Certified",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Football",
+      "year": "2024",
+      "brand": "Panini",
+      "product": "Illusions",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Football",
+      "year": "2024",
+      "brand": "Panini",
+      "product": "Contenders",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Football",
+      "year": "2024",
+      "brand": "Panini",
+      "product": "Elite",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Football",
+      "year": "2024",
+      "brand": "Panini",
+      "product": "Zenith",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Football",
+      "year": "2024",
+      "brand": "Panini",
+      "product": "Chronicles",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Football",
+      "year": "2024",
+      "brand": "Panini",
+      "product": "Legacy",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Football",
       "year": "2024",
       "brand": "Topps",
-      "product": "Chrome",
-      "priority": "medium",
+      "product": "Chrome Football",
+      "priority": "high",
       "enabled": true,
-      "preferredSources": ["Beckett", "Cardboard Connection"]
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Football",
+      "year": "2025",
+      "brand": "Panini",
+      "product": "Prizm",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Football",
+      "year": "2025",
+      "brand": "Panini",
+      "product": "Donruss",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Football",
+      "year": "2025",
+      "brand": "Panini",
+      "product": "Donruss Optic",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Football",
+      "year": "2025",
+      "brand": "Panini",
+      "product": "Mosaic",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Football",
+      "year": "2025",
+      "brand": "Panini",
+      "product": "Select",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Football",
+      "year": "2025",
+      "brand": "Panini",
+      "product": "Phoenix",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Football",
+      "year": "2025",
+      "brand": "Panini",
+      "product": "Prestige",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Football",
+      "year": "2025",
+      "brand": "Panini",
+      "product": "Score",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Football",
+      "year": "2025",
+      "brand": "Panini",
+      "product": "Absolute",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Football",
+      "year": "2025",
+      "brand": "Panini",
+      "product": "Certified",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Football",
+      "year": "2025",
+      "brand": "Panini",
+      "product": "Illusions",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Football",
+      "year": "2025",
+      "brand": "Panini",
+      "product": "Contenders",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Football",
+      "year": "2025",
+      "brand": "Panini",
+      "product": "Elite",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Football",
+      "year": "2025",
+      "brand": "Panini",
+      "product": "Zenith",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Football",
+      "year": "2025",
+      "brand": "Panini",
+      "product": "Chronicles",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Football",
+      "year": "2025",
+      "brand": "Panini",
+      "product": "Legacy",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Football",
+      "year": "2025",
+      "brand": "Topps",
+      "product": "Chrome Football",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
     },
     {
       "sport": "Basketball",
-      "year": "2023-24",
+      "year": "2023",
       "brand": "Panini",
       "product": "Prizm",
-      "priority": "medium",
+      "priority": "high",
       "enabled": true,
-      "preferredSources": ["Beckett", "Cardboard Connection"]
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Basketball",
+      "year": "2023",
+      "brand": "Panini",
+      "product": "Donruss",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Basketball",
+      "year": "2023",
+      "brand": "Panini",
+      "product": "Donruss Optic",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Basketball",
+      "year": "2023",
+      "brand": "Panini",
+      "product": "Mosaic",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Basketball",
+      "year": "2023",
+      "brand": "Panini",
+      "product": "Select",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Basketball",
+      "year": "2023",
+      "brand": "Panini",
+      "product": "Hoops",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Basketball",
+      "year": "2023",
+      "brand": "Panini",
+      "product": "Revolution",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Basketball",
+      "year": "2023",
+      "brand": "Panini",
+      "product": "Phoenix",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Basketball",
+      "year": "2023",
+      "brand": "Panini",
+      "product": "Certified",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Basketball",
+      "year": "2023",
+      "brand": "Panini",
+      "product": "Chronicles",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Basketball",
+      "year": "2023",
+      "brand": "Panini",
+      "product": "Contenders",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Basketball",
+      "year": "2023",
+      "brand": "Panini",
+      "product": "Elite",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Basketball",
+      "year": "2024",
+      "brand": "Panini",
+      "product": "Prizm",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Basketball",
+      "year": "2024",
+      "brand": "Panini",
+      "product": "Donruss",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Basketball",
+      "year": "2024",
+      "brand": "Panini",
+      "product": "Donruss Optic",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Basketball",
+      "year": "2024",
+      "brand": "Panini",
+      "product": "Mosaic",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Basketball",
+      "year": "2024",
+      "brand": "Panini",
+      "product": "Select",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Basketball",
+      "year": "2024",
+      "brand": "Panini",
+      "product": "Hoops",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Basketball",
+      "year": "2024",
+      "brand": "Panini",
+      "product": "Revolution",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Basketball",
+      "year": "2024",
+      "brand": "Panini",
+      "product": "Phoenix",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Basketball",
+      "year": "2024",
+      "brand": "Panini",
+      "product": "Certified",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Basketball",
+      "year": "2024",
+      "brand": "Panini",
+      "product": "Chronicles",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Basketball",
+      "year": "2024",
+      "brand": "Panini",
+      "product": "Contenders",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Basketball",
+      "year": "2024",
+      "brand": "Panini",
+      "product": "Elite",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Basketball",
+      "year": "2025",
+      "brand": "Panini",
+      "product": "Prizm",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Basketball",
+      "year": "2025",
+      "brand": "Panini",
+      "product": "Donruss",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Basketball",
+      "year": "2025",
+      "brand": "Panini",
+      "product": "Donruss Optic",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Basketball",
+      "year": "2025",
+      "brand": "Panini",
+      "product": "Mosaic",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Basketball",
+      "year": "2025",
+      "brand": "Panini",
+      "product": "Select",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Basketball",
+      "year": "2025",
+      "brand": "Panini",
+      "product": "Hoops",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Basketball",
+      "year": "2025",
+      "brand": "Panini",
+      "product": "Revolution",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Basketball",
+      "year": "2025",
+      "brand": "Panini",
+      "product": "Phoenix",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Basketball",
+      "year": "2025",
+      "brand": "Panini",
+      "product": "Certified",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Basketball",
+      "year": "2025",
+      "brand": "Panini",
+      "product": "Chronicles",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Basketball",
+      "year": "2025",
+      "brand": "Panini",
+      "product": "Contenders",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
+    },
+    {
+      "sport": "Basketball",
+      "year": "2025",
+      "brand": "Panini",
+      "product": "Elite",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": [
+        "Beckett",
+        "Cardboard Connection"
+      ]
     }
   ]
 }
