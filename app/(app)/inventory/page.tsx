@@ -5,10 +5,12 @@ import {
   Archive,
   CheckCircle2,
   Columns3,
+  Crop,
   Eye,
   FileClock,
   Plus,
   RefreshCcw,
+  RotateCw,
   Save,
   Search,
   Send,
@@ -23,7 +25,7 @@ import { DataTable } from "@/components/data-table";
 import { StatusPill } from "@/components/status-pill";
 import { inventoryItems } from "@/data/mock";
 import { useAcvLocalState, type ApprovedInventoryItem, type IntakeImage, type ProposedRecord } from "@/lib/acv-local-state";
-import { archiveApprovedInventoryItemBySku, saveApprovedInventoryItemChanges, softDeleteApprovedInventoryItemBySku } from "@/lib/supabase/cards";
+import { archiveApprovedInventoryItemBySku, loadApprovedInventoryFromSupabase, saveApprovedInventoryItemChanges, softDeleteApprovedInventoryItemBySku } from "@/lib/supabase/cards";
 import { cn, formatCurrency, formatPercent } from "@/lib/utils";
 
 type InventoryItem = (typeof inventoryItems)[number];
@@ -835,6 +837,7 @@ function ItemDetailDrawer({
   const [removedImageIds, setRemovedImageIds] = useState<string[]>([]);
   const [viewerImage, setViewerImage] = useState<IntakeImage | null>(null);
   const [replaceTargetId, setReplaceTargetId] = useState<string | null>(null);
+  const [imageMessage, setImageMessage] = useState("");
   const primaryDraftImage = draftImages.find((image) => image.role === "Front") || draftImages[0];
 
   useEffect(() => {
@@ -843,6 +846,7 @@ function ItemDetailDrawer({
     setRemovedImageIds([]);
     setViewerImage(null);
     setReplaceTargetId(null);
+    setImageMessage("");
   }, [row]);
 
   function updateDraft<K extends keyof ProposedRecord>(key: K, value: ProposedRecord[K]) {
@@ -858,6 +862,7 @@ function ItemDetailDrawer({
         return image;
       })
     );
+    setImageMessage(`${role} image staged. Click Save Changes to persist image role changes.`);
   }
 
   function moveImage(imageId: string, direction: -1 | 1) {
@@ -870,6 +875,7 @@ function ItemDetailDrawer({
       next.splice(target, 0, moved);
       return next.map((image, order) => ({ ...image, order }));
     });
+    setImageMessage("Image order staged. Click Save Changes to persist the new order.");
   }
 
   function removeImage(image: IntakeImage) {
@@ -882,35 +888,47 @@ function ItemDetailDrawer({
       }
       return next.map((item, index) => ({ ...item, order: index }));
     });
+    setImageMessage(
+      image.role === "Front"
+        ? `${image.fileName || image.role} removed. The first remaining image will become Front if needed. Click Save Changes to persist.`
+        : `${image.fileName || image.role} removed. Click Save Changes to archive the image record.`
+    );
   }
 
   async function handleReplacement(file: File | undefined) {
     if (!file || !replaceTargetId) return;
-    const dataUrl = await fileToDataUrl(file);
-    setDraftImages((current) =>
-      current.map((image) =>
-        image.id === replaceTargetId
-          ? {
-              ...image,
-              label: file.name,
-              fileName: file.name,
-              url: dataUrl,
-              dataUrl,
-              publicUrl: undefined,
-              storageBucket: "inventory-images",
-              storagePath: undefined,
-              needsReupload: false
-            }
-          : image
-      )
-    );
-    setReplaceTargetId(null);
+    try {
+      const dataUrl = await fileToDataUrl(file);
+      setDraftImages((current) =>
+        current.map((image) =>
+          image.id === replaceTargetId
+            ? {
+                ...image,
+                label: file.name,
+                fileName: file.name,
+                url: dataUrl,
+                dataUrl,
+                publicUrl: undefined,
+                storageBucket: "inventory-images",
+                storagePath: undefined,
+                needsReupload: false
+              }
+            : image
+        )
+      );
+      setImageMessage(`${file.name} staged. Click Save Changes to upload and persist the replacement.`);
+    } catch {
+      setImageMessage("Could not read that image file. Try another JPG, PNG, WEBP, or HEIC file.");
+    } finally {
+      setReplaceTargetId(null);
+    }
   }
 
   function resetDraft() {
     setDraft(rowToProposed(row));
     setDraftImages(row.localImages || []);
     setRemovedImageIds([]);
+    setImageMessage("");
   }
 
   return (
@@ -980,13 +998,21 @@ function ItemDetailDrawer({
                         >
                           Replace
                         </MiniActionButton>
+                        <MiniActionButton disabled title="Coming soon">
+                          <Crop className="h-3.5 w-3.5" />
+                          Crop
+                        </MiniActionButton>
+                        <MiniActionButton disabled title="Coming soon">
+                          <RotateCw className="h-3.5 w-3.5" />
+                          Rotate
+                        </MiniActionButton>
                         <MiniActionButton tone="pink" onClick={() => removeImage(image)}>
                           Remove
                         </MiniActionButton>
-                        <MiniActionButton disabled={index === 0} title={index === 0 ? "Coming soon: already first image" : undefined} onClick={() => moveImage(image.id, -1)}>
+                        <MiniActionButton disabled={index === 0} title={index === 0 ? "Already first image" : undefined} onClick={() => moveImage(image.id, -1)}>
                           Up
                         </MiniActionButton>
-                        <MiniActionButton disabled={index === draftImages.length - 1} title={index === draftImages.length - 1 ? "Coming soon: already last image" : undefined} onClick={() => moveImage(image.id, 1)}>
+                        <MiniActionButton disabled={index === draftImages.length - 1} title={index === draftImages.length - 1 ? "Already last image" : undefined} onClick={() => moveImage(image.id, 1)}>
                           Down
                         </MiniActionButton>
                       </div>
@@ -996,6 +1022,11 @@ function ItemDetailDrawer({
                   <div className="rounded-md border border-acv-border bg-acv-panel2 px-3 py-3 text-center text-xs font-semibold text-acv-muted">No images attached. Replace/add image controls coming soon.</div>
                 )}
               </div>
+              {imageMessage && (
+                <div className="rounded-md border border-acv-teal/35 bg-acv-teal/10 px-3 py-2 text-xs font-semibold text-acv-teal">
+                  {imageMessage}
+                </div>
+              )}
               {row.localNeedsImageReupload && (
                 <div className="rounded-md border border-acv-pink/35 bg-acv-pink/10 px-3 py-2 text-xs font-semibold text-acv-pink">
                   Images need to be re-uploaded after refresh.
@@ -1369,6 +1400,8 @@ export default function InventoryPage() {
       try {
         if (backendStatus.connectionState === "connected") {
           await saveApprovedInventoryItemChanges(nextItem, removedImageIds);
+          const remoteInventory = await loadApprovedInventoryFromSupabase();
+          setApprovedInventory(remoteInventory);
           setSaveMessage(`${row.sku} saved to Supabase + local UI.`);
         } else {
           setSaveMessage(`${row.sku} saved locally. Supabase is not connected.`);

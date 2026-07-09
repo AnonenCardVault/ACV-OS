@@ -175,7 +175,7 @@ export async function upsertApprovedInventoryItem(item: ApprovedInventoryItem) {
       publicUrl = stored.publicUrl;
     }
 
-    imageRows.push({
+    const imageRow = {
       user_id: user.id,
       universal_card_profile_id: profile.id,
       role: image.role,
@@ -187,7 +187,13 @@ export async function upsertApprovedInventoryItem(item: ApprovedInventoryItem) {
       file_type: image.fileName?.split(".").pop() || "image",
       is_primary: image.role === "Front",
       local_image_id: `inventory:${item.batch}:${item.group}:${image.id}`
-    });
+    };
+
+    if (image.supabaseImageId) {
+      await patchRows<ImageRow>("images", `id=eq.${encodeURIComponent(image.supabaseImageId)}`, imageRow);
+    } else {
+      imageRows.push(imageRow);
+    }
   }
 
   await upsertRows<ImageRow>("images", imageRows, "user_id,local_image_id");
