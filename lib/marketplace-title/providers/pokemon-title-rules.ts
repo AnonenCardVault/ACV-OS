@@ -1,0 +1,91 @@
+import type { MarketplaceTitleFacts } from "@/lib/marketplace-title/types";
+
+function clean(value: unknown) {
+  const text = String(value || "").trim();
+  const normalized = text.toLowerCase();
+  if (!text || text === "-" || normalized === "pending" || normalized === "pending manual review" || normalized === "unidentified card") return "";
+  return text.replace(/\s+/g, " ");
+}
+
+function uniqueParts(parts: string[]) {
+  const seen = new Set<string>();
+  return parts.filter((part) => {
+    const key = part.toLowerCase();
+    if (!part || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function isNumeric(value: string) {
+  return /^\d+$/.test(value);
+}
+
+function formatNumberPart(value: string, setTotal?: number) {
+  const cleaned = clean(value).replace(/^#/, "");
+  if (!cleaned) return "";
+  const [leftRaw, rightRaw] = cleaned.split("/");
+  const left = leftRaw.trim();
+  const right = clean(rightRaw);
+  const total = right || (setTotal ? String(setTotal) : "");
+
+  if (total && isNumeric(left) && isNumeric(total)) {
+    const width = Math.max(3, total.length);
+    return `${left.padStart(width, "0")}/${total}`;
+  }
+
+  if (total) return `${left}/${total}`;
+  return cleaned;
+}
+
+function supportedVariant(value: string) {
+  const text = clean(value);
+  if (!text) return "";
+  const normalized = text.toLowerCase();
+  const supported = ["holo", "reverse holo", "full art", "secret rare", "ultra rare"];
+  return supported.some((item) => normalized.includes(item)) ? text : "";
+}
+
+function trimPokemonTitle(fullParts: string[], rarity: string, variant: string) {
+  const attempts = [
+    fullParts,
+    fullParts.filter((part) => part !== "Card"),
+    fullParts.filter((part) => part !== "Pokemon" && part !== "Card"),
+    fullParts.filter((part) => part !== variant),
+    fullParts.filter((part) => part !== variant && part !== "Card"),
+    fullParts.filter((part) => part !== variant && part !== rarity),
+    fullParts.filter((part) => part !== variant && part !== rarity && part !== "Card")
+  ];
+
+  for (const parts of attempts) {
+    const title = uniqueParts(parts).join(" ").trim();
+    if (title.length <= 80) return title;
+  }
+
+  const fallback = uniqueParts(fullParts.filter((part) => part !== "Card")).join(" ").trim();
+  return fallback.length <= 80 ? fallback : fallback.slice(0, 80).replace(/\s+\S*$/, "").trim();
+}
+
+export function buildPokemonEbayTitle(facts: MarketplaceTitleFacts) {
+  const setTotal = facts.catalog?.printedTotal || facts.catalog?.setTotal;
+  const name = clean(facts.catalog?.matchedCard) || clean(facts.playerOrCharacter) || clean(facts.cardTitle) || "Pokemon Card";
+  const number = formatNumberPart(clean(facts.cardNumber) || clean(facts.catalog?.matchedNumber), setTotal);
+  const setName = clean(facts.catalog?.matchedSet) || clean(facts.setName);
+  const rarity = clean(facts.catalog?.rarity);
+  const candidateVariant = supportedVariant(clean(facts.parallel));
+  const variant =
+    candidateVariant && (!rarity || (!rarity.toLowerCase().includes(candidateVariant.toLowerCase()) && !candidateVariant.toLowerCase().includes(rarity.toLowerCase())))
+      ? candidateVariant
+      : "";
+  const fullParts = [name, number, setName, rarity, variant, "Pokemon", "Card"].filter(Boolean);
+  const ebayTitle = trimPokemonTitle(fullParts, rarity, variant);
+  const rawCatalogTitle = uniqueParts([name, number, setName].filter(Boolean)).join(" ").trim() || ebayTitle;
+  const compactTitle = trimPokemonTitle([name, number, setName, "Pokemon"].filter(Boolean), "", "");
+
+  return {
+    ebayTitle,
+    compactTitle,
+    rawCatalogTitle,
+    warnings: ebayTitle.length > 80 ? ["Pokemon title exceeded 80 characters and was compacted."] : []
+  };
+}

@@ -28,6 +28,7 @@ import { SectionCard } from "@/components/section-card";
 import { StatusPill } from "@/components/status-pill";
 import { extractCardFromImagesViaApi } from "@/lib/ai-extraction";
 import { useAcvLocalState, type BatchHistoryEntry } from "@/lib/acv-local-state";
+import { generateMarketplaceTitles, type MarketplaceTitleCatalogFacts, type MarketplaceTitleResult } from "@/lib/marketplace-title";
 import { cn } from "@/lib/utils";
 
 type SourceKey = "Computer Upload" | "eBay Active Listings" | "eBay Drafts" | "Google Drive" | "Dropbox" | "Mobile Camera Upload" | "Scanner" | "Shared Team Uploads" | "Future Sources";
@@ -113,6 +114,13 @@ type CatalogDiagnostic = {
   matchedCard?: string;
   matchedSet?: string;
   matchedNumber?: string;
+  rarity?: string;
+  setId?: string;
+  setTotal?: number;
+  printedTotal?: number;
+  supertype?: string;
+  subtypes?: string[];
+  types?: string[];
   warnings: string[];
 };
 
@@ -434,32 +442,45 @@ function flagLabel(value: boolean) {
   return value ? "Yes" : "No";
 }
 
-function cleanTitlePart(value: string | undefined) {
-  const text = String(value || "").trim();
-  const normalized = text.toLowerCase();
-  if (!text || text === "-" || normalized === "pending" || normalized === "pending manual review") return "";
-  return text;
+function marketplaceCatalogFacts(catalog?: CatalogDiagnostic): MarketplaceTitleCatalogFacts | undefined {
+  if (!catalog) return undefined;
+  return {
+    providerName: catalog.providerName,
+    status: catalog.status,
+    confidence: catalog.confidence,
+    matchedCard: catalog.matchedCard,
+    matchedSet: catalog.matchedSet,
+    matchedNumber: catalog.matchedNumber,
+    rarity: catalog.rarity,
+    setId: catalog.setId,
+    setTotal: catalog.setTotal,
+    printedTotal: catalog.printedTotal,
+    supertype: catalog.supertype,
+    subtypes: catalog.subtypes,
+    types: catalog.types
+  };
 }
 
-function generatedTitleForRecord(record: ProposedRecord) {
-  const gradedLabel =
-    cleanTitlePart(record.grader) && record.grader !== "Raw" && cleanTitlePart(record.grade) && record.grade !== "Raw" ? `${record.grader} ${record.grade}` : "";
-  const parts = [
-    cleanTitlePart(record.year),
-    cleanTitlePart(record.brand),
-    cleanTitlePart(record.set),
-    cleanTitlePart(record.playerCharacter),
-    cleanTitlePart(record.team),
-    cleanTitlePart(record.parallel),
-    cleanTitlePart(record.cardNumber) ? `#${cleanTitlePart(record.cardNumber).replace(/^#/, "")}` : "",
-    cleanTitlePart(record.serialNumber) ? `SN ${cleanTitlePart(record.serialNumber)}` : "",
-    record.rookieFlag ? "RC" : "",
-    record.autoFlag ? "Auto" : "",
-    record.relicFlag ? "Relic" : "",
-    gradedLabel
-  ];
-
-  return parts.filter(Boolean).join(" ").replace(/\s+/g, " ").trim() || cleanTitlePart(record.cardName) || "Untitled card";
+function marketplaceTitleForRecord(record: ProposedRecord, catalog?: CatalogDiagnostic): MarketplaceTitleResult {
+  return generateMarketplaceTitles({
+    cardTitle: record.cardName,
+    playerOrCharacter: record.playerCharacter,
+    team: record.team,
+    sportCategory: record.category,
+    year: record.year,
+    brand: record.brand,
+    setName: record.set,
+    cardNumber: record.cardNumber,
+    parallel: record.parallel,
+    serialNumber: record.serialNumber,
+    rookie: record.rookieFlag,
+    auto: record.autoFlag,
+    relic: record.relicFlag,
+    variation: record.variationFlag,
+    grader: record.grader,
+    grade: record.grade,
+    catalog: marketplaceCatalogFacts(catalog)
+  });
 }
 
 function imagesPerCard(mode: ImageCountMode, customCount: number) {
@@ -893,7 +914,8 @@ function ReviewDrawer({
   const providerDiagnostics = group.aiExtraction?.providerDiagnostics || [];
   const fieldConfidence = group.aiExtraction?.fieldConfidence || {};
   const fieldConfidenceEntries = Object.entries(fieldConfidence).filter(([, value]) => typeof value === "number");
-  const draftTitle = generatedTitleForRecord(group.proposed);
+  const marketplaceTitle = marketplaceTitleForRecord(group.proposed, catalogDiagnostics);
+  const recommendedEbayTitle = marketplaceTitle.ebayTitle;
   const hasAiSuggestion = Boolean(group.aiExtraction?.extracted || group.aiExtraction?.suggestedTitle);
   const aiProviderLabel = group.aiExtraction?.modelLabel ? "ACV AI Orchestrator" : "Ready";
 
@@ -1044,6 +1066,7 @@ function ReviewDrawer({
                         {catalogDiagnostics.matchedCard && <StatusPill tone="teal">{catalogDiagnostics.matchedCard}</StatusPill>}
                         {catalogDiagnostics.matchedSet && <StatusPill tone="purple">{catalogDiagnostics.matchedSet}</StatusPill>}
                         {catalogDiagnostics.matchedNumber && <StatusPill tone="gold">#{catalogDiagnostics.matchedNumber}</StatusPill>}
+                        {catalogDiagnostics.rarity && <StatusPill tone="neutral">{catalogDiagnostics.rarity}</StatusPill>}
                       </div>
                       {catalogDiagnostics.warnings.length > 0 && (
                         <div className="mt-2 flex min-w-0 flex-wrap gap-1.5">
@@ -1088,14 +1111,17 @@ function ReviewDrawer({
                 <div className="mb-3 rounded-lg border border-acv-border bg-acv-panel2 p-3">
                   <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-acv-muted">{group.aiExtraction?.suggestedTitle ? "AI Suggested Title" : "Draft-Friendly Title Preview"}</p>
-                      <p className="mt-1 truncate text-sm font-semibold text-acv-text">{draftTitle}</p>
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-acv-muted">Recommended eBay Title</p>
+                      <p className="mt-1 truncate text-sm font-semibold text-acv-text">{recommendedEbayTitle}</p>
+                      <p className="mt-1 text-[11px] text-acv-muted">
+                        {marketplaceTitle.characterCount}/80 chars • {marketplaceTitle.provider === "pokemon" ? "Pokemon rules" : marketplaceTitle.provider === "sports" ? "Sports rules" : "Generic rules"}
+                      </p>
                     </div>
                     <div className="flex shrink-0 flex-wrap gap-2">
                       <MiniButton
                         tone="teal"
                         onClick={() => {
-                          onApplySuggestedTitle(group.id, draftTitle);
+                          onApplySuggestedTitle(group.id, recommendedEbayTitle);
                         }}
                       >
                         Apply Suggested Title
@@ -1103,7 +1129,7 @@ function ReviewDrawer({
                       <MiniButton
                         icon={<ClipboardCopy className="h-3.5 w-3.5" />}
                         onClick={() => {
-                          window.navigator.clipboard?.writeText(draftTitle);
+                          window.navigator.clipboard?.writeText(recommendedEbayTitle);
                         }}
                       >
                         Copy
@@ -1836,7 +1862,7 @@ export default function PhotoIntakePage() {
     const group = groups.find((item) => item.id === groupId);
     if (!group) return;
 
-    const title = previewTitle || generatedTitleForRecord(group.proposed);
+    const title = previewTitle || marketplaceTitleForRecord(group.proposed, group.aiExtraction?.catalogDiagnostics).ebayTitle;
     if (!hasFieldValue(title)) {
       setStatusMessage(`${groupId} does not have a usable suggested title yet.`);
       return;

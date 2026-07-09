@@ -27,6 +27,13 @@ export type ExtractionResult = {
     matchedCard?: string;
     matchedSet?: string;
     matchedNumber?: string;
+    rarity?: string;
+    setId?: string;
+    setTotal?: number;
+    printedTotal?: number;
+    supertype?: string;
+    subtypes?: string[];
+    types?: string[];
     warnings: string[];
   };
   providerDiagnostics: Array<{
@@ -167,6 +174,13 @@ function catalogDiagnostics(result: EngineExtractionResult): ExtractionResult["c
     matchedCard: validation.matchedCard?.name,
     matchedSet: validation.matchedCard?.set,
     matchedNumber: validation.matchedCard?.number,
+    rarity: validation.matchedCard?.rarity,
+    setId: validation.matchedCard?.setId,
+    setTotal: validation.matchedCard?.setTotal,
+    printedTotal: validation.matchedCard?.printedTotal,
+    supertype: validation.matchedCard?.supertype,
+    subtypes: validation.matchedCard?.subtypes,
+    types: validation.matchedCard?.types,
     warnings: validation.warnings.map((warning) => warning.message)
   };
 }

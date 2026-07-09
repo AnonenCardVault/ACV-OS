@@ -12,6 +12,9 @@ export type CatalogMatchedCard = {
   name?: string;
   set?: string;
   setId?: string;
+  setTotal?: number;
+  printedTotal?: number;
+  setReleaseDate?: string;
   number?: string;
   rarity?: string;
   supertype?: string;

@@ -8,6 +8,8 @@ type PokemonSetRecord = {
   name: string;
   series?: string;
   ptcgoCode?: string;
+  printedTotal?: number;
+  total?: number;
   releaseDate?: string;
 };
 
@@ -182,6 +184,9 @@ function matchedCard(entry: PokemonCatalogEntry): CatalogMatchedCard {
     name: entry.card.name,
     set: entry.set?.name,
     setId: entry.setId,
+    setTotal: entry.set?.total,
+    printedTotal: entry.set?.printedTotal,
+    setReleaseDate: entry.set?.releaseDate,
     number: entry.card.number,
     rarity: entry.card.rarity,
     supertype: entry.card.supertype,
