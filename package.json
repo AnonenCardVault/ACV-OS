@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "discover:sports-checklists": "node --experimental-strip-types scripts/discover-sports-checklist-urls.ts",
+    "import:sports-checklists": "node --experimental-strip-types scripts/import-sports-checklists.ts"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",

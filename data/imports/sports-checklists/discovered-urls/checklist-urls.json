@@ -1,0 +1,131 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-07-09T13:57:50.302Z",
+  "results": [
+    {
+      "targetId": "football-2024-panini-phoenix",
+      "target": {
+        "sport": "Football",
+        "year": "2024",
+        "brand": "Panini",
+        "product": "Phoenix",
+        "priority": "high",
+        "enabled": true,
+        "preferredSources": [
+          "Beckett",
+          "Cardboard Connection"
+        ]
+      },
+      "queries": [
+        "2024 Panini Phoenix Football checklist Beckett",
+        "2024 Panini Phoenix Football checklist Cardboard Connection"
+      ],
+      "candidates": [],
+      "status": "error",
+      "errors": [
+        "2024 Panini Phoenix Football checklist Beckett: fetch failed",
+        "2024 Panini Phoenix Football checklist Cardboard Connection: fetch failed"
+      ]
+    },
+    {
+      "targetId": "football-2024-panini-prizm",
+      "target": {
+        "sport": "Football",
+        "year": "2024",
+        "brand": "Panini",
+        "product": "Prizm",
+        "priority": "high",
+        "enabled": true,
+        "preferredSources": [
+          "Beckett",
+          "Cardboard Connection"
+        ]
+      },
+      "queries": [
+        "2024 Panini Prizm Football checklist Beckett",
+        "2024 Panini Prizm Football checklist Cardboard Connection"
+      ],
+      "candidates": [],
+      "status": "error",
+      "errors": [
+        "2024 Panini Prizm Football checklist Beckett: fetch failed",
+        "2024 Panini Prizm Football checklist Cardboard Connection: fetch failed"
+      ]
+    },
+    {
+      "targetId": "football-2023-panini-prizm",
+      "target": {
+        "sport": "Football",
+        "year": "2023",
+        "brand": "Panini",
+        "product": "Prizm",
+        "priority": "medium",
+        "enabled": true,
+        "preferredSources": [
+          "Beckett",
+          "Cardboard Connection"
+        ]
+      },
+      "queries": [
+        "2023 Panini Prizm Football checklist Beckett",
+        "2023 Panini Prizm Football checklist Cardboard Connection"
+      ],
+      "candidates": [],
+      "status": "error",
+      "errors": [
+        "2023 Panini Prizm Football checklist Beckett: fetch failed",
+        "2023 Panini Prizm Football checklist Cardboard Connection: fetch failed"
+      ]
+    },
+    {
+      "targetId": "baseball-2024-topps-chrome",
+      "target": {
+        "sport": "Baseball",
+        "year": "2024",
+        "brand": "Topps",
+        "product": "Chrome",
+        "priority": "medium",
+        "enabled": true,
+        "preferredSources": [
+          "Beckett",
+          "Cardboard Connection"
+        ]
+      },
+      "queries": [
+        "2024 Topps Chrome Baseball checklist Beckett",
+        "2024 Topps Chrome Baseball checklist Cardboard Connection"
+      ],
+      "candidates": [],
+      "status": "error",
+      "errors": [
+        "2024 Topps Chrome Baseball checklist Beckett: fetch failed",
+        "2024 Topps Chrome Baseball checklist Cardboard Connection: fetch failed"
+      ]
+    },
+    {
+      "targetId": "basketball-2023-24-panini-prizm",
+      "target": {
+        "sport": "Basketball",
+        "year": "2023-24",
+        "brand": "Panini",
+        "product": "Prizm",
+        "priority": "medium",
+        "enabled": true,
+        "preferredSources": [
+          "Beckett",
+          "Cardboard Connection"
+        ]
+      },
+      "queries": [
+        "2023-24 Panini Prizm Basketball checklist Beckett",
+        "2023-24 Panini Prizm Basketball checklist Cardboard Connection"
+      ],
+      "candidates": [],
+      "status": "error",
+      "errors": [
+        "2023-24 Panini Prizm Basketball checklist Beckett: fetch failed",
+        "2023-24 Panini Prizm Basketball checklist Cardboard Connection: fetch failed"
+      ]
+    }
+  ]
+}

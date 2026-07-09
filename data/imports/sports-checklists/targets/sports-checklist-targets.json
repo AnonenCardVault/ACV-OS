@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "targets": [
+    {
+      "sport": "Football",
+      "year": "2024",
+      "brand": "Panini",
+      "product": "Phoenix",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": ["Beckett", "Cardboard Connection"]
+    },
+    {
+      "sport": "Football",
+      "year": "2024",
+      "brand": "Panini",
+      "product": "Prizm",
+      "priority": "high",
+      "enabled": true,
+      "preferredSources": ["Beckett", "Cardboard Connection"]
+    },
+    {
+      "sport": "Football",
+      "year": "2023",
+      "brand": "Panini",
+      "product": "Prizm",
+      "priority": "medium",
+      "enabled": true,
+      "preferredSources": ["Beckett", "Cardboard Connection"]
+    },
+    {
+      "sport": "Baseball",
+      "year": "2024",
+      "brand": "Topps",
+      "product": "Chrome",
+      "priority": "medium",
+      "enabled": true,
+      "preferredSources": ["Beckett", "Cardboard Connection"]
+    },
+    {
+      "sport": "Basketball",
+      "year": "2023-24",
+      "brand": "Panini",
+      "product": "Prizm",
+      "priority": "medium",
+      "enabled": true,
+      "preferredSources": ["Beckett", "Cardboard Connection"]
+    }
+  ]
+}
