@@ -1,0 +1,3060 @@
+{
+  "runId": "c3036991c0",
+  "generatedAt": "2026-07-09T15:11:24.108Z",
+  "targets": 127,
+  "found": 127,
+  "notFound": 0,
+  "approvedCandidates": 254,
+  "rejectedCandidates": 635,
+  "errors": [],
+  "rejectedSamples": [
+    {
+      "targetId": "baseball-2023-topps-series-1",
+      "url": "https://www.beckett.com/search/?term=2023%20Topps%20Series%201%20Baseball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2023-topps-series-1",
+      "url": "https://www.cardboardconnection.com/?s=2023%20Topps%20Series%201%20Baseball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2023-topps-series-1",
+      "url": "https://duckduckgo.com/html/?q=2023%20Topps%20Series%201%20Baseball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2023-topps-series-2",
+      "url": "https://www.beckett.com/search/?term=2023%20Topps%20Series%202%20Baseball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2023-topps-series-2",
+      "url": "https://www.cardboardconnection.com/?s=2023%20Topps%20Series%202%20Baseball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2023-topps-series-2",
+      "url": "https://duckduckgo.com/html/?q=2023%20Topps%20Series%202%20Baseball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2023-topps-update",
+      "url": "https://www.beckett.com/search/?term=2023%20Topps%20Update%20Baseball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2023-topps-update",
+      "url": "https://www.cardboardconnection.com/?s=2023%20Topps%20Update%20Baseball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2023-topps-update",
+      "url": "https://duckduckgo.com/html/?q=2023%20Topps%20Update%20Baseball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2023-topps-chrome-platinum-anniversary",
+      "url": "https://www.beckett.com/search/?term=2023%20Topps%20Chrome%20Platinum%20Anniversary%20Baseball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2023-topps-chrome-platinum-anniversary",
+      "url": "https://www.cardboardconnection.com/?s=2023%20Topps%20Chrome%20Platinum%20Anniversary%20Baseball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2023-topps-chrome-platinum-anniversary",
+      "url": "https://duckduckgo.com/html/?q=2023%20Topps%20Chrome%20Platinum%20Anniversary%20Baseball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2023-topps-heritage",
+      "url": "https://www.beckett.com/search/?term=2023%20Topps%20Heritage%20Baseball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2023-topps-heritage",
+      "url": "https://www.cardboardconnection.com/?s=2023%20Topps%20Heritage%20Baseball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2023-topps-heritage",
+      "url": "https://duckduckgo.com/html/?q=2023%20Topps%20Heritage%20Baseball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2023-topps-finest",
+      "url": "https://www.beckett.com/search/?term=2023%20Topps%20Finest%20Baseball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2023-topps-finest",
+      "url": "https://www.cardboardconnection.com/?s=2023%20Topps%20Finest%20Baseball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2023-topps-finest",
+      "url": "https://duckduckgo.com/html/?q=2023%20Topps%20Finest%20Baseball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2023-bowman-bowman",
+      "url": "https://www.beckett.com/search/?term=2023%20Bowman%20Bowman%20Baseball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2023-bowman-bowman",
+      "url": "https://www.cardboardconnection.com/?s=2023%20Bowman%20Bowman%20Baseball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2023-bowman-bowman",
+      "url": "https://duckduckgo.com/html/?q=2023%20Bowman%20Bowman%20Baseball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2023-bowman-chrome",
+      "url": "https://www.beckett.com/search/?term=2023%20Bowman%20Chrome%20Baseball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2023-bowman-chrome",
+      "url": "https://www.cardboardconnection.com/?s=2023%20Bowman%20Chrome%20Baseball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2023-bowman-chrome",
+      "url": "https://duckduckgo.com/html/?q=2023%20Bowman%20Chrome%20Baseball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2023-bowman-draft",
+      "url": "https://www.beckett.com/search/?term=2023%20Bowman%20Draft%20Baseball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2023-bowman-draft",
+      "url": "https://www.cardboardconnection.com/?s=2023%20Bowman%20Draft%20Baseball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2023-bowman-draft",
+      "url": "https://duckduckgo.com/html/?q=2023%20Bowman%20Draft%20Baseball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2023-panini-donruss-optic-baseball",
+      "url": "https://www.beckett.com/search/?term=2023%20Panini%20Donruss%20Optic%20Baseball%20Baseball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2023-panini-donruss-optic-baseball",
+      "url": "https://www.cardboardconnection.com/?s=2023%20Panini%20Donruss%20Optic%20Baseball%20Baseball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2023-panini-donruss-optic-baseball",
+      "url": "https://duckduckgo.com/html/?q=2023%20Panini%20Donruss%20Optic%20Baseball%20Baseball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2024-topps-series-1",
+      "url": "https://www.beckett.com/search/?term=2024%20Topps%20Series%201%20Baseball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2024-topps-series-1",
+      "url": "https://www.cardboardconnection.com/?s=2024%20Topps%20Series%201%20Baseball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2024-topps-series-1",
+      "url": "https://duckduckgo.com/html/?q=2024%20Topps%20Series%201%20Baseball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2024-topps-series-2",
+      "url": "https://www.beckett.com/search/?term=2024%20Topps%20Series%202%20Baseball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2024-topps-series-2",
+      "url": "https://www.cardboardconnection.com/?s=2024%20Topps%20Series%202%20Baseball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2024-topps-series-2",
+      "url": "https://duckduckgo.com/html/?q=2024%20Topps%20Series%202%20Baseball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2024-topps-update",
+      "url": "https://www.beckett.com/search/?term=2024%20Topps%20Update%20Baseball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2024-topps-update",
+      "url": "https://www.cardboardconnection.com/?s=2024%20Topps%20Update%20Baseball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2024-topps-update",
+      "url": "https://duckduckgo.com/html/?q=2024%20Topps%20Update%20Baseball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2024-topps-chrome-platinum-anniversary",
+      "url": "https://www.beckett.com/search/?term=2024%20Topps%20Chrome%20Platinum%20Anniversary%20Baseball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2024-topps-chrome-platinum-anniversary",
+      "url": "https://www.cardboardconnection.com/?s=2024%20Topps%20Chrome%20Platinum%20Anniversary%20Baseball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2024-topps-chrome-platinum-anniversary",
+      "url": "https://duckduckgo.com/html/?q=2024%20Topps%20Chrome%20Platinum%20Anniversary%20Baseball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2024-topps-heritage",
+      "url": "https://www.beckett.com/search/?term=2024%20Topps%20Heritage%20Baseball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2024-topps-heritage",
+      "url": "https://www.cardboardconnection.com/?s=2024%20Topps%20Heritage%20Baseball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2024-topps-heritage",
+      "url": "https://duckduckgo.com/html/?q=2024%20Topps%20Heritage%20Baseball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2024-topps-finest",
+      "url": "https://www.beckett.com/search/?term=2024%20Topps%20Finest%20Baseball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2024-topps-finest",
+      "url": "https://www.cardboardconnection.com/?s=2024%20Topps%20Finest%20Baseball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2024-topps-finest",
+      "url": "https://duckduckgo.com/html/?q=2024%20Topps%20Finest%20Baseball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2024-bowman-bowman",
+      "url": "https://www.beckett.com/search/?term=2024%20Bowman%20Bowman%20Baseball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2024-bowman-bowman",
+      "url": "https://www.cardboardconnection.com/?s=2024%20Bowman%20Bowman%20Baseball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2024-bowman-bowman",
+      "url": "https://duckduckgo.com/html/?q=2024%20Bowman%20Bowman%20Baseball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2024-bowman-chrome",
+      "url": "https://www.beckett.com/search/?term=2024%20Bowman%20Chrome%20Baseball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2024-bowman-chrome",
+      "url": "https://www.cardboardconnection.com/?s=2024%20Bowman%20Chrome%20Baseball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2024-bowman-chrome",
+      "url": "https://duckduckgo.com/html/?q=2024%20Bowman%20Chrome%20Baseball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2024-bowman-draft",
+      "url": "https://www.beckett.com/search/?term=2024%20Bowman%20Draft%20Baseball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2024-bowman-draft",
+      "url": "https://www.cardboardconnection.com/?s=2024%20Bowman%20Draft%20Baseball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2024-bowman-draft",
+      "url": "https://duckduckgo.com/html/?q=2024%20Bowman%20Draft%20Baseball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2024-panini-donruss-optic-baseball",
+      "url": "https://www.beckett.com/search/?term=2024%20Panini%20Donruss%20Optic%20Baseball%20Baseball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2024-panini-donruss-optic-baseball",
+      "url": "https://www.cardboardconnection.com/?s=2024%20Panini%20Donruss%20Optic%20Baseball%20Baseball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2024-panini-donruss-optic-baseball",
+      "url": "https://duckduckgo.com/html/?q=2024%20Panini%20Donruss%20Optic%20Baseball%20Baseball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2025-topps-series-1",
+      "url": "https://www.beckett.com/search/?term=2025%20Topps%20Series%201%20Baseball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2025-topps-series-1",
+      "url": "https://www.cardboardconnection.com/?s=2025%20Topps%20Series%201%20Baseball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2025-topps-series-1",
+      "url": "https://duckduckgo.com/html/?q=2025%20Topps%20Series%201%20Baseball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2025-topps-series-2",
+      "url": "https://www.beckett.com/search/?term=2025%20Topps%20Series%202%20Baseball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2025-topps-series-2",
+      "url": "https://www.cardboardconnection.com/?s=2025%20Topps%20Series%202%20Baseball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2025-topps-series-2",
+      "url": "https://duckduckgo.com/html/?q=2025%20Topps%20Series%202%20Baseball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2025-topps-update",
+      "url": "https://www.beckett.com/search/?term=2025%20Topps%20Update%20Baseball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2025-topps-update",
+      "url": "https://www.cardboardconnection.com/?s=2025%20Topps%20Update%20Baseball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2025-topps-update",
+      "url": "https://duckduckgo.com/html/?q=2025%20Topps%20Update%20Baseball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2025-topps-chrome-platinum-anniversary",
+      "url": "https://www.beckett.com/search/?term=2025%20Topps%20Chrome%20Platinum%20Anniversary%20Baseball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2025-topps-chrome-platinum-anniversary",
+      "url": "https://www.cardboardconnection.com/?s=2025%20Topps%20Chrome%20Platinum%20Anniversary%20Baseball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2025-topps-chrome-platinum-anniversary",
+      "url": "https://duckduckgo.com/html/?q=2025%20Topps%20Chrome%20Platinum%20Anniversary%20Baseball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2025-topps-heritage",
+      "url": "https://www.beckett.com/search/?term=2025%20Topps%20Heritage%20Baseball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2025-topps-heritage",
+      "url": "https://www.cardboardconnection.com/?s=2025%20Topps%20Heritage%20Baseball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2025-topps-heritage",
+      "url": "https://duckduckgo.com/html/?q=2025%20Topps%20Heritage%20Baseball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2025-topps-finest",
+      "url": "https://www.beckett.com/search/?term=2025%20Topps%20Finest%20Baseball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2025-topps-finest",
+      "url": "https://www.cardboardconnection.com/?s=2025%20Topps%20Finest%20Baseball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2025-topps-finest",
+      "url": "https://duckduckgo.com/html/?q=2025%20Topps%20Finest%20Baseball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2025-bowman-bowman",
+      "url": "https://www.beckett.com/search/?term=2025%20Bowman%20Bowman%20Baseball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2025-bowman-bowman",
+      "url": "https://www.cardboardconnection.com/?s=2025%20Bowman%20Bowman%20Baseball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2025-bowman-bowman",
+      "url": "https://duckduckgo.com/html/?q=2025%20Bowman%20Bowman%20Baseball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2025-bowman-chrome",
+      "url": "https://www.beckett.com/search/?term=2025%20Bowman%20Chrome%20Baseball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2025-bowman-chrome",
+      "url": "https://www.cardboardconnection.com/?s=2025%20Bowman%20Chrome%20Baseball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2025-bowman-chrome",
+      "url": "https://duckduckgo.com/html/?q=2025%20Bowman%20Chrome%20Baseball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2025-bowman-draft",
+      "url": "https://www.beckett.com/search/?term=2025%20Bowman%20Draft%20Baseball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2025-bowman-draft",
+      "url": "https://www.cardboardconnection.com/?s=2025%20Bowman%20Draft%20Baseball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2025-bowman-draft",
+      "url": "https://duckduckgo.com/html/?q=2025%20Bowman%20Draft%20Baseball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2025-panini-donruss-optic-baseball",
+      "url": "https://www.beckett.com/search/?term=2025%20Panini%20Donruss%20Optic%20Baseball%20Baseball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2025-panini-donruss-optic-baseball",
+      "url": "https://www.cardboardconnection.com/?s=2025%20Panini%20Donruss%20Optic%20Baseball%20Baseball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2025-panini-donruss-optic-baseball",
+      "url": "https://duckduckgo.com/html/?q=2025%20Panini%20Donruss%20Optic%20Baseball%20Baseball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2026-topps-series-1",
+      "url": "https://www.beckett.com/search/?term=2026%20Topps%20Series%201%20Baseball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2026-topps-series-1",
+      "url": "https://www.cardboardconnection.com/?s=2026%20Topps%20Series%201%20Baseball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2026-topps-series-1",
+      "url": "https://duckduckgo.com/html/?q=2026%20Topps%20Series%201%20Baseball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2026-topps-series-2",
+      "url": "https://www.beckett.com/search/?term=2026%20Topps%20Series%202%20Baseball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2026-topps-series-2",
+      "url": "https://www.cardboardconnection.com/?s=2026%20Topps%20Series%202%20Baseball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2026-topps-series-2",
+      "url": "https://duckduckgo.com/html/?q=2026%20Topps%20Series%202%20Baseball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2026-topps-update",
+      "url": "https://www.beckett.com/search/?term=2026%20Topps%20Update%20Baseball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2026-topps-update",
+      "url": "https://www.cardboardconnection.com/?s=2026%20Topps%20Update%20Baseball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2026-topps-update",
+      "url": "https://duckduckgo.com/html/?q=2026%20Topps%20Update%20Baseball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2026-topps-chrome-platinum-anniversary",
+      "url": "https://www.beckett.com/search/?term=2026%20Topps%20Chrome%20Platinum%20Anniversary%20Baseball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2026-topps-chrome-platinum-anniversary",
+      "url": "https://www.cardboardconnection.com/?s=2026%20Topps%20Chrome%20Platinum%20Anniversary%20Baseball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2026-topps-chrome-platinum-anniversary",
+      "url": "https://duckduckgo.com/html/?q=2026%20Topps%20Chrome%20Platinum%20Anniversary%20Baseball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2026-topps-heritage",
+      "url": "https://www.beckett.com/search/?term=2026%20Topps%20Heritage%20Baseball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2026-topps-heritage",
+      "url": "https://www.cardboardconnection.com/?s=2026%20Topps%20Heritage%20Baseball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2026-topps-heritage",
+      "url": "https://duckduckgo.com/html/?q=2026%20Topps%20Heritage%20Baseball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2026-topps-finest",
+      "url": "https://www.beckett.com/search/?term=2026%20Topps%20Finest%20Baseball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2026-topps-finest",
+      "url": "https://www.cardboardconnection.com/?s=2026%20Topps%20Finest%20Baseball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2026-topps-finest",
+      "url": "https://duckduckgo.com/html/?q=2026%20Topps%20Finest%20Baseball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2026-bowman-bowman",
+      "url": "https://www.beckett.com/search/?term=2026%20Bowman%20Bowman%20Baseball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2026-bowman-bowman",
+      "url": "https://www.cardboardconnection.com/?s=2026%20Bowman%20Bowman%20Baseball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2026-bowman-bowman",
+      "url": "https://duckduckgo.com/html/?q=2026%20Bowman%20Bowman%20Baseball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2026-bowman-chrome",
+      "url": "https://www.beckett.com/search/?term=2026%20Bowman%20Chrome%20Baseball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2026-bowman-chrome",
+      "url": "https://www.cardboardconnection.com/?s=2026%20Bowman%20Chrome%20Baseball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2026-bowman-chrome",
+      "url": "https://duckduckgo.com/html/?q=2026%20Bowman%20Chrome%20Baseball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2026-bowman-draft",
+      "url": "https://www.beckett.com/search/?term=2026%20Bowman%20Draft%20Baseball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2026-bowman-draft",
+      "url": "https://www.cardboardconnection.com/?s=2026%20Bowman%20Draft%20Baseball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2026-bowman-draft",
+      "url": "https://duckduckgo.com/html/?q=2026%20Bowman%20Draft%20Baseball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2026-panini-donruss-optic-baseball",
+      "url": "https://www.beckett.com/search/?term=2026%20Panini%20Donruss%20Optic%20Baseball%20Baseball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2026-panini-donruss-optic-baseball",
+      "url": "https://www.cardboardconnection.com/?s=2026%20Panini%20Donruss%20Optic%20Baseball%20Baseball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "baseball-2026-panini-donruss-optic-baseball",
+      "url": "https://duckduckgo.com/html/?q=2026%20Panini%20Donruss%20Optic%20Baseball%20Baseball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2023-panini-prizm",
+      "url": "https://www.beckett.com/search/?term=2023%20Panini%20Prizm%20Football%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2023-panini-prizm",
+      "url": "https://www.cardboardconnection.com/?s=2023%20Panini%20Prizm%20Football%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2023-panini-prizm",
+      "url": "https://duckduckgo.com/html/?q=2023%20Panini%20Prizm%20Football%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2023-panini-donruss",
+      "url": "https://www.beckett.com/search/?term=2023%20Panini%20Donruss%20Football%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2023-panini-donruss",
+      "url": "https://www.cardboardconnection.com/?s=2023%20Panini%20Donruss%20Football%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2023-panini-donruss",
+      "url": "https://duckduckgo.com/html/?q=2023%20Panini%20Donruss%20Football%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2023-panini-donruss-optic",
+      "url": "https://www.beckett.com/search/?term=2023%20Panini%20Donruss%20Optic%20Football%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2023-panini-donruss-optic",
+      "url": "https://www.cardboardconnection.com/?s=2023%20Panini%20Donruss%20Optic%20Football%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2023-panini-donruss-optic",
+      "url": "https://duckduckgo.com/html/?q=2023%20Panini%20Donruss%20Optic%20Football%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2023-panini-mosaic",
+      "url": "https://www.beckett.com/search/?term=2023%20Panini%20Mosaic%20Football%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2023-panini-mosaic",
+      "url": "https://www.cardboardconnection.com/?s=2023%20Panini%20Mosaic%20Football%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2023-panini-mosaic",
+      "url": "https://duckduckgo.com/html/?q=2023%20Panini%20Mosaic%20Football%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2023-panini-select",
+      "url": "https://www.beckett.com/search/?term=2023%20Panini%20Select%20Football%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2023-panini-select",
+      "url": "https://www.cardboardconnection.com/?s=2023%20Panini%20Select%20Football%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2023-panini-select",
+      "url": "https://duckduckgo.com/html/?q=2023%20Panini%20Select%20Football%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2023-panini-phoenix",
+      "url": "https://www.beckett.com/search/?term=2023%20Panini%20Phoenix%20Football%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2023-panini-phoenix",
+      "url": "https://www.cardboardconnection.com/?s=2023%20Panini%20Phoenix%20Football%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2023-panini-phoenix",
+      "url": "https://duckduckgo.com/html/?q=2023%20Panini%20Phoenix%20Football%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2023-panini-prestige",
+      "url": "https://www.beckett.com/search/?term=2023%20Panini%20Prestige%20Football%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2023-panini-prestige",
+      "url": "https://www.cardboardconnection.com/?s=2023%20Panini%20Prestige%20Football%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2023-panini-prestige",
+      "url": "https://duckduckgo.com/html/?q=2023%20Panini%20Prestige%20Football%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2023-panini-score",
+      "url": "https://www.beckett.com/search/?term=2023%20Panini%20Score%20Football%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2023-panini-score",
+      "url": "https://www.cardboardconnection.com/?s=2023%20Panini%20Score%20Football%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2023-panini-score",
+      "url": "https://duckduckgo.com/html/?q=2023%20Panini%20Score%20Football%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2023-panini-absolute",
+      "url": "https://www.beckett.com/search/?term=2023%20Panini%20Absolute%20Football%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2023-panini-absolute",
+      "url": "https://www.cardboardconnection.com/?s=2023%20Panini%20Absolute%20Football%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2023-panini-absolute",
+      "url": "https://duckduckgo.com/html/?q=2023%20Panini%20Absolute%20Football%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2023-panini-certified",
+      "url": "https://www.beckett.com/search/?term=2023%20Panini%20Certified%20Football%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2023-panini-certified",
+      "url": "https://www.cardboardconnection.com/?s=2023%20Panini%20Certified%20Football%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2023-panini-certified",
+      "url": "https://duckduckgo.com/html/?q=2023%20Panini%20Certified%20Football%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2023-panini-illusions",
+      "url": "https://www.beckett.com/search/?term=2023%20Panini%20Illusions%20Football%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2023-panini-illusions",
+      "url": "https://www.cardboardconnection.com/?s=2023%20Panini%20Illusions%20Football%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2023-panini-illusions",
+      "url": "https://duckduckgo.com/html/?q=2023%20Panini%20Illusions%20Football%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2023-panini-contenders",
+      "url": "https://www.beckett.com/search/?term=2023%20Panini%20Contenders%20Football%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2023-panini-contenders",
+      "url": "https://www.cardboardconnection.com/?s=2023%20Panini%20Contenders%20Football%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2023-panini-contenders",
+      "url": "https://duckduckgo.com/html/?q=2023%20Panini%20Contenders%20Football%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2023-panini-elite",
+      "url": "https://www.beckett.com/search/?term=2023%20Panini%20Elite%20Football%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2023-panini-elite",
+      "url": "https://www.cardboardconnection.com/?s=2023%20Panini%20Elite%20Football%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2023-panini-elite",
+      "url": "https://duckduckgo.com/html/?q=2023%20Panini%20Elite%20Football%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2023-panini-zenith",
+      "url": "https://www.beckett.com/search/?term=2023%20Panini%20Zenith%20Football%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2023-panini-zenith",
+      "url": "https://www.cardboardconnection.com/?s=2023%20Panini%20Zenith%20Football%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2023-panini-zenith",
+      "url": "https://duckduckgo.com/html/?q=2023%20Panini%20Zenith%20Football%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2023-panini-chronicles",
+      "url": "https://www.beckett.com/search/?term=2023%20Panini%20Chronicles%20Football%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2023-panini-chronicles",
+      "url": "https://www.cardboardconnection.com/?s=2023%20Panini%20Chronicles%20Football%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2023-panini-chronicles",
+      "url": "https://duckduckgo.com/html/?q=2023%20Panini%20Chronicles%20Football%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2023-panini-legacy",
+      "url": "https://www.beckett.com/search/?term=2023%20Panini%20Legacy%20Football%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2023-panini-legacy",
+      "url": "https://www.cardboardconnection.com/?s=2023%20Panini%20Legacy%20Football%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2023-panini-legacy",
+      "url": "https://duckduckgo.com/html/?q=2023%20Panini%20Legacy%20Football%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2023-topps-chrome-football",
+      "url": "https://www.beckett.com/search/?term=2023%20Topps%20Chrome%20Football%20Football%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2023-topps-chrome-football",
+      "url": "https://www.cardboardconnection.com/?s=2023%20Topps%20Chrome%20Football%20Football%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2023-topps-chrome-football",
+      "url": "https://duckduckgo.com/html/?q=2023%20Topps%20Chrome%20Football%20Football%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2024-panini-prizm",
+      "url": "https://www.beckett.com/search/?term=2024%20Panini%20Prizm%20Football%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2024-panini-prizm",
+      "url": "https://www.cardboardconnection.com/?s=2024%20Panini%20Prizm%20Football%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2024-panini-prizm",
+      "url": "https://duckduckgo.com/html/?q=2024%20Panini%20Prizm%20Football%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2024-panini-donruss",
+      "url": "https://www.beckett.com/search/?term=2024%20Panini%20Donruss%20Football%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2024-panini-donruss",
+      "url": "https://www.cardboardconnection.com/?s=2024%20Panini%20Donruss%20Football%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2024-panini-donruss",
+      "url": "https://duckduckgo.com/html/?q=2024%20Panini%20Donruss%20Football%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2024-panini-donruss-optic",
+      "url": "https://www.beckett.com/search/?term=2024%20Panini%20Donruss%20Optic%20Football%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2024-panini-donruss-optic",
+      "url": "https://www.cardboardconnection.com/?s=2024%20Panini%20Donruss%20Optic%20Football%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2024-panini-donruss-optic",
+      "url": "https://duckduckgo.com/html/?q=2024%20Panini%20Donruss%20Optic%20Football%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2024-panini-mosaic",
+      "url": "https://www.beckett.com/search/?term=2024%20Panini%20Mosaic%20Football%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2024-panini-mosaic",
+      "url": "https://www.cardboardconnection.com/?s=2024%20Panini%20Mosaic%20Football%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2024-panini-mosaic",
+      "url": "https://duckduckgo.com/html/?q=2024%20Panini%20Mosaic%20Football%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2024-panini-select",
+      "url": "https://www.beckett.com/search/?term=2024%20Panini%20Select%20Football%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2024-panini-select",
+      "url": "https://www.cardboardconnection.com/?s=2024%20Panini%20Select%20Football%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2024-panini-select",
+      "url": "https://duckduckgo.com/html/?q=2024%20Panini%20Select%20Football%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2024-panini-phoenix",
+      "url": "https://www.beckett.com/search/?term=2024%20Panini%20Phoenix%20Football%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2024-panini-phoenix",
+      "url": "https://www.cardboardconnection.com/?s=2024%20Panini%20Phoenix%20Football%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2024-panini-phoenix",
+      "url": "https://duckduckgo.com/html/?q=2024%20Panini%20Phoenix%20Football%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2024-panini-prestige",
+      "url": "https://www.beckett.com/search/?term=2024%20Panini%20Prestige%20Football%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2024-panini-prestige",
+      "url": "https://www.cardboardconnection.com/?s=2024%20Panini%20Prestige%20Football%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2024-panini-prestige",
+      "url": "https://duckduckgo.com/html/?q=2024%20Panini%20Prestige%20Football%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2024-panini-score",
+      "url": "https://www.beckett.com/search/?term=2024%20Panini%20Score%20Football%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2024-panini-score",
+      "url": "https://www.cardboardconnection.com/?s=2024%20Panini%20Score%20Football%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2024-panini-score",
+      "url": "https://duckduckgo.com/html/?q=2024%20Panini%20Score%20Football%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2024-panini-absolute",
+      "url": "https://www.beckett.com/search/?term=2024%20Panini%20Absolute%20Football%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2024-panini-absolute",
+      "url": "https://www.cardboardconnection.com/?s=2024%20Panini%20Absolute%20Football%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2024-panini-absolute",
+      "url": "https://duckduckgo.com/html/?q=2024%20Panini%20Absolute%20Football%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2024-panini-certified",
+      "url": "https://www.beckett.com/search/?term=2024%20Panini%20Certified%20Football%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2024-panini-certified",
+      "url": "https://www.cardboardconnection.com/?s=2024%20Panini%20Certified%20Football%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2024-panini-certified",
+      "url": "https://duckduckgo.com/html/?q=2024%20Panini%20Certified%20Football%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2024-panini-illusions",
+      "url": "https://www.beckett.com/search/?term=2024%20Panini%20Illusions%20Football%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2024-panini-illusions",
+      "url": "https://www.cardboardconnection.com/?s=2024%20Panini%20Illusions%20Football%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2024-panini-illusions",
+      "url": "https://duckduckgo.com/html/?q=2024%20Panini%20Illusions%20Football%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2024-panini-contenders",
+      "url": "https://www.beckett.com/search/?term=2024%20Panini%20Contenders%20Football%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2024-panini-contenders",
+      "url": "https://www.cardboardconnection.com/?s=2024%20Panini%20Contenders%20Football%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2024-panini-contenders",
+      "url": "https://duckduckgo.com/html/?q=2024%20Panini%20Contenders%20Football%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2024-panini-elite",
+      "url": "https://www.beckett.com/search/?term=2024%20Panini%20Elite%20Football%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2024-panini-elite",
+      "url": "https://www.cardboardconnection.com/?s=2024%20Panini%20Elite%20Football%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2024-panini-elite",
+      "url": "https://duckduckgo.com/html/?q=2024%20Panini%20Elite%20Football%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2024-panini-zenith",
+      "url": "https://www.beckett.com/search/?term=2024%20Panini%20Zenith%20Football%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2024-panini-zenith",
+      "url": "https://www.cardboardconnection.com/?s=2024%20Panini%20Zenith%20Football%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2024-panini-zenith",
+      "url": "https://duckduckgo.com/html/?q=2024%20Panini%20Zenith%20Football%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2024-panini-chronicles",
+      "url": "https://www.beckett.com/search/?term=2024%20Panini%20Chronicles%20Football%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2024-panini-chronicles",
+      "url": "https://www.cardboardconnection.com/?s=2024%20Panini%20Chronicles%20Football%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2024-panini-chronicles",
+      "url": "https://duckduckgo.com/html/?q=2024%20Panini%20Chronicles%20Football%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2024-panini-legacy",
+      "url": "https://www.beckett.com/search/?term=2024%20Panini%20Legacy%20Football%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2024-panini-legacy",
+      "url": "https://www.cardboardconnection.com/?s=2024%20Panini%20Legacy%20Football%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2024-panini-legacy",
+      "url": "https://duckduckgo.com/html/?q=2024%20Panini%20Legacy%20Football%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2024-topps-chrome-football",
+      "url": "https://www.beckett.com/search/?term=2024%20Topps%20Chrome%20Football%20Football%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2024-topps-chrome-football",
+      "url": "https://www.cardboardconnection.com/?s=2024%20Topps%20Chrome%20Football%20Football%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2024-topps-chrome-football",
+      "url": "https://duckduckgo.com/html/?q=2024%20Topps%20Chrome%20Football%20Football%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2025-panini-prizm",
+      "url": "https://www.beckett.com/search/?term=2025%20Panini%20Prizm%20Football%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2025-panini-prizm",
+      "url": "https://www.cardboardconnection.com/?s=2025%20Panini%20Prizm%20Football%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2025-panini-prizm",
+      "url": "https://duckduckgo.com/html/?q=2025%20Panini%20Prizm%20Football%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2025-panini-donruss",
+      "url": "https://www.beckett.com/search/?term=2025%20Panini%20Donruss%20Football%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2025-panini-donruss",
+      "url": "https://www.cardboardconnection.com/?s=2025%20Panini%20Donruss%20Football%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2025-panini-donruss",
+      "url": "https://duckduckgo.com/html/?q=2025%20Panini%20Donruss%20Football%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2025-panini-donruss-optic",
+      "url": "https://www.beckett.com/search/?term=2025%20Panini%20Donruss%20Optic%20Football%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2025-panini-donruss-optic",
+      "url": "https://www.cardboardconnection.com/?s=2025%20Panini%20Donruss%20Optic%20Football%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2025-panini-donruss-optic",
+      "url": "https://duckduckgo.com/html/?q=2025%20Panini%20Donruss%20Optic%20Football%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2025-panini-mosaic",
+      "url": "https://www.beckett.com/search/?term=2025%20Panini%20Mosaic%20Football%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2025-panini-mosaic",
+      "url": "https://www.cardboardconnection.com/?s=2025%20Panini%20Mosaic%20Football%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2025-panini-mosaic",
+      "url": "https://duckduckgo.com/html/?q=2025%20Panini%20Mosaic%20Football%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2025-panini-select",
+      "url": "https://www.beckett.com/search/?term=2025%20Panini%20Select%20Football%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2025-panini-select",
+      "url": "https://www.cardboardconnection.com/?s=2025%20Panini%20Select%20Football%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2025-panini-select",
+      "url": "https://duckduckgo.com/html/?q=2025%20Panini%20Select%20Football%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2025-panini-phoenix",
+      "url": "https://www.beckett.com/search/?term=2025%20Panini%20Phoenix%20Football%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2025-panini-phoenix",
+      "url": "https://www.cardboardconnection.com/?s=2025%20Panini%20Phoenix%20Football%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2025-panini-phoenix",
+      "url": "https://duckduckgo.com/html/?q=2025%20Panini%20Phoenix%20Football%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2025-panini-prestige",
+      "url": "https://www.beckett.com/search/?term=2025%20Panini%20Prestige%20Football%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2025-panini-prestige",
+      "url": "https://www.cardboardconnection.com/?s=2025%20Panini%20Prestige%20Football%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2025-panini-prestige",
+      "url": "https://duckduckgo.com/html/?q=2025%20Panini%20Prestige%20Football%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2025-panini-score",
+      "url": "https://www.beckett.com/search/?term=2025%20Panini%20Score%20Football%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2025-panini-score",
+      "url": "https://www.cardboardconnection.com/?s=2025%20Panini%20Score%20Football%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2025-panini-score",
+      "url": "https://duckduckgo.com/html/?q=2025%20Panini%20Score%20Football%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2025-panini-absolute",
+      "url": "https://www.beckett.com/search/?term=2025%20Panini%20Absolute%20Football%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2025-panini-absolute",
+      "url": "https://www.cardboardconnection.com/?s=2025%20Panini%20Absolute%20Football%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2025-panini-absolute",
+      "url": "https://duckduckgo.com/html/?q=2025%20Panini%20Absolute%20Football%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2025-panini-certified",
+      "url": "https://www.beckett.com/search/?term=2025%20Panini%20Certified%20Football%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2025-panini-certified",
+      "url": "https://www.cardboardconnection.com/?s=2025%20Panini%20Certified%20Football%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2025-panini-certified",
+      "url": "https://duckduckgo.com/html/?q=2025%20Panini%20Certified%20Football%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2025-panini-illusions",
+      "url": "https://www.beckett.com/search/?term=2025%20Panini%20Illusions%20Football%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2025-panini-illusions",
+      "url": "https://www.cardboardconnection.com/?s=2025%20Panini%20Illusions%20Football%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2025-panini-illusions",
+      "url": "https://duckduckgo.com/html/?q=2025%20Panini%20Illusions%20Football%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2025-panini-contenders",
+      "url": "https://www.beckett.com/search/?term=2025%20Panini%20Contenders%20Football%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2025-panini-contenders",
+      "url": "https://www.cardboardconnection.com/?s=2025%20Panini%20Contenders%20Football%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2025-panini-contenders",
+      "url": "https://duckduckgo.com/html/?q=2025%20Panini%20Contenders%20Football%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2025-panini-elite",
+      "url": "https://www.beckett.com/search/?term=2025%20Panini%20Elite%20Football%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2025-panini-elite",
+      "url": "https://www.cardboardconnection.com/?s=2025%20Panini%20Elite%20Football%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2025-panini-elite",
+      "url": "https://duckduckgo.com/html/?q=2025%20Panini%20Elite%20Football%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2025-panini-zenith",
+      "url": "https://www.beckett.com/search/?term=2025%20Panini%20Zenith%20Football%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2025-panini-zenith",
+      "url": "https://www.cardboardconnection.com/?s=2025%20Panini%20Zenith%20Football%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2025-panini-zenith",
+      "url": "https://duckduckgo.com/html/?q=2025%20Panini%20Zenith%20Football%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2025-panini-chronicles",
+      "url": "https://www.beckett.com/search/?term=2025%20Panini%20Chronicles%20Football%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2025-panini-chronicles",
+      "url": "https://www.cardboardconnection.com/?s=2025%20Panini%20Chronicles%20Football%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2025-panini-chronicles",
+      "url": "https://duckduckgo.com/html/?q=2025%20Panini%20Chronicles%20Football%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2025-panini-legacy",
+      "url": "https://www.beckett.com/search/?term=2025%20Panini%20Legacy%20Football%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2025-panini-legacy",
+      "url": "https://www.cardboardconnection.com/?s=2025%20Panini%20Legacy%20Football%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2025-panini-legacy",
+      "url": "https://duckduckgo.com/html/?q=2025%20Panini%20Legacy%20Football%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2025-topps-chrome-football",
+      "url": "https://www.beckett.com/search/?term=2025%20Topps%20Chrome%20Football%20Football%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2025-topps-chrome-football",
+      "url": "https://www.cardboardconnection.com/?s=2025%20Topps%20Chrome%20Football%20Football%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "football-2025-topps-chrome-football",
+      "url": "https://duckduckgo.com/html/?q=2025%20Topps%20Chrome%20Football%20Football%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2023-panini-prizm",
+      "url": "https://www.beckett.com/search/?term=2023%20Panini%20Prizm%20Basketball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2023-panini-prizm",
+      "url": "https://www.cardboardconnection.com/?s=2023%20Panini%20Prizm%20Basketball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2023-panini-prizm",
+      "url": "https://duckduckgo.com/html/?q=2023%20Panini%20Prizm%20Basketball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2023-panini-donruss",
+      "url": "https://www.beckett.com/search/?term=2023%20Panini%20Donruss%20Basketball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2023-panini-donruss",
+      "url": "https://www.cardboardconnection.com/?s=2023%20Panini%20Donruss%20Basketball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2023-panini-donruss",
+      "url": "https://duckduckgo.com/html/?q=2023%20Panini%20Donruss%20Basketball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2023-panini-donruss-optic",
+      "url": "https://www.beckett.com/search/?term=2023%20Panini%20Donruss%20Optic%20Basketball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2023-panini-donruss-optic",
+      "url": "https://www.cardboardconnection.com/?s=2023%20Panini%20Donruss%20Optic%20Basketball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2023-panini-donruss-optic",
+      "url": "https://duckduckgo.com/html/?q=2023%20Panini%20Donruss%20Optic%20Basketball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2023-panini-mosaic",
+      "url": "https://www.beckett.com/search/?term=2023%20Panini%20Mosaic%20Basketball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2023-panini-mosaic",
+      "url": "https://www.cardboardconnection.com/?s=2023%20Panini%20Mosaic%20Basketball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2023-panini-mosaic",
+      "url": "https://duckduckgo.com/html/?q=2023%20Panini%20Mosaic%20Basketball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2023-panini-select",
+      "url": "https://www.beckett.com/search/?term=2023%20Panini%20Select%20Basketball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2023-panini-select",
+      "url": "https://www.cardboardconnection.com/?s=2023%20Panini%20Select%20Basketball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2023-panini-select",
+      "url": "https://duckduckgo.com/html/?q=2023%20Panini%20Select%20Basketball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2023-panini-hoops",
+      "url": "https://www.beckett.com/search/?term=2023%20Panini%20Hoops%20Basketball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2023-panini-hoops",
+      "url": "https://www.cardboardconnection.com/?s=2023%20Panini%20Hoops%20Basketball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2023-panini-hoops",
+      "url": "https://duckduckgo.com/html/?q=2023%20Panini%20Hoops%20Basketball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2023-panini-revolution",
+      "url": "https://www.beckett.com/search/?term=2023%20Panini%20Revolution%20Basketball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2023-panini-revolution",
+      "url": "https://www.cardboardconnection.com/?s=2023%20Panini%20Revolution%20Basketball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2023-panini-revolution",
+      "url": "https://duckduckgo.com/html/?q=2023%20Panini%20Revolution%20Basketball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2023-panini-phoenix",
+      "url": "https://www.beckett.com/search/?term=2023%20Panini%20Phoenix%20Basketball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2023-panini-phoenix",
+      "url": "https://www.cardboardconnection.com/?s=2023%20Panini%20Phoenix%20Basketball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2023-panini-phoenix",
+      "url": "https://duckduckgo.com/html/?q=2023%20Panini%20Phoenix%20Basketball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2023-panini-certified",
+      "url": "https://www.beckett.com/search/?term=2023%20Panini%20Certified%20Basketball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2023-panini-certified",
+      "url": "https://www.cardboardconnection.com/?s=2023%20Panini%20Certified%20Basketball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2023-panini-certified",
+      "url": "https://duckduckgo.com/html/?q=2023%20Panini%20Certified%20Basketball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2023-panini-chronicles",
+      "url": "https://www.beckett.com/search/?term=2023%20Panini%20Chronicles%20Basketball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2023-panini-chronicles",
+      "url": "https://www.cardboardconnection.com/?s=2023%20Panini%20Chronicles%20Basketball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2023-panini-chronicles",
+      "url": "https://duckduckgo.com/html/?q=2023%20Panini%20Chronicles%20Basketball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2023-panini-contenders",
+      "url": "https://www.beckett.com/search/?term=2023%20Panini%20Contenders%20Basketball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2023-panini-contenders",
+      "url": "https://www.cardboardconnection.com/?s=2023%20Panini%20Contenders%20Basketball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2023-panini-contenders",
+      "url": "https://duckduckgo.com/html/?q=2023%20Panini%20Contenders%20Basketball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2023-panini-elite",
+      "url": "https://www.beckett.com/search/?term=2023%20Panini%20Elite%20Basketball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2023-panini-elite",
+      "url": "https://www.cardboardconnection.com/?s=2023%20Panini%20Elite%20Basketball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2023-panini-elite",
+      "url": "https://duckduckgo.com/html/?q=2023%20Panini%20Elite%20Basketball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2024-panini-prizm",
+      "url": "https://www.beckett.com/search/?term=2024%20Panini%20Prizm%20Basketball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2024-panini-prizm",
+      "url": "https://www.cardboardconnection.com/?s=2024%20Panini%20Prizm%20Basketball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2024-panini-prizm",
+      "url": "https://duckduckgo.com/html/?q=2024%20Panini%20Prizm%20Basketball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2024-panini-donruss",
+      "url": "https://www.beckett.com/search/?term=2024%20Panini%20Donruss%20Basketball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2024-panini-donruss",
+      "url": "https://www.cardboardconnection.com/?s=2024%20Panini%20Donruss%20Basketball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2024-panini-donruss",
+      "url": "https://duckduckgo.com/html/?q=2024%20Panini%20Donruss%20Basketball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2024-panini-donruss-optic",
+      "url": "https://www.beckett.com/search/?term=2024%20Panini%20Donruss%20Optic%20Basketball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2024-panini-donruss-optic",
+      "url": "https://www.cardboardconnection.com/?s=2024%20Panini%20Donruss%20Optic%20Basketball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2024-panini-donruss-optic",
+      "url": "https://duckduckgo.com/html/?q=2024%20Panini%20Donruss%20Optic%20Basketball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2024-panini-mosaic",
+      "url": "https://www.beckett.com/search/?term=2024%20Panini%20Mosaic%20Basketball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2024-panini-mosaic",
+      "url": "https://www.cardboardconnection.com/?s=2024%20Panini%20Mosaic%20Basketball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2024-panini-mosaic",
+      "url": "https://duckduckgo.com/html/?q=2024%20Panini%20Mosaic%20Basketball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2024-panini-select",
+      "url": "https://www.beckett.com/search/?term=2024%20Panini%20Select%20Basketball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2024-panini-select",
+      "url": "https://www.cardboardconnection.com/?s=2024%20Panini%20Select%20Basketball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2024-panini-select",
+      "url": "https://duckduckgo.com/html/?q=2024%20Panini%20Select%20Basketball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2024-panini-hoops",
+      "url": "https://www.beckett.com/search/?term=2024%20Panini%20Hoops%20Basketball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2024-panini-hoops",
+      "url": "https://www.cardboardconnection.com/?s=2024%20Panini%20Hoops%20Basketball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2024-panini-hoops",
+      "url": "https://duckduckgo.com/html/?q=2024%20Panini%20Hoops%20Basketball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2024-panini-revolution",
+      "url": "https://www.beckett.com/search/?term=2024%20Panini%20Revolution%20Basketball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2024-panini-revolution",
+      "url": "https://www.cardboardconnection.com/?s=2024%20Panini%20Revolution%20Basketball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2024-panini-revolution",
+      "url": "https://duckduckgo.com/html/?q=2024%20Panini%20Revolution%20Basketball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2024-panini-phoenix",
+      "url": "https://www.beckett.com/search/?term=2024%20Panini%20Phoenix%20Basketball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2024-panini-phoenix",
+      "url": "https://www.cardboardconnection.com/?s=2024%20Panini%20Phoenix%20Basketball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2024-panini-phoenix",
+      "url": "https://duckduckgo.com/html/?q=2024%20Panini%20Phoenix%20Basketball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2024-panini-certified",
+      "url": "https://www.beckett.com/search/?term=2024%20Panini%20Certified%20Basketball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2024-panini-certified",
+      "url": "https://www.cardboardconnection.com/?s=2024%20Panini%20Certified%20Basketball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2024-panini-certified",
+      "url": "https://duckduckgo.com/html/?q=2024%20Panini%20Certified%20Basketball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2024-panini-chronicles",
+      "url": "https://www.beckett.com/search/?term=2024%20Panini%20Chronicles%20Basketball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2024-panini-chronicles",
+      "url": "https://www.cardboardconnection.com/?s=2024%20Panini%20Chronicles%20Basketball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2024-panini-chronicles",
+      "url": "https://duckduckgo.com/html/?q=2024%20Panini%20Chronicles%20Basketball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2024-panini-contenders",
+      "url": "https://www.beckett.com/search/?term=2024%20Panini%20Contenders%20Basketball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2024-panini-contenders",
+      "url": "https://www.cardboardconnection.com/?s=2024%20Panini%20Contenders%20Basketball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2024-panini-contenders",
+      "url": "https://duckduckgo.com/html/?q=2024%20Panini%20Contenders%20Basketball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2024-panini-elite",
+      "url": "https://www.beckett.com/search/?term=2024%20Panini%20Elite%20Basketball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2024-panini-elite",
+      "url": "https://www.cardboardconnection.com/?s=2024%20Panini%20Elite%20Basketball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2024-panini-elite",
+      "url": "https://duckduckgo.com/html/?q=2024%20Panini%20Elite%20Basketball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2025-panini-prizm",
+      "url": "https://www.beckett.com/search/?term=2025%20Panini%20Prizm%20Basketball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2025-panini-prizm",
+      "url": "https://www.cardboardconnection.com/?s=2025%20Panini%20Prizm%20Basketball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2025-panini-prizm",
+      "url": "https://duckduckgo.com/html/?q=2025%20Panini%20Prizm%20Basketball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2025-panini-donruss",
+      "url": "https://www.beckett.com/search/?term=2025%20Panini%20Donruss%20Basketball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2025-panini-donruss",
+      "url": "https://www.cardboardconnection.com/?s=2025%20Panini%20Donruss%20Basketball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2025-panini-donruss",
+      "url": "https://duckduckgo.com/html/?q=2025%20Panini%20Donruss%20Basketball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2025-panini-donruss-optic",
+      "url": "https://www.beckett.com/search/?term=2025%20Panini%20Donruss%20Optic%20Basketball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2025-panini-donruss-optic",
+      "url": "https://www.cardboardconnection.com/?s=2025%20Panini%20Donruss%20Optic%20Basketball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2025-panini-donruss-optic",
+      "url": "https://duckduckgo.com/html/?q=2025%20Panini%20Donruss%20Optic%20Basketball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2025-panini-mosaic",
+      "url": "https://www.beckett.com/search/?term=2025%20Panini%20Mosaic%20Basketball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2025-panini-mosaic",
+      "url": "https://www.cardboardconnection.com/?s=2025%20Panini%20Mosaic%20Basketball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2025-panini-mosaic",
+      "url": "https://duckduckgo.com/html/?q=2025%20Panini%20Mosaic%20Basketball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2025-panini-select",
+      "url": "https://www.beckett.com/search/?term=2025%20Panini%20Select%20Basketball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2025-panini-select",
+      "url": "https://www.cardboardconnection.com/?s=2025%20Panini%20Select%20Basketball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2025-panini-select",
+      "url": "https://duckduckgo.com/html/?q=2025%20Panini%20Select%20Basketball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2025-panini-hoops",
+      "url": "https://www.beckett.com/search/?term=2025%20Panini%20Hoops%20Basketball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2025-panini-hoops",
+      "url": "https://www.cardboardconnection.com/?s=2025%20Panini%20Hoops%20Basketball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2025-panini-hoops",
+      "url": "https://duckduckgo.com/html/?q=2025%20Panini%20Hoops%20Basketball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2025-panini-revolution",
+      "url": "https://www.beckett.com/search/?term=2025%20Panini%20Revolution%20Basketball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2025-panini-revolution",
+      "url": "https://www.cardboardconnection.com/?s=2025%20Panini%20Revolution%20Basketball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2025-panini-revolution",
+      "url": "https://duckduckgo.com/html/?q=2025%20Panini%20Revolution%20Basketball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2025-panini-phoenix",
+      "url": "https://www.beckett.com/search/?term=2025%20Panini%20Phoenix%20Basketball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2025-panini-phoenix",
+      "url": "https://www.cardboardconnection.com/?s=2025%20Panini%20Phoenix%20Basketball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2025-panini-phoenix",
+      "url": "https://duckduckgo.com/html/?q=2025%20Panini%20Phoenix%20Basketball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2025-panini-certified",
+      "url": "https://www.beckett.com/search/?term=2025%20Panini%20Certified%20Basketball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2025-panini-certified",
+      "url": "https://www.cardboardconnection.com/?s=2025%20Panini%20Certified%20Basketball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2025-panini-certified",
+      "url": "https://duckduckgo.com/html/?q=2025%20Panini%20Certified%20Basketball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2025-panini-chronicles",
+      "url": "https://www.beckett.com/search/?term=2025%20Panini%20Chronicles%20Basketball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2025-panini-chronicles",
+      "url": "https://www.cardboardconnection.com/?s=2025%20Panini%20Chronicles%20Basketball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2025-panini-chronicles",
+      "url": "https://duckduckgo.com/html/?q=2025%20Panini%20Chronicles%20Basketball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2025-panini-contenders",
+      "url": "https://www.beckett.com/search/?term=2025%20Panini%20Contenders%20Basketball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2025-panini-contenders",
+      "url": "https://www.cardboardconnection.com/?s=2025%20Panini%20Contenders%20Basketball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2025-panini-contenders",
+      "url": "https://duckduckgo.com/html/?q=2025%20Panini%20Contenders%20Basketball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2025-panini-elite",
+      "url": "https://www.beckett.com/search/?term=2025%20Panini%20Elite%20Basketball%20checklist%20Beckett",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2025-panini-elite",
+      "url": "https://www.cardboardconnection.com/?s=2025%20Panini%20Elite%20Basketball%20checklist%20Cardboard%20Connection",
+      "confidence": 100,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    },
+    {
+      "targetId": "basketball-2025-panini-elite",
+      "url": "https://duckduckgo.com/html/?q=2025%20Panini%20Elite%20Basketball%20checklist",
+      "confidence": 95,
+      "reasons": [
+        "search page URL, not a direct checklist candidate"
+      ]
+    }
+  ]
+}
