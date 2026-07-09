@@ -602,6 +602,34 @@ function MiniButton({
   );
 }
 
+function ToggleSwitch({ label, checked, onChange }: { label: string; checked: boolean; onChange: (checked: boolean) => void }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className="inline-flex h-8 shrink-0 items-center gap-2 rounded-md border border-acv-border bg-white/[0.03] px-2.5 text-[11px] font-semibold text-acv-muted transition hover:border-acv-teal/45 hover:text-acv-text"
+    >
+      <span>{label}</span>
+      <span className={cn("relative h-5 w-9 rounded-full border transition", checked ? "border-acv-teal/50 bg-acv-teal/25" : "border-acv-border bg-acv-panel2")}>
+        <span className={cn("absolute top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full transition", checked ? "left-4 bg-acv-teal shadow-[0_0_12px_rgba(38,212,199,0.35)]" : "left-0.5 bg-acv-muted")} />
+      </span>
+    </button>
+  );
+}
+
+function AlertRow({ tone = "gold", children }: { tone?: "gold" | "pink" | "neutral"; children: React.ReactNode }) {
+  const toneClass =
+    tone === "pink"
+      ? "border-acv-pink/30 bg-acv-pink/10 text-acv-pink"
+      : tone === "gold"
+        ? "border-acv-gold/35 bg-acv-gold/10 text-acv-gold"
+        : "border-acv-border bg-white/[0.03] text-acv-muted";
+
+  return <div className={cn("w-full min-w-0 rounded-md border px-2.5 py-2 text-[11px] font-semibold leading-5 normal-case tracking-normal [overflow-wrap:anywhere] [word-break:break-word]", toneClass)}>{children}</div>;
+}
+
 function FieldRow({ label, value, tone }: { label: string; value: React.ReactNode; tone?: StatusTone }) {
   const toneClass =
     tone === "green"
@@ -657,7 +685,7 @@ function DecisionSummaryItem({ state, children }: { state: "ready" | "warning" |
   return (
     <div className="flex min-w-0 items-center gap-2 rounded-md border border-acv-border bg-acv-panel2 px-3 py-2">
       <Icon className={cn("h-4 w-4 shrink-0", toneClass)} />
-      <span className="truncate text-xs font-semibold text-acv-text">{children}</span>
+      <span className="min-w-0 text-xs font-semibold leading-4 text-acv-text [overflow-wrap:anywhere]">{children}</span>
     </div>
   );
 }
@@ -666,27 +694,16 @@ function ApprovalDecisionCard({
   group,
   routeStatus,
   isApproved,
-  isRejected,
-  onSave,
-  onSwapFrontBack,
-  onApprove,
-  onResearch,
-  onReject,
-  onUndoReject
+  isRejected
 }: {
   group: IntakeGroup;
   routeStatus: RouteStatus;
   isApproved: boolean;
   isRejected: boolean;
-  onSave: (id: string) => void;
-  onSwapFrontBack: (id: string) => void;
-  onApprove: (id: string) => void;
-  onResearch: (id: string) => void;
-  onReject: (id: string) => void;
-  onUndoReject: (id: string) => void;
 }) {
   const warnings = warningsForGroup(group);
   const readinessIssues = readinessIssuesForGroup(group);
+  const aiConfidence = group.aiExtraction?.confidenceScore;
   const missingFront = warnings.find((warning) => warning.toLowerCase().includes("front"));
   const missingImage = warnings.find((warning) => warning.toLowerCase().includes("missing"));
   const requiredIssue = readinessIssues.find((issue) => !issue.toLowerCase().includes("confidence") && !issue.toLowerCase().includes("front") && !issue.toLowerCase().includes("back"));
@@ -702,16 +719,43 @@ function ApprovalDecisionCard({
 
       <div className="mb-4 rounded-lg border border-acv-border bg-black/20 p-3">
         <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-acv-muted">Decision Summary</p>
-        <div className="grid min-w-0 gap-2 sm:grid-cols-2 xl:grid-cols-5">
+        <div className="grid min-w-0 gap-2 sm:grid-cols-2 xl:grid-cols-6">
           <DecisionSummaryItem state={missingFront ? "blocked" : missingImage ? "warning" : "ready"}>{missingImage || "Images paired"}</DecisionSummaryItem>
-          <DecisionSummaryItem state={group.confidence >= 90 ? "ready" : "warning"}>AI confidence: {group.confidence}%</DecisionSummaryItem>
+          <DecisionSummaryItem state={group.confidence >= 90 ? "ready" : "warning"}>Manual confidence: {group.confidence}%</DecisionSummaryItem>
+          <DecisionSummaryItem state={aiConfidence === undefined ? "warning" : aiConfidence >= 90 ? "ready" : aiConfidence >= 70 ? "warning" : "blocked"}>{aiConfidence === undefined ? "AI confidence: Not run" : `AI confidence: ${aiConfidence}%`}</DecisionSummaryItem>
           <DecisionSummaryItem state={completeRecord ? "ready" : "warning"}>{completeRecord ? "Required fields complete" : requiredIssue || readinessIssues[0] || "Review recommended"}</DecisionSummaryItem>
           <DecisionSummaryItem state={isApproved ? "ready" : readyForApproval ? "ready" : "warning"}>{isApproved ? "SKU assigned" : readyForApproval ? "Ready for SKU assignment" : "SKU assignment needs review"}</DecisionSummaryItem>
           <DecisionSummaryItem state={isRejected ? "blocked" : isApproved ? "ready" : readyForApproval ? "ready" : "warning"}>{isRejected ? "Rejected from inventory" : isApproved ? "Inventory item created" : readyForApproval ? "Ready for Inventory" : "Inventory approval paused"}</DecisionSummaryItem>
         </div>
       </div>
+    </section>
+  );
+}
 
-      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+function StickyApprovalBar({
+  group,
+  isApproved,
+  isRejected,
+  onSave,
+  onSwapFrontBack,
+  onApprove,
+  onResearch,
+  onReject,
+  onUndoReject
+}: {
+  group: IntakeGroup;
+  isApproved: boolean;
+  isRejected: boolean;
+  onSave: (id: string) => void;
+  onSwapFrontBack: (id: string) => void;
+  onApprove: (id: string) => void;
+  onResearch: (id: string) => void;
+  onReject: (id: string) => void;
+  onUndoReject: (id: string) => void;
+}) {
+  return (
+    <div className="shrink-0 border-t border-acv-border bg-acv-black/95 px-4 py-3 shadow-[0_-16px_30px_rgba(0,0,0,0.35)]">
+      <div className="grid min-w-0 gap-2 sm:grid-cols-2 xl:grid-cols-5">
         <MiniButton tone="teal" icon={<Save className="h-4 w-4" />} className="h-11 w-full text-xs" onClick={() => onSave(group.id)}>
           Save Group
         </MiniButton>
@@ -728,7 +772,7 @@ function ApprovalDecisionCard({
           {isRejected ? "Undo Reject" : "Reject Group"}
         </MiniButton>
       </div>
-    </section>
+    </div>
   );
 }
 
@@ -905,6 +949,7 @@ function ReviewDrawer({
   onUndoReject: (id: string) => void;
 }) {
   const [showAiWarnings, setShowAiWarnings] = useState(true);
+  const [showDiagnostics, setShowDiagnostics] = useState(true);
   const routeStatus: RouteStatus = isRejected ? "Blocked" : isResearch ? "Needs Research" : statusForGroup(group);
   const skuDisplay = skuStatus === "SKU Assigned" ? `${assignedSku} mock` : "Pending Approval";
   const drawerSkuTone = skuStatus === "SKU Assigned" ? "green" : "purple";
@@ -932,7 +977,7 @@ function ReviewDrawer({
               <StatusPill tone="gold">Group: {group.id}</StatusPill>
               <StatusPill tone={drawerSkuTone}>SKU: {skuDisplay}</StatusPill>
               <StatusPill tone={toneForStatus(routeStatus)}>{routeStatus}</StatusPill>
-              <StatusPill tone={confidenceTone(group.confidence)}>{group.confidence}% confidence</StatusPill>
+              <StatusPill tone={confidenceTone(group.confidence)}>Manual {group.confidence}%</StatusPill>
               <StatusPill tone={toneForAiStatus(aiStatus)}>AI: {aiStatus}</StatusPill>
             </div>
             <h2 className="truncate text-lg font-semibold text-acv-text">{group.proposed.cardName}</h2>
@@ -949,7 +994,7 @@ function ReviewDrawer({
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col">
-          <div className="acv-scrollbar min-h-0 flex-1 overflow-y-auto p-5 pb-8">
+          <div className="acv-scrollbar min-h-0 flex-1 overflow-y-auto p-5 pb-28">
             <div className="grid min-w-0 gap-5 xl:grid-cols-[0.85fr_1.15fr]">
               <section className="min-w-0 rounded-lg border border-acv-border bg-acv-panel p-4">
                 <div className="mb-3 flex items-center justify-between gap-3">
@@ -1006,113 +1051,24 @@ function ReviewDrawer({
                         <StatusPill tone={toneForAiStatus(aiStatus)}>AI Extraction: {aiStatus}</StatusPill>
                         {(aiStatus === "Extracted" || aiStatus === "Needs Review") && <StatusPill tone="teal">{aiProviderLabel}</StatusPill>}
                         {group.aiExtraction?.confidenceScore !== undefined && <StatusPill tone={confidenceTone(group.aiExtraction.confidenceScore)}>AI {group.aiExtraction.confidenceScore}%</StatusPill>}
+                        <StatusPill tone={confidenceTone(group.confidence)}>Manual {group.confidence}%</StatusPill>
                       </div>
                       <p className="mt-2 text-xs leading-5 text-acv-muted">
                         Extraction runs only when clicked, fills this editable form, and never approves inventory automatically.
                       </p>
                     </div>
-                    <div className="flex shrink-0 flex-wrap gap-2">
+                    <div className="flex min-w-0 shrink-0 flex-wrap justify-end gap-2">
                       <MiniButton tone="teal" icon={<Sparkles className="h-3.5 w-3.5" />} disabled={isExtracting} onClick={() => onRunExtraction(group.id)}>
                         {isExtracting ? "Running..." : aiStatus === "Extracted" || aiStatus === "Needs Review" ? "Re-run Extraction" : "Run AI Extraction"}
                       </MiniButton>
                       <MiniButton icon={<RefreshCw className="h-3.5 w-3.5" />} disabled={!hasAiSuggestion} onClick={() => onApplyAiSuggestion(group.id)}>
                         Apply AI Suggestion
                       </MiniButton>
-                      {aiWarnings.length > 0 && (
-                        <MiniButton onClick={() => setShowAiWarnings((current) => !current)}>
-                          {showAiWarnings ? "Hide AI Warnings" : `Show AI Warnings (${aiWarnings.length})`}
-                        </MiniButton>
-                      )}
                       <MiniButton tone="pink" icon={<Eraser className="h-3.5 w-3.5" />} disabled={aiStatus === "Not Run"} onClick={() => onClearExtraction(group.id)}>
                         Clear Extraction
                       </MiniButton>
                     </div>
                   </div>
-
-                  {(fieldConfidenceEntries.length > 0 || (showAiWarnings && aiWarnings.length > 0)) && (
-                    <div className="mt-3 grid min-w-0 gap-2 lg:grid-cols-[1fr_0.8fr]">
-                      {fieldConfidenceEntries.length > 0 && (
-                        <div className="min-w-0 rounded-md border border-acv-border bg-black/20 p-2">
-                          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-acv-muted">Field Confidence</p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {fieldConfidenceEntries.slice(0, 10).map(([key, value]) => (
-                              <StatusPill key={key} tone={confidenceTone(Number(value))}>
-                                {fieldConfidenceLabel(key)}: {value}%
-                              </StatusPill>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      {showAiWarnings && aiWarnings.length > 0 && (
-                        <div className="min-w-0 rounded-md border border-acv-border bg-black/20 p-2">
-                          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-acv-muted">AI Warnings</p>
-                          <div className="flex min-w-0 max-w-full flex-wrap items-start gap-1.5 overflow-hidden">
-                            {aiWarnings.map((warning) => (
-                              <StatusPill
-                                key={warning}
-                                tone={warning.toLowerCase().includes("missing") || warning.toLowerCase().includes("low confidence") ? "pink" : "gold"}
-                                className={wrappedWarningPillClass}
-                              >
-                                {warning}
-                              </StatusPill>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {catalogDiagnostics && (
-                    <div className="mt-3 rounded-md border border-acv-border bg-black/20 p-2">
-                      <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-acv-muted">Catalog Validation</p>
-                      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                        <StatusPill tone={toneForCatalogStatus(catalogDiagnostics.status)}>
-                          {catalogDiagnostics.providerName}: {catalogDiagnostics.status.replace("_", " ")}
-                        </StatusPill>
-                        {catalogDiagnostics.confidence !== undefined && <StatusPill tone={confidenceTone(catalogDiagnostics.confidence)}>{catalogDiagnostics.confidence}%</StatusPill>}
-                        {catalogDiagnostics.matchedCard && <StatusPill tone="teal">{catalogDiagnostics.matchedCard}</StatusPill>}
-                        {catalogDiagnostics.matchedSet && <StatusPill tone="purple">{catalogDiagnostics.matchedSet}</StatusPill>}
-                        {catalogDiagnostics.matchedNumber && <StatusPill tone="gold">#{catalogDiagnostics.matchedNumber}</StatusPill>}
-                        {catalogDiagnostics.rarity && <StatusPill tone="neutral">{catalogDiagnostics.rarity}</StatusPill>}
-                      </div>
-                      {catalogDiagnostics.warnings.length > 0 && (
-                        <div className="mt-2 flex min-w-0 max-w-full flex-wrap gap-1.5 overflow-hidden">
-                          {catalogDiagnostics.warnings.map((warning) => (
-                            <StatusPill key={warning} tone={warning.toLowerCase().includes("unavailable") ? "neutral" : "gold"} className={wrappedWarningPillClass}>
-                              {warning}
-                            </StatusPill>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {providerDiagnostics.length > 0 && (
-                    <div className="mt-3 rounded-md border border-acv-border bg-black/20 p-2">
-                      <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-acv-muted">Provider Diagnostics</p>
-                      <div className="grid min-w-0 gap-2 lg:grid-cols-2">
-                        {providerDiagnostics.map((diagnostic) => (
-                          <div key={`${diagnostic.providerName}-${diagnostic.status}`} className="min-w-0 rounded-md border border-acv-border bg-acv-panel2 p-2">
-                            <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                              <StatusPill tone={toneForProviderDiagnostic(diagnostic.status)}>{diagnostic.providerName}: {diagnostic.status}</StatusPill>
-                              <StatusPill tone={toneForProviderMode(diagnostic.mode)}>{diagnostic.mode}</StatusPill>
-                              {diagnostic.confidence !== undefined && <StatusPill tone={confidenceTone(diagnostic.confidence)}>{diagnostic.confidence}%</StatusPill>}
-                            </div>
-                            <p className="mt-2 break-words text-[11px] leading-5 text-acv-muted">{diagnostic.reason}</p>
-                            {diagnostic.mappedFields && diagnostic.mappedFields.length > 0 && (
-                              <div className="mt-2 flex min-w-0 max-w-full flex-wrap gap-1.5 overflow-hidden">
-                                {diagnostic.mappedFields.map((field) => (
-                                  <StatusPill key={`${diagnostic.providerName}-${field.label}-${field.value}`} tone="neutral" className={wrappedWarningPillClass}>
-                                    {field.label}: {field.value}
-                                  </StatusPill>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </div>
 
                 <div className="mb-3 rounded-lg border border-acv-border bg-acv-panel2 p-3">
@@ -1189,15 +1145,104 @@ function ReviewDrawer({
                   <EditableField label="Uncertainty Notes" value={group.proposed.uncertaintyNotes} multiline onChange={(value) => onUpdateProposed(group.id, "uncertaintyNotes", value)} />
                   <EditableField label="Internal Notes" value={group.proposed.internalNotes || ""} multiline onChange={(value) => onUpdateProposed(group.id, "internalNotes", value)} />
                 </div>
-                {(warnings.length > 0 || readinessIssues.length > 0) && (
-                  <div className="mt-3 flex min-w-0 max-w-full flex-wrap gap-2 overflow-hidden">
-                    {Array.from(new Set([...readinessIssues, ...warnings])).map((issue) => (
-                      <StatusPill key={issue} tone={issue.toLowerCase().includes("confidence") ? "gold" : "pink"} className={wrappedWarningPillClass}>
-                        {issue}
-                      </StatusPill>
-                    ))}
+                <div className="mt-3 rounded-lg border border-acv-border bg-acv-panel2 p-3">
+                  <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-acv-muted">Warnings</p>
+                      <p className="mt-1 text-[11px] text-acv-muted">AI and readiness warnings stay reviewable without taking over the form.</p>
+                    </div>
+                    <ToggleSwitch label="Warnings" checked={showAiWarnings} onChange={setShowAiWarnings} />
                   </div>
-                )}
+                  {showAiWarnings && (
+                    <div className="mt-3 grid min-w-0 gap-2">
+                      {Array.from(new Set([...aiWarnings, ...readinessIssues, ...warnings])).length > 0 ? (
+                        Array.from(new Set([...aiWarnings, ...readinessIssues, ...warnings])).map((issue) => (
+                          <AlertRow key={issue} tone={issue.toLowerCase().includes("confidence") ? "gold" : issue.toLowerCase().includes("missing") || issue.toLowerCase().includes("blocked") ? "pink" : "gold"}>
+                            {issue}
+                          </AlertRow>
+                        ))
+                      ) : (
+                        <AlertRow tone="neutral">No active warnings.</AlertRow>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-3 rounded-lg border border-acv-border bg-acv-panel2 p-3">
+                  <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-acv-muted">Diagnostics</p>
+                      <p className="mt-1 text-[11px] text-acv-muted">Provider, field confidence, and catalog details for development review.</p>
+                    </div>
+                    <ToggleSwitch label="Diagnostics" checked={showDiagnostics} onChange={setShowDiagnostics} />
+                  </div>
+                  {showDiagnostics && (
+                    <div className="mt-3 grid min-w-0 gap-3">
+                      {fieldConfidenceEntries.length > 0 && (
+                        <div className="min-w-0 rounded-md border border-acv-border bg-black/20 p-2">
+                          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-acv-muted">Field Confidence</p>
+                          <div className="grid min-w-0 gap-1.5 sm:grid-cols-2">
+                            {fieldConfidenceEntries.slice(0, 12).map(([key, value]) => (
+                              <div key={key} className="min-w-0 rounded-md border border-acv-border bg-acv-panel2 px-2 py-1.5 text-[11px] font-semibold leading-4 text-acv-text">
+                                <span className="text-acv-muted">{fieldConfidenceLabel(key)}:</span> <span className={cn(Number(value) >= 90 ? "text-acv-teal" : Number(value) >= 70 ? "text-acv-gold" : "text-acv-pink")}>{value}%</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {catalogDiagnostics && (
+                        <div className="min-w-0 rounded-md border border-acv-border bg-black/20 p-2">
+                          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-acv-muted">Catalog Validation</p>
+                          <div className="grid min-w-0 gap-1.5 sm:grid-cols-2">
+                            <AlertRow tone="neutral">{catalogDiagnostics.providerName}: {catalogDiagnostics.status.replace("_", " ")}</AlertRow>
+                            {catalogDiagnostics.confidence !== undefined && <AlertRow tone="neutral">Confidence: {catalogDiagnostics.confidence}%</AlertRow>}
+                            {catalogDiagnostics.matchedCard && <AlertRow tone="neutral">Card: {catalogDiagnostics.matchedCard}</AlertRow>}
+                            {catalogDiagnostics.matchedSet && <AlertRow tone="neutral">Set: {catalogDiagnostics.matchedSet}</AlertRow>}
+                            {catalogDiagnostics.matchedNumber && <AlertRow tone="neutral">Number: #{catalogDiagnostics.matchedNumber}</AlertRow>}
+                            {catalogDiagnostics.rarity && <AlertRow tone="neutral">Rarity: {catalogDiagnostics.rarity}</AlertRow>}
+                          </div>
+                          {catalogDiagnostics.warnings.length > 0 && (
+                            <div className="mt-2 grid min-w-0 gap-2">
+                              {catalogDiagnostics.warnings.map((warning) => (
+                                <AlertRow key={warning} tone={warning.toLowerCase().includes("unavailable") ? "neutral" : "gold"}>
+                                  {warning}
+                                </AlertRow>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {providerDiagnostics.length > 0 && (
+                        <div className="min-w-0 rounded-md border border-acv-border bg-black/20 p-2">
+                          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-acv-muted">Provider Diagnostics</p>
+                          <div className="grid min-w-0 gap-2 lg:grid-cols-2">
+                            {providerDiagnostics.map((diagnostic) => (
+                              <div key={`${diagnostic.providerName}-${diagnostic.status}`} className="min-w-0 rounded-md border border-acv-border bg-acv-panel2 p-2">
+                                <div className="grid min-w-0 gap-1.5 sm:grid-cols-2">
+                                  <AlertRow tone="neutral">{diagnostic.providerName}: {diagnostic.status}</AlertRow>
+                                  <AlertRow tone="neutral">Mode: {diagnostic.mode}</AlertRow>
+                                  {diagnostic.confidence !== undefined && <AlertRow tone="neutral">Confidence: {diagnostic.confidence}%</AlertRow>}
+                                </div>
+                                <p className="mt-2 break-words text-[11px] leading-5 text-acv-muted">{diagnostic.reason}</p>
+                                {diagnostic.mappedFields && diagnostic.mappedFields.length > 0 && (
+                                  <div className="mt-2 grid min-w-0 gap-1.5 sm:grid-cols-2">
+                                    {diagnostic.mappedFields.map((field) => (
+                                      <AlertRow key={`${diagnostic.providerName}-${field.label}-${field.value}`} tone="neutral">
+                                        {field.label}: {field.value}
+                                      </AlertRow>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </section>
             </div>
 
@@ -1206,14 +1251,19 @@ function ReviewDrawer({
               routeStatus={routeStatus}
               isApproved={isApproved}
               isRejected={isRejected}
-              onSave={onSave}
-              onSwapFrontBack={onSwapFrontBack}
-              onApprove={onApprove}
-              onResearch={onResearch}
-              onReject={onReject}
-              onUndoReject={onUndoReject}
             />
           </div>
+          <StickyApprovalBar
+            group={group}
+            isApproved={isApproved}
+            isRejected={isRejected}
+            onSave={onSave}
+            onSwapFrontBack={onSwapFrontBack}
+            onApprove={onApprove}
+            onResearch={onResearch}
+            onReject={onReject}
+            onUndoReject={onUndoReject}
+          />
         </div>
       </aside>
     </div>
@@ -1532,7 +1582,7 @@ export default function PhotoIntakePage() {
   }
 
   function nextActiveGroupId(currentId: string) {
-    return activeReviewGroups.find((group) => group.id !== currentId)?.id || "";
+    return visibleGroups.find((group) => group.id !== currentId && !approvedIds.has(group.id) && !rejectedIds.has(group.id))?.id || "";
   }
 
   function advanceAfterProcessed(id: string, keepDrawerOpen = false) {
@@ -1548,143 +1598,169 @@ export default function PhotoIntakePage() {
   }
 
   function approveGroup(id: string, keepDrawerOpen = false) {
-    const group = groups.find((item) => item.id === id);
-    if (!group) return null;
+    try {
+      const group = groups.find((item) => item.id === id);
+      if (!group) return null;
 
-    if (approvedIds.has(id)) {
-      setStatusMessage(`${group.id} already has SKU ${assignedSkuForGroup(group)}. Repeated approval is disabled.`);
+      if (approvedIds.has(id)) {
+        setStatusMessage(`${group.id} already has SKU ${assignedSkuForGroup(group)}. Repeated approval is disabled.`);
+        return null;
+      }
+
+      if (rejectedIds.has(id)) {
+        setStatusMessage(`${group.id} is rejected. Undo reject before approving.`);
+        return null;
+      }
+
+      if (!group.images.some((image) => image.role === "Front")) {
+        setResearchIds((current) => new Set(current).add(id));
+        setStatusMessage(`${group.id} needs review before approval: missing Front image.`);
+        return null;
+      }
+
+      if (researchIds.has(id)) {
+        setStatusMessage(`${group.id} is marked Needs Research. Save corrections before approving to Inventory.`);
+        return null;
+      }
+
+      const approvalStatus = statusForGroup(group);
+      if (approvalStatus !== "Ready to Approve") {
+        const issues = readinessIssuesForGroup(group).slice(0, 2).join(", ") || approvalStatus;
+        setStatusMessage(`${group.id} is not ready for inventory approval: ${issues}.`);
+        return null;
+      }
+
+      const nextSku = assignedSkus[id] || buildMockSku(group, skuCounterRef.current);
+      if (!assignedSkus[id]) skuCounterRef.current += 1;
+      const primaryImage = group.images.find((image) => image.role === "Front") || group.images[0];
+      const approvedItem = {
+        sku: nextSku,
+        batch: group.batch,
+        group: group.id,
+        source: group.source,
+        primaryImageUrl: primaryImage?.dataUrl || primaryImage?.url || primaryImage?.publicUrl || "",
+        needsImageReupload: Boolean(primaryImage?.needsReupload || !(primaryImage?.dataUrl || primaryImage?.url || primaryImage?.publicUrl)),
+        images: group.images,
+        proposed: group.proposed,
+        approvedAt: new Date().toLocaleString()
+      };
+      setAssignedSkus((current) => ({ ...current, [id]: current[id] || nextSku }));
+      setApprovedIds((current) => new Set(current).add(id));
+      setResearchIds((current) => {
+        const next = new Set(current);
+        next.delete(id);
+        return next;
+      });
+      setRejectedIds((current) => {
+        const next = new Set(current);
+        next.delete(id);
+        return next;
+      });
+      setApprovedInventory((current) => {
+        return current.some((item) => item.group === id) ? current.map((item) => (item.group === id ? approvedItem : item)) : [...current, approvedItem];
+      });
+      const nextId = advanceAfterProcessed(id, keepDrawerOpen);
+      void approveGroupToBackend(
+        {
+          ...currentBatchEntry,
+          approved: approvedIds.has(id) ? approvedIds.size : approvedIds.size + 1,
+          rejected: rejectedIds.size,
+          remaining: Math.max(0, currentBatchEntry.remaining - 1),
+          approvedIds: Array.from(new Set([...currentBatchEntry.approvedIds, id])),
+          rejectedIds: currentBatchEntry.rejectedIds.filter((groupId) => groupId !== id),
+          researchIds: currentBatchEntry.researchIds.filter((groupId) => groupId !== id),
+          assignedSkus: { ...currentBatchEntry.assignedSkus, [id]: nextSku }
+        },
+        group,
+        approvedItem
+      ).catch((error) => {
+        console.error("[ACV Photo Intake] Supabase approval sync failed", error);
+      });
+      setStatusMessage(`Approved to Inventory: ${nextSku}.${nextId ? ` Next group: ${nextId}.` : " Batch review complete."}`);
+      return nextId;
+    } catch (error) {
+      console.error("[ACV Photo Intake] Approval transition failed", error);
+      setDrawerGroupId(null);
+      setStatusMessage(`${id} was saved locally, but the drawer transition hit an error. Reopen the batch to continue.`);
       return null;
     }
-
-    if (rejectedIds.has(id)) {
-      setStatusMessage(`${group.id} is rejected. Undo reject before approving.`);
-      return null;
-    }
-
-    if (!group.images.some((image) => image.role === "Front")) {
-      setResearchIds((current) => new Set(current).add(id));
-      setStatusMessage(`${group.id} needs review before approval: missing Front image.`);
-      return null;
-    }
-
-    if (researchIds.has(id)) {
-      setStatusMessage(`${group.id} is marked Needs Research. Save corrections before approving to Inventory.`);
-      return null;
-    }
-
-    const approvalStatus = statusForGroup(group);
-    if (approvalStatus !== "Ready to Approve") {
-      const issues = readinessIssuesForGroup(group).slice(0, 2).join(", ") || approvalStatus;
-      setStatusMessage(`${group.id} is not ready for inventory approval: ${issues}.`);
-      return null;
-    }
-
-    const nextSku = assignedSkus[id] || buildMockSku(group, skuCounterRef.current);
-    if (!assignedSkus[id]) skuCounterRef.current += 1;
-    const primaryImage = group.images.find((image) => image.role === "Front") || group.images[0];
-    const approvedItem = {
-      sku: nextSku,
-      batch: group.batch,
-      group: group.id,
-      source: group.source,
-      primaryImageUrl: primaryImage?.dataUrl || primaryImage?.url || primaryImage?.publicUrl || "",
-      needsImageReupload: Boolean(primaryImage?.needsReupload || !(primaryImage?.dataUrl || primaryImage?.url || primaryImage?.publicUrl)),
-      images: group.images,
-      proposed: group.proposed,
-      approvedAt: new Date().toLocaleString()
-    };
-    setAssignedSkus((current) => ({ ...current, [id]: current[id] || nextSku }));
-    setApprovedIds((current) => new Set(current).add(id));
-    setResearchIds((current) => {
-      const next = new Set(current);
-      next.delete(id);
-      return next;
-    });
-    setRejectedIds((current) => {
-      const next = new Set(current);
-      next.delete(id);
-      return next;
-    });
-    setApprovedInventory((current) => {
-      return current.some((item) => item.group === id) ? current.map((item) => (item.group === id ? approvedItem : item)) : [...current, approvedItem];
-    });
-    const nextId = advanceAfterProcessed(id, keepDrawerOpen);
-    void approveGroupToBackend(
-      {
-        ...currentBatchEntry,
-        approved: approvedIds.has(id) ? approvedIds.size : approvedIds.size + 1,
-        rejected: rejectedIds.size,
-        remaining: Math.max(0, currentBatchEntry.remaining - 1),
-        approvedIds: Array.from(new Set([...currentBatchEntry.approvedIds, id])),
-        rejectedIds: currentBatchEntry.rejectedIds.filter((groupId) => groupId !== id),
-        researchIds: currentBatchEntry.researchIds.filter((groupId) => groupId !== id),
-        assignedSkus: { ...currentBatchEntry.assignedSkus, [id]: nextSku }
-      },
-      group,
-      approvedItem
-    );
-    setStatusMessage(`Approved to Inventory: ${nextSku}.${nextId ? ` Next group: ${nextId}.` : " Batch review complete."}`);
-    return nextId;
   }
 
   function sendToResearch(id: string) {
-    const group = groups.find((item) => item.id === id);
-    setResearchIds((current) => new Set(current).add(id));
-    setApprovedIds((current) => {
-      const next = new Set(current);
-      next.delete(id);
-      return next;
-    });
-    setRejectedIds((current) => {
-      const next = new Set(current);
-      next.delete(id);
-      return next;
-    });
-    if (group) {
-      void updateGroupStatusInBackend(
-        {
-          ...currentBatchEntry,
-          researchIds: Array.from(new Set([...currentBatchEntry.researchIds, id])),
-          approvedIds: currentBatchEntry.approvedIds.filter((groupId) => groupId !== id),
-          rejectedIds: currentBatchEntry.rejectedIds.filter((groupId) => groupId !== id)
-        },
-        group,
-        "Needs Research"
-      );
+    try {
+      const group = groups.find((item) => item.id === id);
+      setResearchIds((current) => new Set(current).add(id));
+      setApprovedIds((current) => {
+        const next = new Set(current);
+        next.delete(id);
+        return next;
+      });
+      setRejectedIds((current) => {
+        const next = new Set(current);
+        next.delete(id);
+        return next;
+      });
+      if (group) {
+        void updateGroupStatusInBackend(
+          {
+            ...currentBatchEntry,
+            researchIds: Array.from(new Set([...currentBatchEntry.researchIds, id])),
+            approvedIds: currentBatchEntry.approvedIds.filter((groupId) => groupId !== id),
+            rejectedIds: currentBatchEntry.rejectedIds.filter((groupId) => groupId !== id)
+          },
+          group,
+          "Needs Research"
+        ).catch((error) => {
+          console.error("[ACV Photo Intake] Supabase research sync failed", error);
+        });
+      }
+      setStatusMessage(`${id} sent to research in local state.`);
+    } catch (error) {
+      console.error("[ACV Photo Intake] Research transition failed", error);
+      setDrawerGroupId(null);
+      setStatusMessage(`${id} was marked for research locally, but the drawer transition hit an error.`);
     }
-    setStatusMessage(`${id} sent to research in local state.`);
   }
 
   function rejectGroup(id: string, keepDrawerOpen = false) {
-    const group = groups.find((item) => item.id === id);
-    setRejectedIds((current) => new Set(current).add(id));
-    setApprovedIds((current) => {
-      const next = new Set(current);
-      next.delete(id);
-      return next;
-    });
-    setResearchIds((current) => {
-      const next = new Set(current);
-      next.delete(id);
-      return next;
-    });
-    const nextId = advanceAfterProcessed(id, keepDrawerOpen);
-    if (group) {
-      void updateGroupStatusInBackend(
-        {
-          ...currentBatchEntry,
-          rejected: rejectedIds.has(id) ? rejectedIds.size : rejectedIds.size + 1,
-          remaining: Math.max(0, currentBatchEntry.remaining - 1),
-          rejectedIds: Array.from(new Set([...currentBatchEntry.rejectedIds, id])),
-          approvedIds: currentBatchEntry.approvedIds.filter((groupId) => groupId !== id),
-          researchIds: currentBatchEntry.researchIds.filter((groupId) => groupId !== id)
-        },
-        group,
-        "Rejected"
-      );
+    try {
+      const group = groups.find((item) => item.id === id);
+      setRejectedIds((current) => new Set(current).add(id));
+      setApprovedIds((current) => {
+        const next = new Set(current);
+        next.delete(id);
+        return next;
+      });
+      setResearchIds((current) => {
+        const next = new Set(current);
+        next.delete(id);
+        return next;
+      });
+      const nextId = advanceAfterProcessed(id, keepDrawerOpen);
+      if (group) {
+        void updateGroupStatusInBackend(
+          {
+            ...currentBatchEntry,
+            rejected: rejectedIds.has(id) ? rejectedIds.size : rejectedIds.size + 1,
+            remaining: Math.max(0, currentBatchEntry.remaining - 1),
+            rejectedIds: Array.from(new Set([...currentBatchEntry.rejectedIds, id])),
+            approvedIds: currentBatchEntry.approvedIds.filter((groupId) => groupId !== id),
+            researchIds: currentBatchEntry.researchIds.filter((groupId) => groupId !== id)
+          },
+          group,
+          "Rejected"
+        ).catch((error) => {
+          console.error("[ACV Photo Intake] Supabase rejection sync failed", error);
+        });
+      }
+      setStatusMessage(`${id} rejected locally.${nextId ? ` Next group: ${nextId}.` : " Batch review complete."}`);
+      return nextId;
+    } catch (error) {
+      console.error("[ACV Photo Intake] Rejection transition failed", error);
+      setDrawerGroupId(null);
+      setStatusMessage(`${id} was rejected locally, but the drawer transition hit an error. Reopen the batch to continue.`);
+      return null;
     }
-    setStatusMessage(`${id} rejected locally.${nextId ? ` Next group: ${nextId}.` : " Batch review complete."}`);
-    return nextId;
   }
 
   function undoRejectGroup(id: string) {
@@ -1795,7 +1871,6 @@ export default function PhotoIntakePage() {
       });
       updateGroup(groupId, (currentGroup) => ({
         ...currentGroup,
-        confidence: result.status === "Failed" ? Math.min(currentGroup.confidence, result.confidenceScore) : Math.max(currentGroup.confidence, result.confidenceScore),
         proposed: { ...currentGroup.proposed, ...result.extracted },
         aiExtraction: {
           status: result.status,

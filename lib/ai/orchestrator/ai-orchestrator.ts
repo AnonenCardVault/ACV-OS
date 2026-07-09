@@ -131,6 +131,37 @@ function dedupeWarnings(outputs: AIProviderOutput[], confidenceWarnings: AIExtra
   });
 }
 
+function confidenceCapFromEvidence({
+  fields,
+  fieldConfidence,
+  warnings,
+  catalogStatus
+}: {
+  fields: ExtractedCardFields;
+  fieldConfidence: Partial<Record<AIFieldKey, number>>;
+  warnings: AIWarning[];
+  catalogStatus?: string;
+}) {
+  let cap = 99;
+  const requiredFields: Array<keyof ExtractedCardFields> = ["cardTitle", "playerOrCharacter", "sportCategory", "year", "brand", "set", "cardNumber"];
+  const requiredScores = requiredFields
+    .filter((field) => hasFieldValue(fields[field]))
+    .map((field) => fieldConfidence[field])
+    .filter((value): value is number => typeof value === "number");
+  const lowestRequired = requiredScores.length ? Math.min(...requiredScores) : 0;
+  const hasProviderConflict = warnings.some((warning) => warning.code.startsWith("field_conflict_"));
+  const hasCatalogDisagreement = catalogStatus === "disagreement";
+  const hasBlocking = warnings.some((warning) => warning.severity === "blocking");
+
+  if (hasBlocking) cap = Math.min(cap, 45);
+  if (hasProviderConflict || hasCatalogDisagreement) cap = Math.min(cap, 74);
+  if (lowestRequired > 0 && lowestRequired < 50) cap = Math.min(cap, 60);
+  else if (lowestRequired > 0 && lowestRequired < 70) cap = Math.min(cap, 78);
+  else if (requiredScores.length < 3) cap = Math.min(cap, 70);
+
+  return cap;
+}
+
 async function runProvider(provider: AIProvider, input: AIExtractionInput, context: AIProviderContext): Promise<AIProviderOutput> {
   const providerInput =
     provider.kind === "cardsight"
@@ -377,10 +408,19 @@ export async function runAIExtraction({
   fields = catalog.fields;
   const suggestedTitle = createSuggestedTitle(fields) || fields.cardTitle;
   const confidence = calculateAIConfidence({ fields, images: input.images, providerOutputs: context.providerOutputs, config });
-  const adjustedOverall = clampConfidence(confidence.overall + catalog.confidenceAdjustment);
   const fieldConfidence = { ...confidence.fieldConfidence, ...catalog.fieldConfidence };
   const warnings = dedupeWarnings(context.providerOutputs, [...confidence.warnings, ...catalog.warnings]);
-  const extractionStatus = catalog.validation?.status === "disagreement" && confidence.status === "Ready to Approve" ? "Needs Review" : confidence.status;
+  const adjustedOverall = Math.min(
+    clampConfidence(confidence.overall + catalog.confidenceAdjustment),
+    confidenceCapFromEvidence({
+      fields,
+      fieldConfidence,
+      warnings,
+      catalogStatus: catalog.validation?.status
+    })
+  );
+  let extractionStatus = catalog.validation?.status === "disagreement" && confidence.status === "Ready to Approve" ? "Needs Review" : confidence.status;
+  if (extractionStatus === "Ready to Approve" && adjustedOverall < config.highConfidence) extractionStatus = adjustedOverall < config.mediumConfidence ? "Needs Research" : "Needs Review";
   const learningEvent = createLearningEvent({ input, providerOutputs: context.providerOutputs });
   const log = createExtractionLog({
     runId: context.runId,
