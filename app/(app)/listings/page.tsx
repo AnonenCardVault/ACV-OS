@@ -24,6 +24,7 @@ import { PageHeader } from "@/components/page-header";
 import { SectionCard } from "@/components/section-card";
 import { StatusPill } from "@/components/status-pill";
 import { activeListingRows, listingDraftQueue, stagedListingUpdates } from "@/data/mock";
+import { safeGetStorageItem, safeRemoveStorageItem, safeSetStorageItem } from "@/lib/safe-storage";
 import { cn, formatCurrency, formatPercent } from "@/lib/utils";
 
 type DraftRow = (typeof listingDraftQueue)[number];
@@ -531,8 +532,8 @@ export default function ListingsPage() {
 
   useEffect(() => {
     try {
-      const draftStored = window.localStorage.getItem("acv.listings.columns.draft");
-      const activeStored = window.localStorage.getItem("acv.listings.columns.active");
+      const draftStored = safeGetStorageItem("local", "acv.listings.columns.draft");
+      const activeStored = safeGetStorageItem("local", "acv.listings.columns.active");
       if (draftStored) {
         const parsed = JSON.parse(draftStored) as DraftColumnKey[];
         if (Array.isArray(parsed)) setDraftVisibleColumns(parsed.filter((key) => draftColumnOptions.some((column) => column.key === key)));
@@ -546,17 +547,17 @@ export default function ListingsPage() {
         }));
       }
     } catch {
-      window.localStorage.removeItem("acv.listings.columns.draft");
-      window.localStorage.removeItem("acv.listings.columns.active");
+      safeRemoveStorageItem("local", "acv.listings.columns.draft");
+      safeRemoveStorageItem("local", "acv.listings.columns.active");
     }
   }, []);
 
   useEffect(() => {
-    window.localStorage.setItem("acv.listings.columns.draft", JSON.stringify(draftVisibleColumns));
+    safeSetStorageItem("local", "acv.listings.columns.draft", JSON.stringify(draftVisibleColumns));
   }, [draftVisibleColumns]);
 
   useEffect(() => {
-    window.localStorage.setItem("acv.listings.columns.active", JSON.stringify(activeVisibleColumns));
+    safeSetStorageItem("local", "acv.listings.columns.active", JSON.stringify(activeVisibleColumns));
   }, [activeVisibleColumns]);
 
   function toggleSelection(id: string, checked: boolean) {

@@ -27,7 +27,7 @@ import { PageHeader } from "@/components/page-header";
 import { SectionCard } from "@/components/section-card";
 import { StatusPill } from "@/components/status-pill";
 import { extractCardFromImagesViaApi } from "@/lib/ai-extraction";
-import { useAcvLocalState, type BatchHistoryEntry } from "@/lib/acv-local-state";
+import { compactApprovedInventoryItemForCache, compactIntakeImageForCache, compactUploadedImageForCache, useAcvLocalState, type BatchHistoryEntry } from "@/lib/acv-local-state";
 import { generateMarketplaceTitles, type MarketplaceTitleCatalogFacts, type MarketplaceTitleResult } from "@/lib/marketplace-title";
 import { cn } from "@/lib/utils";
 
@@ -1526,6 +1526,7 @@ export default function PhotoIntakePage() {
     aiPairingCheck,
     setAiPairingCheck,
     uploadedImages,
+    setUploadedImages,
     groups,
     setGroups,
     selectedGroupId,
@@ -1815,6 +1816,8 @@ export default function PhotoIntakePage() {
       };
 
       await approveGroupToBackend(approvedEntry, group, approvedItem);
+      const cachedApprovedItem = compactApprovedInventoryItemForCache(approvedItem);
+      const approvedUploadIds = new Set(groupImages.map((image) => image.uploadId).filter(Boolean) as string[]);
 
       if (!assignedSkus[id]) skuCounterRef.current += 1;
       setAssignedSkus((current) => ({ ...current, [id]: current[id] || nextSku }));
@@ -1829,8 +1832,19 @@ export default function PhotoIntakePage() {
         next.delete(id);
         return next;
       });
+      setUploadedImages((current) => current.map((image) => (approvedUploadIds.has(image.id) ? compactUploadedImageForCache(image) : image)));
+      setGroups((current) =>
+        current.map((item) =>
+          item.id === id
+            ? {
+                ...item,
+                images: item.images.map((image) => compactIntakeImageForCache(image))
+              }
+            : item
+        )
+      );
       setApprovedInventory((current) => {
-        return current.some((item) => item.group === id) ? current.map((item) => (item.group === id ? approvedItem : item)) : [...current, approvedItem];
+        return current.some((item) => item.group === id) ? current.map((item) => (item.group === id ? cachedApprovedItem : item)) : [...current, cachedApprovedItem];
       });
 
       const nextId = advanceAfterProcessed(id, keepDrawerOpen);

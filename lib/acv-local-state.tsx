@@ -10,6 +10,7 @@ import {
   updateIntakeGroupStatusInSupabase,
   uploadTempIntakeFile
 } from "@/lib/supabase/intake";
+import { cleanupLargeAcvStorageKeys, safeGetStorageItem, safeSetStorageItem } from "@/lib/safe-storage";
 import type { SupabaseBackendStatus } from "@/lib/supabase/types";
 
 export type SourceKey = "Computer Upload" | "eBay Active Listings" | "eBay Drafts" | "Google Drive" | "Dropbox" | "Mobile Camera Upload" | "Scanner" | "Shared Team Uploads" | "Future Sources";
@@ -247,26 +248,77 @@ function initialBackendStatus(): SupabaseBackendStatus {
   };
 }
 
+function isVolatileImageUrl(value?: string) {
+  return !value || value.startsWith("data:") || value.startsWith("blob:");
+}
+
+function stableImageUrl(image: Pick<UploadedImage | IntakeImage, "url" | "publicUrl" | "storagePath">) {
+  if (image.publicUrl && !isVolatileImageUrl(image.publicUrl)) return image.publicUrl;
+  if (image.url && !isVolatileImageUrl(image.url)) return image.url;
+  return "";
+}
+
 function stripObjectUrls(images: UploadedImage[]) {
-  return images.map((image) => ({ ...image, url: image.dataUrl || image.publicUrl || "", needsReupload: !(image.dataUrl || image.publicUrl) }));
+  return images.map((image) => {
+    const url = stableImageUrl(image);
+    const hasStorageRef = Boolean(image.storageBucket && image.storagePath);
+
+    return {
+      ...image,
+      dataUrl: undefined,
+      url,
+      publicUrl: image.publicUrl && !isVolatileImageUrl(image.publicUrl) ? image.publicUrl : url || undefined,
+      needsReupload: Boolean(image.needsReupload || (!url && !hasStorageRef))
+    };
+  });
+}
+
+function stripIntakeImageObjectUrls(images: IntakeImage[]) {
+  return images.map((image) => {
+    const url = stableImageUrl(image);
+    const hasStorageRef = Boolean(image.storageBucket && image.storagePath);
+
+    return {
+      ...image,
+      dataUrl: undefined,
+      url,
+      publicUrl: image.publicUrl && !isVolatileImageUrl(image.publicUrl) ? image.publicUrl : url || undefined,
+      needsReupload: Boolean(image.needsReupload || (!url && !hasStorageRef))
+    };
+  });
+}
+
+export function compactUploadedImageForCache(image: UploadedImage): UploadedImage {
+  return stripObjectUrls([image])[0];
+}
+
+export function compactIntakeImageForCache(image: IntakeImage): IntakeImage {
+  return stripIntakeImageObjectUrls([image])[0];
 }
 
 function stripGroupObjectUrls(groups: IntakeGroup[]) {
   return groups.map((group) => ({
     ...group,
-    images: group.images.map((image) => ({ ...image, url: image.dataUrl || image.publicUrl || "", needsReupload: !(image.dataUrl || image.publicUrl) }))
+    images: stripIntakeImageObjectUrls(group.images)
   }));
+}
+
+export function compactApprovedInventoryItemForCache(item: ApprovedInventoryItem): ApprovedInventoryItem {
+  return stripApprovedObjectUrls([item])[0];
 }
 
 function stripApprovedObjectUrls(items: ApprovedInventoryItem[]) {
   return items.map((item) => {
     const frontImage = item.images.find((image) => image.role === "Front");
+    const images = stripIntakeImageObjectUrls(item.images);
+    const primaryImageUrl = stableImageUrl(frontImage || ({ url: item.primaryImageUrl, publicUrl: item.primaryImageUrl, storagePath: "" } as IntakeImage));
+    const hasPrimaryStorageRef = Boolean(frontImage?.storageBucket && frontImage.storagePath);
 
     return {
       ...item,
-      primaryImageUrl: frontImage?.dataUrl || frontImage?.publicUrl || frontImage?.url || "",
-      needsImageReupload: !(frontImage?.dataUrl || frontImage?.publicUrl || frontImage?.url),
-      images: item.images.map((image) => ({ ...image, url: image.dataUrl || image.publicUrl || "", needsReupload: !(image.dataUrl || image.publicUrl) }))
+      primaryImageUrl,
+      needsImageReupload: Boolean(item.needsImageReupload || (!primaryImageUrl && !hasPrimaryStorageRef)),
+      images
     };
   });
 }
@@ -315,9 +367,11 @@ export function AcvLocalStateProvider({ children }: { children: React.ReactNode 
 
   useEffect(() => {
     let parsedState: PersistedState | null = null;
+    const storageKeepList = [storageKey, migrationMarkerKey, "acv.listings.columns.draft", "acv.listings.columns.active"];
 
     try {
-      const saved = window.localStorage.getItem(storageKey);
+      cleanupLargeAcvStorageKeys(storageKeepList);
+      const saved = safeGetStorageItem("local", storageKey);
       if (saved) {
         const parsed = JSON.parse(saved) as PersistedState;
         parsedState = parsed;
@@ -338,8 +392,12 @@ export function AcvLocalStateProvider({ children }: { children: React.ReactNode 
         setApprovedInventory(stripApprovedObjectUrls(parsed.approvedInventory || []));
         setBatchHistory(stripBatchHistoryObjectUrls(parsed.batchHistory || []));
         skuCounterRef.current = parsed.skuCounter || Object.keys(parsed.assignedSkus || {}).length + 1;
+        const restoredNeedsReupload =
+          (parsed.uploadedImages || []).some((image) => !stableImageUrl(image)) ||
+          (parsed.groups || []).some((group) => (group.images || []).some((image) => !stableImageUrl(image))) ||
+          (parsed.approvedInventory || []).some((item) => !item.primaryImageUrl && (item.images || []).some((image) => !stableImageUrl(image)));
         setStatusMessage(
-          (parsed.uploadedImages?.some((image) => !image.dataUrl) || false)
+          restoredNeedsReupload
             ? "Restored mock intake state. Some images need to be re-uploaded after refresh."
             : parsed.statusMessage || "Upload photos to generate local intake groups."
         );
@@ -366,10 +424,12 @@ export function AcvLocalStateProvider({ children }: { children: React.ReactNode 
 
       try {
         await testSupabaseConnection();
-        const alreadyMigrated = window.localStorage.getItem(migrationMarkerKey) === "true";
+        const alreadyMigrated = safeGetStorageItem("local", migrationMarkerKey) === "true";
         if (parsedState && !alreadyMigrated) {
           await migrateLocalStateToSupabase(parsedState);
-          window.localStorage.setItem(migrationMarkerKey, "true");
+          safeSetStorageItem("local", migrationMarkerKey, "true", {
+            onQuotaExceeded: () => cleanupLargeAcvStorageKeys(storageKeepList)
+          });
         }
 
         const remote = await loadSupabaseState();
@@ -439,35 +499,9 @@ export function AcvLocalStateProvider({ children }: { children: React.ReactNode 
       skuCounter: skuCounterRef.current
     };
 
-    try {
-      window.localStorage.setItem(storageKey, JSON.stringify(payload));
-    } catch {
-      window.localStorage.setItem(
-        storageKey,
-        JSON.stringify({
-          ...payload,
-          uploadedImages: stripObjectUrls(uploadedImages).map((image) => ({ ...image, dataUrl: undefined, url: image.publicUrl || "", needsReupload: !image.publicUrl })),
-          groups: stripGroupObjectUrls(groups).map((group) => ({
-            ...group,
-            images: group.images.map((image) => ({ ...image, dataUrl: undefined, url: image.publicUrl || "", needsReupload: !image.publicUrl }))
-          })),
-          approvedInventory: stripApprovedObjectUrls(approvedInventory).map((item) => ({
-            ...item,
-            primaryImageUrl: item.primaryImageUrl || item.images.find((image) => image.role === "Front")?.publicUrl || "",
-            needsImageReupload: !(item.primaryImageUrl || item.images.find((image) => image.role === "Front")?.publicUrl),
-            images: item.images.map((image) => ({ ...image, dataUrl: undefined, url: image.publicUrl || "", needsReupload: !image.publicUrl }))
-          })),
-          batchHistory: stripBatchHistoryObjectUrls(batchHistory).map((entry) => ({
-            ...entry,
-            uploadedImages: entry.uploadedImages.map((image) => ({ ...image, dataUrl: undefined, url: image.publicUrl || "", needsReupload: !image.publicUrl })),
-            groups: entry.groups.map((group) => ({
-              ...group,
-              images: group.images.map((image) => ({ ...image, dataUrl: undefined, url: image.publicUrl || "", needsReupload: !image.publicUrl }))
-            }))
-          }))
-        })
-      );
-    }
+    safeSetStorageItem("local", storageKey, JSON.stringify(payload), {
+      onQuotaExceeded: () => cleanupLargeAcvStorageKeys([storageKey, migrationMarkerKey, "acv.listings.columns.draft", "acv.listings.columns.active"])
+    });
   }, [
     hydrated,
     batchNumber,

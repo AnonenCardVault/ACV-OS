@@ -43,7 +43,7 @@ function rowToIntakeImage(row: ImageRow): IntakeImage {
     label: row.original_filename || row.role,
     fileName: row.original_filename || row.storage_path.split("/").pop() || row.role,
     url: row.public_url || "",
-    dataUrl: row.public_url || "",
+    dataUrl: undefined,
     uploadId: row.local_image_id || row.id,
     order: row.display_order,
     storageBucket: row.storage_bucket,
