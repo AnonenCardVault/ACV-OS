@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Component, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   ArrowLeftRight,
@@ -247,10 +247,46 @@ function defaultProposedRecord(groupNumber: number): ProposedRecord {
   };
 }
 
+function safeImages(group?: Partial<IntakeGroup> | null) {
+  return Array.isArray(group?.images) ? group.images : [];
+}
+
+function safeWarnings(group?: Partial<IntakeGroup> | null) {
+  return Array.isArray(group?.warnings) ? group.warnings : [];
+}
+
+function safeProposed(group?: Partial<IntakeGroup> | null): ProposedRecord {
+  return {
+    ...defaultProposedRecord(0),
+    ...(group?.proposed || {})
+  };
+}
+
+function safeConfidence(group?: Partial<IntakeGroup> | null) {
+  return Number.isFinite(group?.confidence) ? Number(group?.confidence) : 0;
+}
+
+function logIntakeDev(message: string, payload?: unknown) {
+  if (process.env.NODE_ENV !== "production") {
+    console.info(`[ACV Photo Intake] ${message}`, payload || "");
+  }
+}
+
+function logIntakeException(action: string, error: unknown, context: Record<string, unknown>) {
+  if (process.env.NODE_ENV !== "production") {
+    console.error(`[ACV Photo Intake] ${action} failed`, {
+      ...context,
+      error,
+      stack: error instanceof Error ? error.stack : undefined
+    });
+  }
+}
+
 function pairingStatusForGroup(group: IntakeGroup) {
-  const hasFront = group.images.some((image) => image.role === "Front");
-  const hasBack = group.images.some((image) => image.role === "Back");
-  const hasDetail = group.images.some((image) => !["Front", "Back"].includes(image.role));
+  const images = safeImages(group);
+  const hasFront = images.some((image) => image.role === "Front");
+  const hasBack = images.some((image) => image.role === "Back");
+  const hasDetail = images.some((image) => !["Front", "Back"].includes(image.role));
 
   if (!hasFront) return "Front image missing";
   if (!hasBack) return "Back image missing";
@@ -258,23 +294,25 @@ function pairingStatusForGroup(group: IntakeGroup) {
   return "Front/back paired";
 }
 
-function warningsForGroup(group: IntakeGroup) {
-  const warnings = new Set(group.warnings);
-  group.aiExtraction?.warnings?.forEach((warning) => warnings.add(warning));
-  if (!group.images.some((image) => image.role === "Front")) warnings.add("Missing front image");
-  if (!group.images.some((image) => image.role === "Back")) warnings.add("Missing back image");
+function warningsForGroup(group?: IntakeGroup | null) {
+  const images = safeImages(group);
+  const warnings = new Set(safeWarnings(group));
+  group?.aiExtraction?.warnings?.forEach((warning) => warnings.add(warning));
+  if (!images.some((image) => image.role === "Front")) warnings.add("Missing front image");
+  if (!images.some((image) => image.role === "Back")) warnings.add("Missing back image");
   return Array.from(warnings);
 }
 
-function baseWarningsForReadiness(group: IntakeGroup) {
-  const warnings = new Set(group.warnings);
-  if (!group.images.some((image) => image.role === "Front")) warnings.add("Missing front image");
-  if (!group.images.some((image) => image.role === "Back")) warnings.add("Missing back image");
+function baseWarningsForReadiness(group?: IntakeGroup | null) {
+  const images = safeImages(group);
+  const warnings = new Set(safeWarnings(group));
+  if (!images.some((image) => image.role === "Front")) warnings.add("Missing front image");
+  if (!images.some((image) => image.role === "Back")) warnings.add("Missing back image");
   return Array.from(warnings);
 }
 
-function aiStatusForGroup(group: IntakeGroup): AiExtractionStatus {
-  return group.aiExtraction?.status || "Not Run";
+function aiStatusForGroup(group?: IntakeGroup | null): AiExtractionStatus {
+  return group?.aiExtraction?.status || "Not Run";
 }
 
 function toneForAiStatus(status: AiExtractionStatus): StatusTone {
@@ -329,25 +367,27 @@ function hasFieldValue(value: string | number | undefined | null) {
   return Boolean(normalized && normalized !== "-" && normalized !== "pending");
 }
 
-function hasUncertaintyNote(group: IntakeGroup) {
-  return hasFieldValue(group.proposed.uncertaintyNotes);
+function hasUncertaintyNote(group?: IntakeGroup | null) {
+  return hasFieldValue(safeProposed(group).uncertaintyNotes);
 }
 
-function readinessIssuesForGroup(group: IntakeGroup) {
+function readinessIssuesForGroup(group?: IntakeGroup | null) {
+  const images = safeImages(group);
+  const proposed = safeProposed(group);
   const warnings = baseWarningsForReadiness(group);
   const issues: string[] = [];
-  const hasFront = group.images.some((image) => image.role === "Front");
+  const hasFront = images.some((image) => image.role === "Front");
   const hasMismatch = warnings.some((warning) => warning.toLowerCase().includes("mismatch"));
-  const hasBrandOrSet = hasFieldValue(group.proposed.brand) || hasFieldValue(group.proposed.set);
+  const hasBrandOrSet = hasFieldValue(proposed.brand) || hasFieldValue(proposed.set);
   const uncertainty = hasUncertaintyNote(group);
 
   if (!hasFront) issues.push("Missing front image");
   if (hasMismatch) issues.push("Image mismatch flag");
-  if (!hasFieldValue(group.proposed.cardName)) issues.push("Card title missing");
-  if (!hasFieldValue(group.proposed.category)) issues.push("Category missing");
-  if (!hasFieldValue(group.proposed.year) && !uncertainty) issues.push("Year missing");
+  if (!hasFieldValue(proposed.cardName)) issues.push("Card title missing");
+  if (!hasFieldValue(proposed.category)) issues.push("Category missing");
+  if (!hasFieldValue(proposed.year) && !uncertainty) issues.push("Year missing");
   if (!hasBrandOrSet && !uncertainty) issues.push("Brand or set missing");
-  if (group.confidence < 90) issues.push("Confidence below 90%");
+  if (safeConfidence(group) < 90) issues.push("Confidence below 90%");
   if (aiStatusForGroup(group) === "Failed") issues.push("AI extraction failed");
   warnings
     .filter((warning) => !issues.includes(warning))
@@ -409,12 +449,14 @@ function buildGroupsFromUploads({
   return groups;
 }
 
-function statusForGroup(group: IntakeGroup): RouteStatus {
+function statusForGroup(group?: IntakeGroup | null): RouteStatus {
   const warnings = warningsForGroup(group);
-  const hasFront = group.images.some((image) => image.role === "Front");
+  const images = safeImages(group);
+  const proposed = safeProposed(group);
+  const hasFront = images.some((image) => image.role === "Front");
   if (!hasFront || warnings.some((warning) => warning.toLowerCase().includes("mismatch"))) return "Blocked";
-  if (!hasFieldValue(group.proposed.cardName) || !hasFieldValue(group.proposed.category)) return "Needs Research";
-  if (group.confidence < 70) return "Needs Research";
+  if (!hasFieldValue(proposed.cardName) || !hasFieldValue(proposed.category)) return "Needs Research";
+  if (safeConfidence(group) < 70) return "Needs Research";
   if (readinessIssuesForGroup(group).length > 0) return "Review";
   return "Ready to Approve";
 }
@@ -721,7 +763,7 @@ function ApprovalDecisionCard({
         <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-acv-muted">Decision Summary</p>
         <div className="grid min-w-0 gap-2 sm:grid-cols-2 xl:grid-cols-6">
           <DecisionSummaryItem state={missingFront ? "blocked" : missingImage ? "warning" : "ready"}>{missingImage || "Images paired"}</DecisionSummaryItem>
-          <DecisionSummaryItem state={group.confidence >= 90 ? "ready" : "warning"}>Manual confidence: {group.confidence}%</DecisionSummaryItem>
+          <DecisionSummaryItem state={safeConfidence(group) >= 90 ? "ready" : "warning"}>Manual confidence: {safeConfidence(group)}%</DecisionSummaryItem>
           <DecisionSummaryItem state={aiConfidence === undefined ? "warning" : aiConfidence >= 90 ? "ready" : aiConfidence >= 70 ? "warning" : "blocked"}>{aiConfidence === undefined ? "AI confidence: Not run" : `AI confidence: ${aiConfidence}%`}</DecisionSummaryItem>
           <DecisionSummaryItem state={completeRecord ? "ready" : "warning"}>{completeRecord ? "Required fields complete" : requiredIssue || readinessIssues[0] || "Review recommended"}</DecisionSummaryItem>
           <DecisionSummaryItem state={isApproved ? "ready" : readyForApproval ? "ready" : "warning"}>{isApproved ? "SKU assigned" : readyForApproval ? "Ready for SKU assignment" : "SKU assignment needs review"}</DecisionSummaryItem>
@@ -736,6 +778,7 @@ function StickyApprovalBar({
   group,
   isApproved,
   isRejected,
+  isProcessing,
   onSave,
   onSwapFrontBack,
   onApprove,
@@ -746,34 +789,101 @@ function StickyApprovalBar({
   group: IntakeGroup;
   isApproved: boolean;
   isRejected: boolean;
+  isProcessing?: boolean;
   onSave: (id: string) => void;
   onSwapFrontBack: (id: string) => void;
-  onApprove: (id: string) => void;
-  onResearch: (id: string) => void;
-  onReject: (id: string) => void;
+  onApprove: (id: string) => void | Promise<void>;
+  onResearch: (id: string) => void | Promise<void>;
+  onReject: (id: string) => void | Promise<void>;
   onUndoReject: (id: string) => void;
 }) {
+  const disabled = Boolean(isProcessing);
+
   return (
     <div className="shrink-0 border-t border-acv-border bg-acv-black/95 px-4 py-3 shadow-[0_-16px_30px_rgba(0,0,0,0.35)]">
       <div className="grid min-w-0 gap-2 sm:grid-cols-2 xl:grid-cols-5">
-        <MiniButton tone="teal" icon={<Save className="h-4 w-4" />} className="h-11 w-full text-xs" onClick={() => onSave(group.id)}>
+        <MiniButton tone="teal" icon={<Save className="h-4 w-4" />} className="h-11 w-full text-xs" disabled={disabled} onClick={() => onSave(group.id)}>
           Save Group
         </MiniButton>
-        <MiniButton tone="gold" icon={<ArrowLeftRight className="h-4 w-4" />} className="h-11 w-full text-xs" onClick={() => onSwapFrontBack(group.id)}>
+        <MiniButton tone="gold" icon={<ArrowLeftRight className="h-4 w-4" />} className="h-11 w-full text-xs" disabled={disabled} onClick={() => onSwapFrontBack(group.id)}>
           Swap Front/Back
         </MiniButton>
-        <MiniButton tone="teal" icon={<BadgeCheck className="h-4 w-4" />} className="h-11 w-full text-xs" disabled={isApproved || isRejected} onClick={() => onApprove(group.id)}>
-          {isApproved ? "Approved" : "Approve to Inventory"}
+        <MiniButton tone="teal" icon={<BadgeCheck className="h-4 w-4" />} className="h-11 w-full text-xs" disabled={disabled || isApproved || isRejected} onClick={() => onApprove(group.id)}>
+          {isProcessing ? "Working..." : isApproved ? "Approved" : "Approve to Inventory"}
         </MiniButton>
-        <MiniButton icon={<FileSearch className="h-4 w-4" />} className="h-11 w-full text-xs" disabled={isApproved || isRejected} onClick={() => onResearch(group.id)}>
+        <MiniButton icon={<FileSearch className="h-4 w-4" />} className="h-11 w-full text-xs" disabled={disabled || isApproved || isRejected} onClick={() => onResearch(group.id)}>
           Send to Research
         </MiniButton>
-        <MiniButton tone="pink" icon={<XCircle className="h-4 w-4" />} className="h-11 w-full text-xs" onClick={() => (isRejected ? onUndoReject(group.id) : onReject(group.id))}>
+        <MiniButton tone="pink" icon={<XCircle className="h-4 w-4" />} className="h-11 w-full text-xs" disabled={disabled} onClick={() => (isRejected ? onUndoReject(group.id) : onReject(group.id))}>
           {isRejected ? "Undo Reject" : "Reject Group"}
         </MiniButton>
       </div>
     </div>
   );
+}
+
+class ReviewDrawerErrorBoundary extends Component<
+  {
+    children: React.ReactNode;
+    context: Record<string, unknown>;
+    onClose: () => void;
+    onRefresh: () => void;
+  },
+  { error: Error | null }
+> {
+  state: { error: Error | null } = { error: null };
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    logIntakeException("review drawer render", error, {
+      ...this.props.context,
+      componentStack: info.componentStack
+    });
+  }
+
+  render() {
+    if (!this.state.error) return this.props.children;
+
+    return (
+      <div className="fixed inset-y-0 left-0 right-0 z-50 flex justify-end bg-black/70 backdrop-blur-sm sm:left-56">
+        <button type="button" aria-label="Close intake review drawer" className="absolute inset-0 cursor-default" onClick={this.props.onClose} />
+        <aside className="relative z-10 flex h-full w-full max-w-5xl flex-col border-l border-acv-border bg-acv-black shadow-glow">
+          <div className="flex items-center justify-between gap-3 border-b border-acv-border px-5 py-4">
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-acv-pink">Review Recovery</p>
+              <h2 className="truncate text-lg font-semibold text-acv-text">Photo Intake review hit a render snag</h2>
+              <p className="mt-1 text-xs text-acv-muted">The intake action was contained so ACV OS can keep running.</p>
+            </div>
+            <button
+              type="button"
+              title="Close"
+              onClick={this.props.onClose}
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-acv-border text-acv-muted transition hover:text-acv-teal"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="flex min-h-0 flex-1 items-start p-5">
+            <div className="w-full rounded-lg border border-acv-border bg-acv-panel p-4">
+              <AlertRow tone="pink">The review drawer could not render this group state. Close review or refresh the intake selection to continue.</AlertRow>
+              {process.env.NODE_ENV !== "production" && (
+                <pre className="mt-3 max-h-48 overflow-auto whitespace-pre-wrap rounded-md border border-acv-border bg-black/30 p-3 text-[11px] leading-5 text-acv-muted">
+                  {this.state.error.message}
+                </pre>
+              )}
+              <div className="mt-4 flex flex-wrap gap-2">
+                <MiniButton tone="teal" onClick={this.props.onClose}>Close Review</MiniButton>
+                <MiniButton icon={<RefreshCw className="h-3.5 w-3.5" />} onClick={this.props.onRefresh}>Refresh Intake</MiniButton>
+              </div>
+            </div>
+          </div>
+        </aside>
+      </div>
+    );
+  }
 }
 
 function EditableField({
@@ -907,6 +1017,7 @@ function ReviewDrawer({
   isRejected,
   isResearch,
   isExtracting,
+  isProcessingAction,
   onClose,
   onSave,
   onSwapFrontBack,
@@ -931,6 +1042,7 @@ function ReviewDrawer({
   isRejected: boolean;
   isResearch: boolean;
   isExtracting: boolean;
+  isProcessingAction?: boolean;
   onClose: () => void;
   onSave: (id: string) => void;
   onSwapFrontBack: (id: string) => void;
@@ -943,13 +1055,16 @@ function ReviewDrawer({
   onClearExtraction: (groupId: string) => void;
   onApplyAiSuggestion: (groupId: string) => void;
   onApplySuggestedTitle: (groupId: string, title: string) => void;
-  onApprove: (id: string) => void;
-  onResearch: (id: string) => void;
-  onReject: (id: string) => void;
+  onApprove: (id: string) => void | Promise<void>;
+  onResearch: (id: string) => void | Promise<void>;
+  onReject: (id: string) => void | Promise<void>;
   onUndoReject: (id: string) => void;
 }) {
   const [showAiWarnings, setShowAiWarnings] = useState(true);
   const [showDiagnostics, setShowDiagnostics] = useState(true);
+  const groupImages = safeImages(group);
+  const proposed = safeProposed(group);
+  const manualConfidence = safeConfidence(group);
   const routeStatus: RouteStatus = isRejected ? "Blocked" : isResearch ? "Needs Research" : statusForGroup(group);
   const skuDisplay = skuStatus === "SKU Assigned" ? `${assignedSku} mock` : "Pending Approval";
   const drawerSkuTone = skuStatus === "SKU Assigned" ? "green" : "purple";
@@ -961,7 +1076,7 @@ function ReviewDrawer({
   const providerDiagnostics = group.aiExtraction?.providerDiagnostics || [];
   const fieldConfidence = group.aiExtraction?.fieldConfidence || {};
   const fieldConfidenceEntries = Object.entries(fieldConfidence).filter(([, value]) => typeof value === "number");
-  const marketplaceTitle = marketplaceTitleForRecord(group.proposed, catalogDiagnostics);
+  const marketplaceTitle = marketplaceTitleForRecord(proposed, catalogDiagnostics);
   const recommendedEbayTitle = marketplaceTitle.ebayTitle;
   const hasAiSuggestion = Boolean(group.aiExtraction?.extracted || group.aiExtraction?.suggestedTitle);
   const aiProviderLabel = group.aiExtraction?.modelLabel ? "ACV AI Orchestrator" : "Ready";
@@ -977,10 +1092,10 @@ function ReviewDrawer({
               <StatusPill tone="gold">Group: {group.id}</StatusPill>
               <StatusPill tone={drawerSkuTone}>SKU: {skuDisplay}</StatusPill>
               <StatusPill tone={toneForStatus(routeStatus)}>{routeStatus}</StatusPill>
-              <StatusPill tone={confidenceTone(group.confidence)}>Manual {group.confidence}%</StatusPill>
+              <StatusPill tone={confidenceTone(manualConfidence)}>Manual {manualConfidence}%</StatusPill>
               <StatusPill tone={toneForAiStatus(aiStatus)}>AI: {aiStatus}</StatusPill>
             </div>
-            <h2 className="truncate text-lg font-semibold text-acv-text">{group.proposed.cardName}</h2>
+            <h2 className="truncate text-lg font-semibold text-acv-text">{proposed.cardName}</h2>
             <p className="mt-1 text-xs text-acv-muted">Temporary intake references only - permanent SKU assignment happens after approval.</p>
           </div>
           <button
@@ -1002,10 +1117,10 @@ function ReviewDrawer({
                     <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-acv-gold">Group Images</p>
                     <p className="mt-1 text-xs text-acv-muted">Role controls are staged for future approved image ordering.</p>
                   </div>
-                  <StatusPill tone="teal">{group.images.length} images</StatusPill>
+                  <StatusPill tone="teal">{groupImages.length} images</StatusPill>
                 </div>
                 <div className="grid min-w-0 gap-3 sm:grid-cols-2">
-                  {group.images.map((image, imageIndex) => (
+                  {groupImages.map((image, imageIndex) => (
                     <div key={image.id} className="min-w-0 space-y-2">
                       <ImagePlaceholder image={image} large />
                       <select
@@ -1026,7 +1141,7 @@ function ReviewDrawer({
                         <MiniButton onClick={() => onMoveImage(group.id, image.id, -1)} className={imageIndex === 0 ? "opacity-45" : undefined}>
                           Move Up
                         </MiniButton>
-                        <MiniButton onClick={() => onMoveImage(group.id, image.id, 1)} className={imageIndex === group.images.length - 1 ? "opacity-45" : undefined}>
+                        <MiniButton onClick={() => onMoveImage(group.id, image.id, 1)} className={imageIndex === groupImages.length - 1 ? "opacity-45" : undefined}>
                           Move Down
                         </MiniButton>
                       </div>
@@ -1051,7 +1166,7 @@ function ReviewDrawer({
                         <StatusPill tone={toneForAiStatus(aiStatus)}>AI Extraction: {aiStatus}</StatusPill>
                         {(aiStatus === "Extracted" || aiStatus === "Needs Review") && <StatusPill tone="teal">{aiProviderLabel}</StatusPill>}
                         {group.aiExtraction?.confidenceScore !== undefined && <StatusPill tone={confidenceTone(group.aiExtraction.confidenceScore)}>AI {group.aiExtraction.confidenceScore}%</StatusPill>}
-                        <StatusPill tone={confidenceTone(group.confidence)}>Manual {group.confidence}%</StatusPill>
+                        <StatusPill tone={confidenceTone(manualConfidence)}>Manual {manualConfidence}%</StatusPill>
                       </div>
                       <p className="mt-2 text-xs leading-5 text-acv-muted">
                         Extraction runs only when clicked, fills this editable form, and never approves inventory automatically.
@@ -1102,25 +1217,25 @@ function ReviewDrawer({
                 </div>
 
                 <div className="grid min-w-0 gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                  <EditableField label="Card title / display name" value={group.proposed.cardName} tone="gold" onChange={(value) => onUpdateProposed(group.id, "cardName", value)} />
-                  <EditableField label="Player / Character" value={group.proposed.playerCharacter} onChange={(value) => onUpdateProposed(group.id, "playerCharacter", value)} />
-                  <EditableField label="Team" value={group.proposed.team} onChange={(value) => onUpdateProposed(group.id, "team", value)} />
-                  <EditableSelectField label="Sport / Category" value={group.proposed.category} options={categoryOptions} onChange={(value) => onUpdateProposed(group.id, "category", value)} />
-                  <EditableField label="Year" value={group.proposed.year} onChange={(value) => onUpdateProposed(group.id, "year", value)} />
-                  <EditableField label="Brand" value={group.proposed.brand} onChange={(value) => onUpdateProposed(group.id, "brand", value)} />
-                  <EditableField label="Set" value={group.proposed.set} onChange={(value) => onUpdateProposed(group.id, "set", value)} />
-                  <EditableField label="Card Number" value={group.proposed.cardNumber} onChange={(value) => onUpdateProposed(group.id, "cardNumber", value)} />
-                  <EditableField label="Parallel" value={group.proposed.parallel} onChange={(value) => onUpdateProposed(group.id, "parallel", value)} />
-                  <EditableField label="Serial Number" value={group.proposed.serialNumber} onChange={(value) => onUpdateProposed(group.id, "serialNumber", value)} />
-                  <EditableSelectField label="Grader" value={group.proposed.grader || "Raw"} options={graderOptions} onChange={(value) => onUpdateProposed(group.id, "grader", value)} />
-                  <EditableSelectField label="Grade" value={group.proposed.grade || "Raw"} options={gradeOptions} onChange={(value) => onUpdateProposed(group.id, "grade", value)} />
+                  <EditableField label="Card title / display name" value={proposed.cardName} tone="gold" onChange={(value) => onUpdateProposed(group.id, "cardName", value)} />
+                  <EditableField label="Player / Character" value={proposed.playerCharacter} onChange={(value) => onUpdateProposed(group.id, "playerCharacter", value)} />
+                  <EditableField label="Team" value={proposed.team} onChange={(value) => onUpdateProposed(group.id, "team", value)} />
+                  <EditableSelectField label="Sport / Category" value={proposed.category} options={categoryOptions} onChange={(value) => onUpdateProposed(group.id, "category", value)} />
+                  <EditableField label="Year" value={proposed.year} onChange={(value) => onUpdateProposed(group.id, "year", value)} />
+                  <EditableField label="Brand" value={proposed.brand} onChange={(value) => onUpdateProposed(group.id, "brand", value)} />
+                  <EditableField label="Set" value={proposed.set} onChange={(value) => onUpdateProposed(group.id, "set", value)} />
+                  <EditableField label="Card Number" value={proposed.cardNumber} onChange={(value) => onUpdateProposed(group.id, "cardNumber", value)} />
+                  <EditableField label="Parallel" value={proposed.parallel} onChange={(value) => onUpdateProposed(group.id, "parallel", value)} />
+                  <EditableField label="Serial Number" value={proposed.serialNumber} onChange={(value) => onUpdateProposed(group.id, "serialNumber", value)} />
+                  <EditableSelectField label="Grader" value={proposed.grader || "Raw"} options={graderOptions} onChange={(value) => onUpdateProposed(group.id, "grader", value)} />
+                  <EditableSelectField label="Grade" value={proposed.grade || "Raw"} options={gradeOptions} onChange={(value) => onUpdateProposed(group.id, "grade", value)} />
                   <label className="min-w-0 rounded-md border border-acv-border bg-acv-panel2 px-3 py-2">
                     <span className="truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-acv-muted">Manual Confidence</span>
                     <input
                       type="range"
                       min={0}
                       max={100}
-                      value={group.confidence}
+                      value={manualConfidence}
                       onChange={(event) => onUpdateConfidence(group.id, Math.min(100, Math.max(0, Number(event.target.value) || 0)))}
                       className="mt-2 w-full accent-acv-teal"
                     />
@@ -1128,22 +1243,22 @@ function ReviewDrawer({
                       type="number"
                       min={0}
                       max={100}
-                      value={group.confidence}
+                      value={manualConfidence}
                       onChange={(event) => onUpdateConfidence(group.id, Math.min(100, Math.max(0, Number(event.target.value) || 0)))}
                       className="mt-1 w-full min-w-0 bg-transparent text-xs font-semibold text-acv-text outline-none"
                     />
                   </label>
-                  <EditableFlag label="Rookie" checked={group.proposed.rookieFlag} onChange={(value) => onUpdateProposed(group.id, "rookieFlag", value)} />
-                  <EditableFlag label="Auto" checked={group.proposed.autoFlag} onChange={(value) => onUpdateProposed(group.id, "autoFlag", value)} />
-                  <EditableFlag label="Relic" checked={group.proposed.relicFlag} onChange={(value) => onUpdateProposed(group.id, "relicFlag", value)} />
-                  <EditableFlag label="Variation" checked={group.proposed.variationFlag} onChange={(value) => onUpdateProposed(group.id, "variationFlag", value)} />
-                  <EditableNumberField label="Purchase Cost" value={group.proposed.purchaseCost ?? 0} min={0} tone="pink" onChange={(value) => onUpdateProposed(group.id, "purchaseCost", value)} />
-                  <EditableNumberField label="Quantity" value={group.proposed.quantity || 1} min={1} onChange={(value) => onUpdateProposed(group.id, "quantity", Math.max(1, Math.round(value)))} />
-                  <EditableSelectField label="Source / Acquisition Source" value={group.proposed.acquisitionSource || "Computer Upload"} options={acquisitionSourceOptions} onChange={(value) => onUpdateProposed(group.id, "acquisitionSource", value)} />
-                  <EditableField label="Location Placeholder" value={group.proposed.location || ""} onChange={(value) => onUpdateProposed(group.id, "location", value)} />
-                  <EditableField label="Condition Notes" value={group.proposed.conditionNotes} multiline onChange={(value) => onUpdateProposed(group.id, "conditionNotes", value)} />
-                  <EditableField label="Uncertainty Notes" value={group.proposed.uncertaintyNotes} multiline onChange={(value) => onUpdateProposed(group.id, "uncertaintyNotes", value)} />
-                  <EditableField label="Internal Notes" value={group.proposed.internalNotes || ""} multiline onChange={(value) => onUpdateProposed(group.id, "internalNotes", value)} />
+                  <EditableFlag label="Rookie" checked={proposed.rookieFlag} onChange={(value) => onUpdateProposed(group.id, "rookieFlag", value)} />
+                  <EditableFlag label="Auto" checked={proposed.autoFlag} onChange={(value) => onUpdateProposed(group.id, "autoFlag", value)} />
+                  <EditableFlag label="Relic" checked={proposed.relicFlag} onChange={(value) => onUpdateProposed(group.id, "relicFlag", value)} />
+                  <EditableFlag label="Variation" checked={proposed.variationFlag} onChange={(value) => onUpdateProposed(group.id, "variationFlag", value)} />
+                  <EditableNumberField label="Purchase Cost" value={proposed.purchaseCost ?? 0} min={0} tone="pink" onChange={(value) => onUpdateProposed(group.id, "purchaseCost", value)} />
+                  <EditableNumberField label="Quantity" value={proposed.quantity || 1} min={1} onChange={(value) => onUpdateProposed(group.id, "quantity", Math.max(1, Math.round(value)))} />
+                  <EditableSelectField label="Source / Acquisition Source" value={proposed.acquisitionSource || "Computer Upload"} options={acquisitionSourceOptions} onChange={(value) => onUpdateProposed(group.id, "acquisitionSource", value)} />
+                  <EditableField label="Location Placeholder" value={proposed.location || ""} onChange={(value) => onUpdateProposed(group.id, "location", value)} />
+                  <EditableField label="Condition Notes" value={proposed.conditionNotes} multiline onChange={(value) => onUpdateProposed(group.id, "conditionNotes", value)} />
+                  <EditableField label="Uncertainty Notes" value={proposed.uncertaintyNotes} multiline onChange={(value) => onUpdateProposed(group.id, "uncertaintyNotes", value)} />
+                  <EditableField label="Internal Notes" value={proposed.internalNotes || ""} multiline onChange={(value) => onUpdateProposed(group.id, "internalNotes", value)} />
                 </div>
                 <div className="mt-3 rounded-lg border border-acv-border bg-acv-panel2 p-3">
                   <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
@@ -1263,6 +1378,7 @@ function ReviewDrawer({
             onResearch={onResearch}
             onReject={onReject}
             onUndoReject={onUndoReject}
+            isProcessing={isProcessingAction}
           />
         </div>
       </aside>
@@ -1395,6 +1511,7 @@ export default function PhotoIntakePage() {
   const [activeSource, setActiveSource] = useState<SourceKey>("Computer Upload");
   const [showBatchHistory, setShowBatchHistory] = useState(false);
   const [extractingGroupId, setExtractingGroupId] = useState<string | null>(null);
+  const [processingAction, setProcessingAction] = useState<{ type: "approve" | "reject" | "research"; groupId: string } | null>(null);
   const {
     batchNumber,
     batchName,
@@ -1504,6 +1621,27 @@ export default function PhotoIntakePage() {
     return () => window.clearTimeout(timeout);
   }, [backendStatus.connectionState, currentBatchEntry, saveBatchSnapshotToBackend]);
 
+  useEffect(() => {
+    if (!drawerGroupId) return;
+    const groupStillExists = groups.some((group) => group.id === drawerGroupId);
+    if (!groupStillExists || approvedIds.has(drawerGroupId) || rejectedIds.has(drawerGroupId)) {
+      logIntakeDev("Closing stale review drawer", {
+        batchId,
+        drawerGroupId,
+        groupStillExists,
+        approved: approvedIds.has(drawerGroupId),
+        rejected: rejectedIds.has(drawerGroupId)
+      });
+      setDrawerGroupId(null);
+    }
+  }, [approvedIds, batchId, drawerGroupId, groups, rejectedIds, setDrawerGroupId]);
+
+  useEffect(() => {
+    if (!selectedGroupId) return;
+    if (activeReviewGroups.some((group) => group.id === selectedGroupId)) return;
+    setSelectedGroupId(activeReviewGroups[0]?.id || "");
+  }, [activeReviewGroups, selectedGroupId, setSelectedGroupId]);
+
   function queueStatus(group: IntakeGroup): QueueStatus {
     if (approvedIds.has(group.id)) return "Approved Local";
     if (rejectedIds.has(group.id)) return "Rejected";
@@ -1522,7 +1660,8 @@ export default function PhotoIntakePage() {
   }
 
   function buildMockSku(group: IntakeGroup, sequence: number) {
-    const code = skuCategoryCodes[group.proposed.category] || group.proposed.category.slice(0, 3).toUpperCase() || "GEN";
+    const proposed = safeProposed(group);
+    const code = skuCategoryCodes[proposed.category] || proposed.category.slice(0, 3).toUpperCase() || "GEN";
     return `ACV-${code}-${String(sequence).padStart(6, "0")}`;
   }
 
@@ -1597,12 +1736,31 @@ export default function PhotoIntakePage() {
     return nextId;
   }
 
-  function approveGroup(id: string, keepDrawerOpen = false) {
+  async function approveGroup(id: string, keepDrawerOpen = false) {
+    const actionContext = {
+      actionType: "approve",
+      batchId: currentBatchEntry.batchId,
+      selectedGroupId,
+      drawerGroupId,
+      groupId: id
+    };
+    setProcessingAction({ type: "approve", groupId: id });
+
     try {
       const group = groups.find((item) => item.id === id);
-      if (!group) return null;
+      if (!group) {
+        setDrawerGroupId(null);
+        setStatusMessage(`${id} is no longer in the active intake queue.`);
+        return null;
+      }
+
+      logIntakeDev("Approve started", {
+        ...actionContext,
+        images: safeImages(group).map((image) => ({ id: image.id, role: image.role, fileName: image.fileName }))
+      });
 
       if (approvedIds.has(id)) {
+        setDrawerGroupId(null);
         setStatusMessage(`${group.id} already has SKU ${assignedSkuForGroup(group)}. Repeated approval is disabled.`);
         return null;
       }
@@ -1612,8 +1770,10 @@ export default function PhotoIntakePage() {
         return null;
       }
 
-      if (!group.images.some((image) => image.role === "Front")) {
+      const groupImages = safeImages(group);
+      if (!groupImages.some((image) => image.role === "Front")) {
         setResearchIds((current) => new Set(current).add(id));
+        setDrawerGroupId(null);
         setStatusMessage(`${group.id} needs review before approval: missing Front image.`);
         return null;
       }
@@ -1631,8 +1791,7 @@ export default function PhotoIntakePage() {
       }
 
       const nextSku = assignedSkus[id] || buildMockSku(group, skuCounterRef.current);
-      if (!assignedSkus[id]) skuCounterRef.current += 1;
-      const primaryImage = group.images.find((image) => image.role === "Front") || group.images[0];
+      const primaryImage = groupImages.find((image) => image.role === "Front") || groupImages[0];
       const approvedItem = {
         sku: nextSku,
         batch: group.batch,
@@ -1640,10 +1799,24 @@ export default function PhotoIntakePage() {
         source: group.source,
         primaryImageUrl: primaryImage?.dataUrl || primaryImage?.url || primaryImage?.publicUrl || "",
         needsImageReupload: Boolean(primaryImage?.needsReupload || !(primaryImage?.dataUrl || primaryImage?.url || primaryImage?.publicUrl)),
-        images: group.images,
-        proposed: group.proposed,
+        images: groupImages,
+        proposed: safeProposed(group),
         approvedAt: new Date().toLocaleString()
       };
+      const approvedEntry = {
+        ...currentBatchEntry,
+        approved: approvedIds.has(id) ? approvedIds.size : approvedIds.size + 1,
+        rejected: rejectedIds.size,
+        remaining: Math.max(0, currentBatchEntry.remaining - 1),
+        approvedIds: Array.from(new Set([...currentBatchEntry.approvedIds, id])),
+        rejectedIds: currentBatchEntry.rejectedIds.filter((groupId) => groupId !== id),
+        researchIds: currentBatchEntry.researchIds.filter((groupId) => groupId !== id),
+        assignedSkus: { ...currentBatchEntry.assignedSkus, [id]: nextSku }
+      };
+
+      await approveGroupToBackend(approvedEntry, group, approvedItem);
+
+      if (!assignedSkus[id]) skuCounterRef.current += 1;
       setAssignedSkus((current) => ({ ...current, [id]: current[id] || nextSku }));
       setApprovedIds((current) => new Set(current).add(id));
       setResearchIds((current) => {
@@ -1659,36 +1832,47 @@ export default function PhotoIntakePage() {
       setApprovedInventory((current) => {
         return current.some((item) => item.group === id) ? current.map((item) => (item.group === id ? approvedItem : item)) : [...current, approvedItem];
       });
+
       const nextId = advanceAfterProcessed(id, keepDrawerOpen);
-      void approveGroupToBackend(
-        {
-          ...currentBatchEntry,
-          approved: approvedIds.has(id) ? approvedIds.size : approvedIds.size + 1,
-          rejected: rejectedIds.size,
-          remaining: Math.max(0, currentBatchEntry.remaining - 1),
-          approvedIds: Array.from(new Set([...currentBatchEntry.approvedIds, id])),
-          rejectedIds: currentBatchEntry.rejectedIds.filter((groupId) => groupId !== id),
-          researchIds: currentBatchEntry.researchIds.filter((groupId) => groupId !== id),
-          assignedSkus: { ...currentBatchEntry.assignedSkus, [id]: nextSku }
-        },
-        group,
-        approvedItem
-      ).catch((error) => {
-        console.error("[ACV Photo Intake] Supabase approval sync failed", error);
-      });
       setStatusMessage(`Approved to Inventory: ${nextSku}.${nextId ? ` Next group: ${nextId}.` : " Batch review complete."}`);
+      logIntakeDev("Approve completed", { ...actionContext, assignedSku: nextSku, nextGroupId: nextId || null });
       return nextId;
     } catch (error) {
-      console.error("[ACV Photo Intake] Approval transition failed", error);
+      logIntakeException("approve transition", error, actionContext);
       setDrawerGroupId(null);
-      setStatusMessage(`${id} was saved locally, but the drawer transition hit an error. Reopen the batch to continue.`);
+      setStatusMessage(`${id} could not finish the approval transition. The drawer was closed safely; refresh Intake if needed.`);
       return null;
+    } finally {
+      setProcessingAction((current) => (current?.type === "approve" && current.groupId === id ? null : current));
     }
   }
 
-  function sendToResearch(id: string) {
+  async function sendToResearch(id: string) {
+    const actionContext = {
+      actionType: "research",
+      batchId: currentBatchEntry.batchId,
+      selectedGroupId,
+      drawerGroupId,
+      groupId: id
+    };
+    setProcessingAction({ type: "research", groupId: id });
+
     try {
       const group = groups.find((item) => item.id === id);
+      if (!group) {
+        setDrawerGroupId(null);
+        setStatusMessage(`${id} is no longer in the active intake queue.`);
+        return;
+      }
+
+      const researchEntry = {
+        ...currentBatchEntry,
+        researchIds: Array.from(new Set([...currentBatchEntry.researchIds, id])),
+        approvedIds: currentBatchEntry.approvedIds.filter((groupId) => groupId !== id),
+        rejectedIds: currentBatchEntry.rejectedIds.filter((groupId) => groupId !== id)
+      };
+      await updateGroupStatusInBackend(researchEntry, group, "Needs Research");
+
       setResearchIds((current) => new Set(current).add(id));
       setApprovedIds((current) => {
         const next = new Set(current);
@@ -1700,31 +1884,46 @@ export default function PhotoIntakePage() {
         next.delete(id);
         return next;
       });
-      if (group) {
-        void updateGroupStatusInBackend(
-          {
-            ...currentBatchEntry,
-            researchIds: Array.from(new Set([...currentBatchEntry.researchIds, id])),
-            approvedIds: currentBatchEntry.approvedIds.filter((groupId) => groupId !== id),
-            rejectedIds: currentBatchEntry.rejectedIds.filter((groupId) => groupId !== id)
-          },
-          group,
-          "Needs Research"
-        ).catch((error) => {
-          console.error("[ACV Photo Intake] Supabase research sync failed", error);
-        });
-      }
-      setStatusMessage(`${id} sent to research in local state.`);
-    } catch (error) {
-      console.error("[ACV Photo Intake] Research transition failed", error);
       setDrawerGroupId(null);
-      setStatusMessage(`${id} was marked for research locally, but the drawer transition hit an error.`);
+      setStatusMessage(`${id} sent to research.`);
+      logIntakeDev("Research completed", actionContext);
+    } catch (error) {
+      logIntakeException("research transition", error, actionContext);
+      setDrawerGroupId(null);
+      setStatusMessage(`${id} could not finish the research transition. The drawer was closed safely.`);
+    } finally {
+      setProcessingAction((current) => (current?.type === "research" && current.groupId === id ? null : current));
     }
   }
 
-  function rejectGroup(id: string, keepDrawerOpen = false) {
+  async function rejectGroup(id: string, keepDrawerOpen = false) {
+    const actionContext = {
+      actionType: "reject",
+      batchId: currentBatchEntry.batchId,
+      selectedGroupId,
+      drawerGroupId,
+      groupId: id
+    };
+    setProcessingAction({ type: "reject", groupId: id });
+
     try {
       const group = groups.find((item) => item.id === id);
+      if (!group) {
+        setDrawerGroupId(null);
+        setStatusMessage(`${id} is no longer in the active intake queue.`);
+        return null;
+      }
+
+      const rejectedEntry = {
+        ...currentBatchEntry,
+        rejected: rejectedIds.has(id) ? rejectedIds.size : rejectedIds.size + 1,
+        remaining: Math.max(0, currentBatchEntry.remaining - 1),
+        rejectedIds: Array.from(new Set([...currentBatchEntry.rejectedIds, id])),
+        approvedIds: currentBatchEntry.approvedIds.filter((groupId) => groupId !== id),
+        researchIds: currentBatchEntry.researchIds.filter((groupId) => groupId !== id)
+      };
+      await updateGroupStatusInBackend(rejectedEntry, group, "Rejected");
+
       setRejectedIds((current) => new Set(current).add(id));
       setApprovedIds((current) => {
         const next = new Set(current);
@@ -1736,30 +1935,18 @@ export default function PhotoIntakePage() {
         next.delete(id);
         return next;
       });
+
       const nextId = advanceAfterProcessed(id, keepDrawerOpen);
-      if (group) {
-        void updateGroupStatusInBackend(
-          {
-            ...currentBatchEntry,
-            rejected: rejectedIds.has(id) ? rejectedIds.size : rejectedIds.size + 1,
-            remaining: Math.max(0, currentBatchEntry.remaining - 1),
-            rejectedIds: Array.from(new Set([...currentBatchEntry.rejectedIds, id])),
-            approvedIds: currentBatchEntry.approvedIds.filter((groupId) => groupId !== id),
-            researchIds: currentBatchEntry.researchIds.filter((groupId) => groupId !== id)
-          },
-          group,
-          "Rejected"
-        ).catch((error) => {
-          console.error("[ACV Photo Intake] Supabase rejection sync failed", error);
-        });
-      }
-      setStatusMessage(`${id} rejected locally.${nextId ? ` Next group: ${nextId}.` : " Batch review complete."}`);
+      setStatusMessage(`${id} rejected.${nextId ? ` Next group: ${nextId}.` : " Batch review complete."}`);
+      logIntakeDev("Reject completed", { ...actionContext, nextGroupId: nextId || null });
       return nextId;
     } catch (error) {
-      console.error("[ACV Photo Intake] Rejection transition failed", error);
+      logIntakeException("reject transition", error, actionContext);
       setDrawerGroupId(null);
-      setStatusMessage(`${id} was rejected locally, but the drawer transition hit an error. Reopen the batch to continue.`);
+      setStatusMessage(`${id} could not finish the rejection transition. The drawer was closed safely.`);
       return null;
+    } finally {
+      setProcessingAction((current) => (current?.type === "reject" && current.groupId === id ? null : current));
     }
   }
 
@@ -1783,14 +1970,14 @@ export default function PhotoIntakePage() {
 
   function updateImageRole(groupId: string, imageId: string, role: ImageRole) {
     updateGroup(groupId, (group) => {
-      const nextGroup = { ...group, images: group.images.map((image) => (image.id === imageId ? { ...image, role } : image)) };
+      const nextGroup = { ...group, images: safeImages(group).map((image) => (image.id === imageId ? { ...image, role } : image)) };
       return { ...nextGroup, pairingStatus: pairingStatusForGroup(nextGroup) };
     });
   }
 
   function setImageRoleExclusive(groupId: string, imageId: string, role: ImageRole) {
     updateGroup(groupId, (group) => {
-      const images: IntakeImage[] = group.images.map((image) => {
+      const images: IntakeImage[] = safeImages(group).map((image) => {
         if (image.id === imageId) return { ...image, role };
         if (role === "Front" && image.role === "Front") return { ...image, role: "Detail / Closeup" };
         if (role === "Back" && image.role === "Back") return { ...image, role: "Detail / Closeup" };
@@ -1806,7 +1993,7 @@ export default function PhotoIntakePage() {
 
   function swapFrontBack(groupId: string) {
     updateGroup(groupId, (group) => {
-      const images: IntakeImage[] = group.images.map((image) =>
+      const images: IntakeImage[] = safeImages(group).map((image) =>
         image.role === "Front" ? { ...image, role: "Back" } : image.role === "Back" ? { ...image, role: "Front" } : image
       );
       const nextGroup = {
@@ -1820,10 +2007,11 @@ export default function PhotoIntakePage() {
 
   function moveImage(groupId: string, imageId: string, direction: -1 | 1) {
     updateGroup(groupId, (group) => {
-      const index = group.images.findIndex((image) => image.id === imageId);
+      const currentImages = safeImages(group);
+      const index = currentImages.findIndex((image) => image.id === imageId);
       const target = index + direction;
-      if (index < 0 || target < 0 || target >= group.images.length) return group;
-      const images = [...group.images];
+      if (index < 0 || target < 0 || target >= currentImages.length) return group;
+      const images = [...currentImages];
       const [moved] = images.splice(index, 1);
       images.splice(target, 0, moved);
       return { ...group, images };
@@ -1831,7 +2019,7 @@ export default function PhotoIntakePage() {
   }
 
   function updateProposed<K extends keyof ProposedRecord>(groupId: string, key: K, value: ProposedRecord[K]) {
-    updateGroup(groupId, (group) => ({ ...group, proposed: { ...group.proposed, [key]: value } }));
+    updateGroup(groupId, (group) => ({ ...group, proposed: { ...safeProposed(group), [key]: value } }));
   }
 
   function updateConfidence(groupId: string, confidence: number) {
@@ -1849,10 +2037,12 @@ export default function PhotoIntakePage() {
       aiExtraction: defaultAiExtraction()
     }));
     try {
-      console.info("[ACV Photo Intake] Run AI Extraction", {
+      const groupImages = safeImages(group);
+      const proposed = safeProposed(group);
+      logIntakeDev("Run AI Extraction", {
         batchId: currentBatchEntry.batchId,
         groupId: group.id,
-        images: group.images.map((image) => ({
+        images: groupImages.map((image) => ({
           id: image.id,
           fileName: image.fileName,
           role: image.role,
@@ -1862,12 +2052,12 @@ export default function PhotoIntakePage() {
         }))
       });
       const result = await extractCardFromImagesViaApi({
-        images: group.images,
-        imageRoles: group.images.map((image) => ({ id: image.id, role: image.role })),
+        images: groupImages,
+        imageRoles: groupImages.map((image) => ({ id: image.id, role: image.role })),
         batchId: currentBatchEntry.batchId,
         groupId: group.id,
-        categoryHint: group.proposed.category,
-        existingValues: group.proposed
+        categoryHint: proposed.category,
+        existingValues: proposed
       });
       updateGroup(groupId, (currentGroup) => ({
         ...currentGroup,
@@ -1886,7 +2076,7 @@ export default function PhotoIntakePage() {
           providerDiagnostics: result.providerDiagnostics
         }
       }));
-      console.info("[ACV Photo Intake] AI Extraction Result", {
+      logIntakeDev("AI Extraction Result", {
         batchId: currentBatchEntry.batchId,
         groupId: group.id,
         status: result.status,
@@ -1944,7 +2134,7 @@ export default function PhotoIntakePage() {
     const group = groups.find((item) => item.id === groupId);
     if (!group) return;
 
-    const title = previewTitle || marketplaceTitleForRecord(group.proposed, group.aiExtraction?.catalogDiagnostics).ebayTitle;
+    const title = previewTitle || marketplaceTitleForRecord(safeProposed(group), group.aiExtraction?.catalogDiagnostics).ebayTitle;
     if (!hasFieldValue(title)) {
       setStatusMessage(`${groupId} does not have a usable suggested title yet.`);
       return;
@@ -2242,8 +2432,11 @@ export default function PhotoIntakePage() {
                     const aiStatus = aiStatusForGroup(group);
                     const isSelected = selectedGroup?.id === group.id;
                     const warnings = warningsForGroup(group);
-                    const frontImage = group.images.find((image) => image.role === "Front");
-                    const backImage = group.images.find((image) => image.role === "Back");
+                    const groupImages = safeImages(group);
+                    const proposed = safeProposed(group);
+                    const confidence = safeConfidence(group);
+                    const frontImage = groupImages.find((image) => image.role === "Front");
+                    const backImage = groupImages.find((image) => image.role === "Back");
                     return (
                       <article
                         key={group.id}
@@ -2260,11 +2453,11 @@ export default function PhotoIntakePage() {
                           <div className="mb-3 flex min-w-0 items-start justify-between gap-2">
                             <div className="min-w-0">
                               <p className="truncate text-xs font-semibold text-acv-text">{group.pairingStatus}</p>
-                              <p className="mt-0.5 truncate text-[11px] text-acv-muted">{group.proposed.cardName}</p>
+                              <p className="mt-0.5 truncate text-[11px] text-acv-muted">{proposed.cardName}</p>
                             </div>
                             <div className="flex shrink-0 flex-col items-end gap-1">
                               <StatusPill tone={toneForStatus(routeStatus)}>{routeStatus}</StatusPill>
-                              <StatusPill tone={confidenceTone(group.confidence)}>{group.confidence}%</StatusPill>
+                              <StatusPill tone={confidenceTone(confidence)}>{confidence}%</StatusPill>
                               <StatusPill tone={toneForAiStatus(aiStatus)}>AI: {aiStatus}</StatusPill>
                             </div>
                           </div>
@@ -2289,8 +2482,8 @@ export default function PhotoIntakePage() {
                           <MiniButton tone="teal" icon={<FileSearch className="h-3.5 w-3.5" />} onClick={() => openGroup(group)}>
                             Review
                           </MiniButton>
-                          <MiniButton onClick={() => group.images[0] && setImageRoleExclusive(group.id, group.images[0].id, "Front")}>Set front</MiniButton>
-                          <MiniButton onClick={() => group.images[group.images.length - 1] && setImageRoleExclusive(group.id, group.images[group.images.length - 1].id, "Back")}>Set back</MiniButton>
+                          <MiniButton onClick={() => groupImages[0] && setImageRoleExclusive(group.id, groupImages[0].id, "Front")}>Set front</MiniButton>
+                          <MiniButton onClick={() => groupImages[groupImages.length - 1] && setImageRoleExclusive(group.id, groupImages[groupImages.length - 1].id, "Back")}>Set back</MiniButton>
                         </div>
                         <div className="mt-2 flex flex-wrap gap-1.5">
                           <MiniButton icon={<ImagePlus className="h-3.5 w-3.5" />}>Add closeup</MiniButton>
@@ -2312,34 +2505,34 @@ export default function PhotoIntakePage() {
                 <>
                   <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                     <StatusPill tone={toneForStatus(statusForGroup(selectedGroup))}>{statusForGroup(selectedGroup)}</StatusPill>
-                    <StatusPill tone={confidenceTone(selectedGroup.confidence)}>{selectedGroup.confidence}% confidence</StatusPill>
+                    <StatusPill tone={confidenceTone(safeConfidence(selectedGroup))}>{safeConfidence(selectedGroup)}% confidence</StatusPill>
                     <StatusPill tone={toneForAiStatus(aiStatusForGroup(selectedGroup))}>AI: {aiStatusForGroup(selectedGroup)}</StatusPill>
                   </div>
                   <div className="grid min-w-0 gap-2 sm:grid-cols-2">
-                    <FieldRow label="Proposed card name" value={selectedGroup.proposed.cardName} tone="gold" />
+                    <FieldRow label="Proposed card name" value={safeProposed(selectedGroup).cardName} tone="gold" />
                     <FieldRow label="AI suggested title" value={selectedGroup.aiExtraction?.suggestedTitle || "Not generated"} tone={selectedGroup.aiExtraction?.suggestedTitle ? "teal" : undefined} />
-                    <FieldRow label="Player / Character" value={selectedGroup.proposed.playerCharacter} />
-                    <FieldRow label="Team" value={selectedGroup.proposed.team} />
-                    <FieldRow label="Sport / Category" value={selectedGroup.proposed.category} />
-                    <FieldRow label="Year" value={selectedGroup.proposed.year} />
-                    <FieldRow label="Brand" value={selectedGroup.proposed.brand} />
-                    <FieldRow label="Set" value={selectedGroup.proposed.set} />
-                    <FieldRow label="Card Number" value={selectedGroup.proposed.cardNumber} />
-                    <FieldRow label="Parallel" value={selectedGroup.proposed.parallel} />
-                    <FieldRow label="Serial Number" value={selectedGroup.proposed.serialNumber} />
-                    <FieldRow label="Rookie Flag" value={flagLabel(selectedGroup.proposed.rookieFlag)} tone={selectedGroup.proposed.rookieFlag ? "teal" : undefined} />
-                    <FieldRow label="Auto Flag" value={flagLabel(selectedGroup.proposed.autoFlag)} />
-                    <FieldRow label="Relic Flag" value={flagLabel(selectedGroup.proposed.relicFlag)} />
-                    <FieldRow label="Variation Flag" value={flagLabel(selectedGroup.proposed.variationFlag)} tone={selectedGroup.proposed.variationFlag ? "gold" : undefined} />
+                    <FieldRow label="Player / Character" value={safeProposed(selectedGroup).playerCharacter} />
+                    <FieldRow label="Team" value={safeProposed(selectedGroup).team} />
+                    <FieldRow label="Sport / Category" value={safeProposed(selectedGroup).category} />
+                    <FieldRow label="Year" value={safeProposed(selectedGroup).year} />
+                    <FieldRow label="Brand" value={safeProposed(selectedGroup).brand} />
+                    <FieldRow label="Set" value={safeProposed(selectedGroup).set} />
+                    <FieldRow label="Card Number" value={safeProposed(selectedGroup).cardNumber} />
+                    <FieldRow label="Parallel" value={safeProposed(selectedGroup).parallel} />
+                    <FieldRow label="Serial Number" value={safeProposed(selectedGroup).serialNumber} />
+                    <FieldRow label="Rookie Flag" value={flagLabel(safeProposed(selectedGroup).rookieFlag)} tone={safeProposed(selectedGroup).rookieFlag ? "teal" : undefined} />
+                    <FieldRow label="Auto Flag" value={flagLabel(safeProposed(selectedGroup).autoFlag)} />
+                    <FieldRow label="Relic Flag" value={flagLabel(safeProposed(selectedGroup).relicFlag)} />
+                    <FieldRow label="Variation Flag" value={flagLabel(safeProposed(selectedGroup).variationFlag)} tone={safeProposed(selectedGroup).variationFlag ? "gold" : undefined} />
                   </div>
                   <div className="mt-3 space-y-2">
                     <div className="rounded-md border border-acv-border bg-acv-panel2 p-3 text-xs leading-5 text-acv-text">
                       <span className="font-semibold text-acv-muted">Condition notes: </span>
-                      {selectedGroup.proposed.conditionNotes}
+                      {safeProposed(selectedGroup).conditionNotes}
                     </div>
                     <div className="rounded-md border border-acv-border bg-acv-panel2 p-3 text-xs leading-5 text-acv-text">
                       <span className="font-semibold text-acv-muted">Uncertainty notes: </span>
-                      {selectedGroup.proposed.uncertaintyNotes}
+                      {safeProposed(selectedGroup).uncertaintyNotes}
                     </div>
                   </div>
                 </>
@@ -2411,11 +2604,11 @@ export default function PhotoIntakePage() {
               {
                 key: "front",
                 header: "Front",
-                cell: (group) => <ImagePlaceholder image={group.images.find((image) => image.role === "Front")} emptyLabel="Front" compact />
+                cell: (group) => <ImagePlaceholder image={safeImages(group).find((image) => image.role === "Front")} emptyLabel="Front" compact />
               },
-              { key: "item", header: "Proposed Item", className: "min-w-56", cell: (group) => <span className="font-semibold text-acv-text">{group.proposed.cardName}</span> },
-              { key: "category", header: "Category", cell: (group) => <StatusPill tone="purple">{group.proposed.category}</StatusPill> },
-              { key: "confidence", header: "Confidence", cell: (group) => <span className={cn("font-semibold", group.confidence >= 90 ? "text-acv-teal" : group.confidence >= 70 ? "text-acv-gold" : "text-acv-pink")}>{group.confidence}%</span> },
+              { key: "item", header: "Proposed Item", className: "min-w-56", cell: (group) => <span className="font-semibold text-acv-text">{safeProposed(group).cardName}</span> },
+              { key: "category", header: "Category", cell: (group) => <StatusPill tone="purple">{safeProposed(group).category}</StatusPill> },
+              { key: "confidence", header: "Confidence", cell: (group) => <span className={cn("font-semibold", safeConfidence(group) >= 90 ? "text-acv-teal" : safeConfidence(group) >= 70 ? "text-acv-gold" : "text-acv-pink")}>{safeConfidence(group)}%</span> },
               { key: "aiStatus", header: "AI Status", cell: (group) => <StatusPill tone={toneForAiStatus(aiStatusForGroup(group))}>{aiStatusForGroup(group)}</StatusPill> },
               { key: "status", header: "Status", cell: (group) => <StatusPill tone={toneForStatus(queueStatus(group))}>{queueStatus(group)}</StatusPill> },
               {
@@ -2452,7 +2645,7 @@ export default function PhotoIntakePage() {
                         disabled={isApproved || isRejected}
                         onClick={(event) => {
                           event.stopPropagation();
-                          approveGroup(group.id);
+                          void approveGroup(group.id);
                         }}
                       >
                         {isApproved ? "Approved" : "Approve to Inventory"}
@@ -2462,7 +2655,7 @@ export default function PhotoIntakePage() {
                         disabled={isApproved || isRejected}
                         onClick={(event) => {
                           event.stopPropagation();
-                          sendToResearch(group.id);
+                          void sendToResearch(group.id);
                         }}
                       >
                         Needs Research
@@ -2473,7 +2666,7 @@ export default function PhotoIntakePage() {
                         onClick={(event) => {
                           event.stopPropagation();
                           if (isRejected) undoRejectGroup(group.id);
-                          else rejectGroup(group.id);
+                          else void rejectGroup(group.id);
                         }}
                       >
                         {isRejected ? "Undo Reject" : "Reject"}
@@ -2534,40 +2727,57 @@ export default function PhotoIntakePage() {
       {showBatchHistory && <BatchHistoryModal currentBatch={currentBatchEntry} batches={batchHistory} onClose={() => setShowBatchHistory(false)} onRestore={restoreHistoryBatch} />}
 
       {drawerGroup && (
-        <ReviewDrawer
-          group={drawerGroup}
-          skuStatus={skuStatusForGroup(drawerGroup)}
-          assignedSku={assignedSkuForGroup(drawerGroup)}
-          isApproved={approvedIds.has(drawerGroup.id)}
-          isRejected={rejectedIds.has(drawerGroup.id)}
-          isResearch={researchIds.has(drawerGroup.id)}
-          isExtracting={extractingGroupId === drawerGroup.id}
+        <ReviewDrawerErrorBoundary
+          key={drawerGroup.id}
+          context={{
+            batchId,
+            selectedGroupId,
+            drawerGroupId,
+            groupId: drawerGroup.id,
+            processingAction: processingAction?.type || null
+          }}
           onClose={() => setDrawerGroupId(null)}
-          onSave={saveGroup}
-          onSwapFrontBack={swapFrontBack}
-          onRoleChange={updateImageRole}
-          onSetImageRole={setImageRoleExclusive}
-          onMoveImage={moveImage}
-          onUpdateProposed={updateProposed}
-          onUpdateConfidence={updateConfidence}
-          onRunExtraction={runAiExtraction}
-          onClearExtraction={clearAiExtraction}
-          onApplyAiSuggestion={applyAiSuggestion}
-          onApplySuggestedTitle={applySuggestedTitle}
-          onApprove={(id) => {
-            approveGroup(id, true);
-          }}
-          onResearch={(id) => {
-            sendToResearch(id);
+          onRefresh={() => {
             setDrawerGroupId(null);
+            setSelectedGroupId(activeReviewGroups[0]?.id || "");
+            setStatusMessage("Photo Intake review reset safely. Select a group to continue.");
           }}
-          onReject={(id) => {
-            rejectGroup(id, true);
-          }}
-          onUndoReject={(id) => {
-            undoRejectGroup(id);
-          }}
-        />
+        >
+          <ReviewDrawer
+            group={drawerGroup}
+            skuStatus={skuStatusForGroup(drawerGroup)}
+            assignedSku={assignedSkuForGroup(drawerGroup)}
+            isApproved={approvedIds.has(drawerGroup.id)}
+            isRejected={rejectedIds.has(drawerGroup.id)}
+            isResearch={researchIds.has(drawerGroup.id)}
+            isExtracting={extractingGroupId === drawerGroup.id}
+            isProcessingAction={processingAction?.groupId === drawerGroup.id}
+            onClose={() => setDrawerGroupId(null)}
+            onSave={saveGroup}
+            onSwapFrontBack={swapFrontBack}
+            onRoleChange={updateImageRole}
+            onSetImageRole={setImageRoleExclusive}
+            onMoveImage={moveImage}
+            onUpdateProposed={updateProposed}
+            onUpdateConfidence={updateConfidence}
+            onRunExtraction={runAiExtraction}
+            onClearExtraction={clearAiExtraction}
+            onApplyAiSuggestion={applyAiSuggestion}
+            onApplySuggestedTitle={applySuggestedTitle}
+            onApprove={(id) => {
+              void approveGroup(id, true);
+            }}
+            onResearch={(id) => {
+              void sendToResearch(id);
+            }}
+            onReject={(id) => {
+              void rejectGroup(id, true);
+            }}
+            onUndoReject={(id) => {
+              undoRejectGroup(id);
+            }}
+          />
+        </ReviewDrawerErrorBoundary>
       )}
     </>
   );
