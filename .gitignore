@@ -8,3 +8,9 @@ dist/
 coverage/
 *.log
 tsconfig.tsbuildinfo
+
+# Sports Catalog Builder generated local artifacts
+data/imports/sports-checklists/raw/
+data/imports/sports-checklists/normalized/
+data/imports/sports-checklists/logs/
+data/imports/sports-checklists/discovered-urls/checklist-url-candidates.json
