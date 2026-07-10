@@ -1,13 +1,16 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Check, ExternalLink, RefreshCcw, TrendingDown, TrendingUp, X } from "lucide-react";
 import { ActionButton } from "@/components/action-button";
 import { PageHeader } from "@/components/page-header";
 import { SectionCard } from "@/components/section-card";
 import { StatusPill } from "@/components/status-pill";
 import { pricingActiveListings, pricingSoldComps } from "@/data/mock";
+import { useAcvLocalState, type ApprovedInventoryItem } from "@/lib/acv-local-state";
+import { buildPricingRecommendation, type ManualPricingInput, type PricingRecommendation, type UniversalCardPricingProfile } from "@/lib/pricing";
+import { loadPricingSummaryBySku, savePricingRecommendation } from "@/lib/supabase/pricing";
 import { cn, formatCurrency, formatPercent } from "@/lib/utils";
 
 type SoldCompRow = (typeof pricingSoldComps)[number];
@@ -31,6 +34,45 @@ const soldSaleTypeOptions = ["All", "Auction", "Buy It Now", "Best Offer"];
 const activeListingTypeOptions = ["All", "BIN", "Auction", "Best Offer"];
 const priceRangeOptions = ["All", "Under Market", "Near Market", "Over Market"];
 const chartRangeOptions = ["7", "14", "30", "60", "90", "180", "365"];
+
+const fallbackPricingProfile: UniversalCardPricingProfile = {
+  sku: "ACV-NFL-000421",
+  cardTitle: "2023 Prizm CJ Stroud Silver Rookie",
+  playerOrCharacter: "CJ Stroud",
+  team: "Houston Texans",
+  sportCategory: "Football",
+  year: "2023",
+  brand: "Panini",
+  setName: "Prizm",
+  cardNumber: "339",
+  parallel: "Silver",
+  rookie: true,
+  grader: "Raw",
+  grade: "Raw"
+};
+
+function profileFromApprovedItem(item?: ApprovedInventoryItem): UniversalCardPricingProfile {
+  if (!item) return fallbackPricingProfile;
+
+  return {
+    sku: item.sku,
+    cardTitle: item.proposed.cardName || "Untitled card",
+    playerOrCharacter: item.proposed.playerCharacter,
+    team: item.proposed.team,
+    sportCategory: item.proposed.category,
+    year: item.proposed.year,
+    brand: item.proposed.brand,
+    setName: item.proposed.set,
+    cardNumber: item.proposed.cardNumber,
+    parallel: item.proposed.parallel,
+    serialNumber: item.proposed.serialNumber,
+    rookie: item.proposed.rookieFlag,
+    auto: item.proposed.autoFlag,
+    relic: item.proposed.relicFlag,
+    grader: item.proposed.grader,
+    grade: item.proposed.grade
+  };
+}
 
 function getMedian(values: number[]) {
   if (values.length === 0) {
@@ -413,7 +455,146 @@ function PricingDetailDrawer({ item, onClose }: { item: PricingDrawerItem; onClo
   );
 }
 
+function ManualNumberInput({
+  label,
+  value,
+  onChange,
+  prefix,
+  suffix,
+  min = 0,
+  max
+}: {
+  label: string;
+  value: number;
+  onChange: (value: number) => void;
+  prefix?: string;
+  suffix?: string;
+  min?: number;
+  max?: number;
+}) {
+  return (
+    <label className="min-w-0 rounded-md border border-acv-border bg-acv-panel2 px-3 py-2">
+      <span className="block truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-acv-muted">{label}</span>
+      <div className="mt-1 flex min-w-0 items-center gap-1 text-sm font-semibold text-acv-text">
+        {prefix && <span className="shrink-0 text-acv-muted">{prefix}</span>}
+        <input
+          type="number"
+          min={min}
+          max={max}
+          step={suffix === "%" ? 1 : 0.01}
+          value={value}
+          onChange={(event) => onChange(Number(event.target.value) || 0)}
+          className="min-w-0 flex-1 bg-transparent outline-none"
+        />
+        {suffix && <span className="shrink-0 text-acv-muted">{suffix}</span>}
+      </div>
+    </label>
+  );
+}
+
+function QueryLine({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 rounded-md border border-acv-border/70 bg-black/25 px-3 py-2">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-acv-muted">{label}</p>
+      <p className="mt-1 break-words text-xs font-semibold text-acv-text">{value || "No query generated yet"}</p>
+    </div>
+  );
+}
+
+function PricingEnginePanel({
+  profile,
+  recommendation,
+  manualInput,
+  onManualInputChange,
+  onSave,
+  saveMessage,
+  isSaving,
+  sourceLabel,
+  lastUpdated
+}: {
+  profile: UniversalCardPricingProfile;
+  recommendation: PricingRecommendation;
+  manualInput: ManualPricingInput;
+  onManualInputChange: (input: ManualPricingInput) => void;
+  onSave: () => void;
+  saveMessage: string;
+  isSaving: boolean;
+  sourceLabel: string;
+  lastUpdated: string;
+}) {
+  return (
+    <SectionCard
+      title="Pricing Engine"
+      eyebrow="Manual evidence / provider-ready"
+      action={<StatusPill tone={sourceLabel === "Universal Card Profile" ? "teal" : "purple"}>{sourceLabel}</StatusPill>}
+    >
+      <div className="space-y-3">
+        <div className="rounded-md border border-acv-border bg-acv-panel2 px-3 py-2">
+          <p className="truncate text-sm font-semibold text-acv-text">{profile.cardTitle}</p>
+          <p className="mt-1 text-xs text-acv-muted">{profile.sku}</p>
+        </div>
+
+        <div className="space-y-2">
+          <QueryLine label="Suggested eBay query" value={recommendation.queries.ebayQuery} />
+          <QueryLine label="Compact query" value={recommendation.queries.compactQuery} />
+        </div>
+
+        <div className="grid min-w-0 gap-2 sm:grid-cols-2">
+          <ManualNumberInput label="Estimated Value" prefix="$" value={manualInput.estimatedValue} onChange={(value) => onManualInputChange({ ...manualInput, estimatedValue: value })} />
+          <ManualNumberInput label="Target Sale Price" prefix="$" value={manualInput.targetSalePrice} onChange={(value) => onManualInputChange({ ...manualInput, targetSalePrice: value })} />
+          <ManualNumberInput label="Floor Price" prefix="$" value={manualInput.floorPrice} onChange={(value) => onManualInputChange({ ...manualInput, floorPrice: value })} />
+          <ManualNumberInput
+            label="Pricing Confidence"
+            suffix="%"
+            min={0}
+            max={100}
+            value={Math.round(manualInput.confidence * 100)}
+            onChange={(value) => onManualInputChange({ ...manualInput, confidence: Math.max(0, Math.min(100, value)) / 100 })}
+          />
+        </div>
+
+        <label className="block rounded-md border border-acv-border bg-acv-panel2 px-3 py-2">
+          <span className="block text-[10px] font-semibold uppercase tracking-[0.12em] text-acv-muted">Manual Notes</span>
+          <textarea
+            value={manualInput.notes}
+            onChange={(event) => onManualInputChange({ ...manualInput, notes: event.target.value })}
+            className="mt-2 min-h-20 w-full resize-y bg-transparent text-xs leading-5 text-acv-text outline-none placeholder:text-acv-muted"
+            placeholder="Add pricing rationale, condition assumptions, or comp notes."
+          />
+        </label>
+
+        <div className="grid grid-cols-2 gap-2 text-xs">
+          <div className="rounded-md border border-acv-border bg-acv-panel2 px-3 py-2">
+            <p className="text-acv-muted">Engine confidence</p>
+            <p className="mt-1 font-semibold text-acv-teal">{formatPercent(recommendation.pricingConfidence)}</p>
+          </div>
+          <div className="rounded-md border border-acv-border bg-acv-panel2 px-3 py-2">
+            <p className="text-acv-muted">Last updated</p>
+            <p className="mt-1 truncate font-semibold text-acv-text">{lastUpdated}</p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={onSave}
+          disabled={isSaving}
+          className="inline-flex h-10 w-full items-center justify-center rounded-md border border-acv-teal/45 bg-acv-teal text-xs font-semibold text-black transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {isSaving ? "Saving..." : "Save Manual Pricing Evidence"}
+        </button>
+
+        {saveMessage && (
+          <p className="rounded-md border border-acv-teal/35 bg-acv-teal/10 px-3 py-2 text-xs font-semibold text-acv-teal">
+            {saveMessage}
+          </p>
+        )}
+      </div>
+    </SectionCard>
+  );
+}
+
 export default function PricingPage() {
+  const { approvedInventory, backendStatus } = useAcvLocalState();
   const [soldDateRange, setSoldDateRange] = useState("90 days");
   const [soldGrader, setSoldGrader] = useState("All");
   const [soldGrade, setSoldGrade] = useState("All");
@@ -423,6 +604,21 @@ export default function PricingPage() {
   const [activeListingType, setActiveListingType] = useState("All");
   const [activePriceRange, setActivePriceRange] = useState("All");
   const [drawerItem, setDrawerItem] = useState<PricingDrawerItem | null>(null);
+  const selectedApprovedItem = approvedInventory[0];
+  const pricingProfile = useMemo(() => profileFromApprovedItem(selectedApprovedItem), [selectedApprovedItem]);
+  const [manualInput, setManualInput] = useState<ManualPricingInput>({
+    estimatedValue: marketEstimate,
+    targetSalePrice: currentAsk,
+    floorPrice: 109.99,
+    notes: "Manual starting estimate. Replace with real comp rationale before publishing.",
+    confidence: pricingConfidence
+  });
+  const [pricingLastUpdated, setPricingLastUpdated] = useState("Not saved");
+  const [pricingSaveMessage, setPricingSaveMessage] = useState("");
+  const [pricingSaving, setPricingSaving] = useState(false);
+  const pricingRecommendation = useMemo(() => buildPricingRecommendation(pricingProfile, manualInput), [manualInput, pricingProfile]);
+  const displayAsk = manualInput.targetSalePrice || currentAsk;
+  const displayMarket = manualInput.estimatedValue || marketEstimate;
   const soldPrices = pricingSoldComps.map((comp) => comp.soldPrice);
   const soldLow = Math.min(...soldPrices);
   const soldMedian = getMedian(soldPrices);
@@ -453,6 +649,64 @@ export default function PricingPage() {
     [activeGrader, activeGrade, activeListingType, activePriceRange]
   );
 
+  useEffect(() => {
+    setPricingSaveMessage("");
+    if (!selectedApprovedItem) return;
+    setManualInput({
+      estimatedValue: marketEstimate,
+      targetSalePrice: currentAsk,
+      floorPrice: 0,
+      notes: "Manual pricing needed for this Universal Card Profile.",
+      confidence: 0.65
+    });
+  }, [selectedApprovedItem]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (backendStatus.connectionState !== "connected" || !pricingProfile.sku) return;
+
+    void loadPricingSummaryBySku(pricingProfile.sku)
+      .then(({ pricing }) => {
+        if (cancelled || !pricing) return;
+        setManualInput((current) => ({
+          ...current,
+          estimatedValue: Number(pricing.market_value) || current.estimatedValue,
+          targetSalePrice: Number(pricing.suggested_price) || current.targetSalePrice,
+          floorPrice: Number((pricing.comp_summary?.floorPrice as number | undefined) || current.floorPrice),
+          notes: Array.isArray(pricing.comp_summary?.notes) ? (pricing.comp_summary.notes as string[]).join(" ") : current.notes,
+          confidence: Number(pricing.pricing_confidence) || current.confidence
+        }));
+        setPricingLastUpdated(pricing.last_priced_at ? new Date(pricing.last_priced_at).toLocaleString() : new Date(pricing.updated_at).toLocaleString());
+      })
+      .catch(() => {
+        if (!cancelled) setPricingSaveMessage("Could not load existing Supabase pricing. Local manual fields remain available.");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [backendStatus.connectionState, pricingProfile.sku]);
+
+  async function saveManualPricingEvidence() {
+    const recommendation = buildPricingRecommendation(pricingProfile, manualInput);
+    setPricingSaving(true);
+    setPricingSaveMessage("");
+
+    try {
+      if (backendStatus.connectionState === "connected") {
+        const result = await savePricingRecommendation(recommendation);
+        setPricingSaveMessage(result.evidenceSaved ? "Manual pricing saved to Supabase with evidence history." : "Manual pricing saved. Evidence history table is not available yet.");
+      } else {
+        setPricingSaveMessage("Manual pricing staged locally. Supabase is not connected.");
+      }
+      setPricingLastUpdated(new Date().toLocaleString());
+    } catch (error) {
+      setPricingSaveMessage(error instanceof Error ? error.message : "Could not save manual pricing evidence.");
+    } finally {
+      setPricingSaving(false);
+    }
+  }
+
   return (
     <>
       <PageHeader
@@ -464,16 +718,16 @@ export default function PricingPage() {
         <div className="min-w-0 space-y-4">
           <SectionCard title="Selected Card" eyebrow="Pricing case">
             <div className="rounded-md border border-acv-border bg-gradient-to-br from-acv-purple/20 via-acv-panel2 to-acv-gold/10 p-4">
-              <p className="text-lg font-semibold text-acv-text">2023 Prizm CJ Stroud Silver Rookie</p>
-              <p className="mt-1 text-xs text-acv-muted">ACV-NFL-000421</p>
+              <p className="text-lg font-semibold text-acv-text">{pricingProfile.cardTitle}</p>
+              <p className="mt-1 text-xs text-acv-muted">{pricingProfile.sku}</p>
               <div className="mt-5 grid grid-cols-2 gap-3">
                 <div>
                   <p className="text-xs text-acv-muted">Current ask</p>
-                  <p className="text-xl font-semibold text-acv-gold">{formatCurrency(currentAsk)}</p>
+                  <p className="text-xl font-semibold text-acv-gold">{formatCurrency(displayAsk)}</p>
                 </div>
                 <div>
                   <p className="text-xs text-acv-muted">Market est.</p>
-                  <p className="text-xl font-semibold text-acv-green">{formatCurrency(marketEstimate)}</p>
+                  <p className="text-xl font-semibold text-acv-green">{formatCurrency(displayMarket)}</p>
                 </div>
                 <div>
                   <p className="text-xs text-acv-muted">Sold low / median / high</p>
@@ -483,7 +737,7 @@ export default function PricingPage() {
                 </div>
                 <div>
                   <p className="text-xs text-acv-muted">Confidence</p>
-                  <p className="text-sm font-semibold text-acv-teal">{formatPercent(pricingConfidence)}</p>
+                  <p className="text-sm font-semibold text-acv-teal">{formatPercent(pricingRecommendation.pricingConfidence)}</p>
                 </div>
               </div>
             </div>
@@ -491,7 +745,7 @@ export default function PricingPage() {
               {[
                 ["Recommendation", "Keep price", "teal"],
                 ["Source mix", sourceMix, "purple"],
-                ["Last updated", "Mock timestamp", "gold"]
+                ["Last updated", pricingLastUpdated, "gold"]
               ].map(([label, value, tone]) => (
                 <div key={label} className="flex items-center justify-between gap-3 rounded-md border border-acv-border bg-acv-panel2 px-3 py-2 text-xs">
                   <span className="shrink-0 text-acv-muted">{label}</span>
@@ -502,6 +756,18 @@ export default function PricingPage() {
               ))}
             </div>
           </SectionCard>
+
+          <PricingEnginePanel
+            profile={pricingProfile}
+            recommendation={pricingRecommendation}
+            manualInput={manualInput}
+            onManualInputChange={setManualInput}
+            onSave={saveManualPricingEvidence}
+            saveMessage={pricingSaveMessage}
+            isSaving={pricingSaving}
+            sourceLabel={selectedApprovedItem ? "Universal Card Profile" : "Mock fallback"}
+            lastUpdated={pricingLastUpdated}
+          />
 
           <SectionCard title="AI Recommendation">
             <div className="flex items-start gap-3">

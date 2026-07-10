@@ -70,6 +70,41 @@ export type InventoryRow = {
   deleted_at: string | null;
 };
 
+export type PricingRow = {
+  id: string;
+  user_id: string;
+  universal_card_profile_id: string;
+  market_value: number;
+  sold_median: number;
+  active_low: number;
+  suggested_price: number;
+  pricing_confidence: number | null;
+  comp_summary: Record<string, unknown>;
+  last_priced_at: string | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+};
+
+export type PricingEvidenceRow = {
+  id: string;
+  user_id: string;
+  universal_card_profile_id: string;
+  pricing_id: string | null;
+  provider: string;
+  evidence_type: string;
+  label: string;
+  value: number | null;
+  query: string | null;
+  url: string | null;
+  notes: string | null;
+  confidence: number | null;
+  evidence_payload: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+};
+
 export type ImageRow = {
   id: string;
   user_id: string;

@@ -5,6 +5,7 @@ Phase 2 uses version-controlled SQL migrations as the source of truth for databa
 Run migrations against each Supabase project before enabling production persistence:
 
 - `supabase/migrations/202607070001_acv_os_phase2_schema.sql`
+- `supabase/migrations/202607100001_pricing_engine_v1.sql`
 
 The migration creates:
 
@@ -14,6 +15,7 @@ The migration creates:
 - Useful workflow indexes
 - Storage buckets: `temp-intake`, `inventory-images`, `listing-images`
 - Permissive no-auth storage policies for the current pre-auth phase
+- Pricing Engine v1 evidence/history attached to Universal Card Profiles
 
 ACV currently uses only:
 
