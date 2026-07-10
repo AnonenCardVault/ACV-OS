@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Archive,
   CheckCircle2,
@@ -23,12 +23,33 @@ import {
 import { ActionButton } from "@/components/action-button";
 import { DataTable } from "@/components/data-table";
 import { StatusPill } from "@/components/status-pill";
-import { inventoryItems } from "@/data/mock";
 import { approvedInventoryIdentity, useAcvLocalState, type ApprovedInventoryItem, type IntakeImage, type ProposedRecord } from "@/lib/acv-local-state";
-import { archiveApprovedInventoryItemById, loadApprovedInventoryFromSupabase, saveApprovedInventoryItemChanges, softDeleteApprovedInventoryItemById } from "@/lib/supabase/cards";
+import { archiveApprovedInventoryItemById, loadApprovedInventoryFromSupabase, loadArchivedApprovedInventoryFromSupabase, restoreApprovedInventoryItemById, saveApprovedInventoryItemChanges, softDeleteApprovedInventoryItemById } from "@/lib/supabase/cards";
 import { cn, formatCurrency, formatPercent } from "@/lib/utils";
 
-type InventoryItem = (typeof inventoryItems)[number];
+type InventoryItem = {
+  id: string;
+  sku: string;
+  name: string;
+  category: string;
+  year: string;
+  brandSet: string;
+  parallel: string;
+  cardNumber: string;
+  serialNumber: string;
+  status: string;
+  location: string;
+  purchaseCost: number;
+  askingPrice: number | null;
+  marketValue: number | null;
+  quantity: number;
+  source: string;
+  ebayId: string;
+  daysListed: number | null;
+  aiConfidence: number;
+  lastUpdated: string;
+  notes: string;
+};
 type ViewMode = "Listings" | "Drafts" | "Unlisted / Inactive" | "All Inventory";
 type ListingSubTab = "All Listings" | "BIN" | "Auctions";
 type ConfidenceBand = "Low" | "Medium" | "High";
@@ -61,7 +82,7 @@ type Row = InventoryItem & {
   inventoryId?: string;
   profileId?: string;
   intakeGroupId?: string;
-  recordSource?: "mock" | "supabase" | "local";
+  recordSource?: "supabase";
   localImages?: IntakeImage[];
   localPrimaryImageUrl?: string;
   localNeedsImageReupload?: boolean;
@@ -79,10 +100,10 @@ type InventoryOps = {
   listingType: "BIN" | "Auction" | "None";
   listingStatus: string;
   platform?: string;
-  views: number;
-  watchers: number;
-  soldMedian: number;
-  activeLow: number;
+  views: number | null;
+  watchers: number | null;
+  soldMedian: number | null;
+  activeLow: number | null;
   currentBid?: number;
   bids?: number;
   auctionEndDate?: string;
@@ -128,301 +149,35 @@ const optionalDataColumns: Array<{ key: DataColumnKey; label: string }> = [
   { key: "shippingMethod", label: "Shipping method" }
 ];
 
-const opsBySku: Record<string, InventoryOps> = {
-  "ACV-NFL-000421": {
-    playerCharacter: "CJ Stroud",
-    team: "Houston Texans",
-    autoRelicFlags: "No auto / no relic",
-    conditionNotes: "Clean front, minor edge review complete.",
-    platform: "eBay",
-    listingType: "BIN",
-    listingStatus: "Active",
-    views: 214,
-    watchers: 18,
-    soldMedian: 122.5,
-    activeLow: 109.99,
-    lastCompUpdate: "Jul 05",
-    lastPriceChange: "Jul 03",
-    promotionPct: 2,
-    offers: 3,
-    shippingMethod: "Standard envelope",
-    driftStatus: "In sync",
-    draftSource: "None",
-    titleStatus: "Approved",
-    descriptionStatus: "Approved",
-    photoStatus: "Reviewed",
-    priceStatus: "Approved",
-    suggestedPrice: 129.99,
-    nextAction: "Monitor watchers",
-    compSummary: "Median sold $122.50, active low $109.99, current ask supported by watchers.",
-    skuHistory: ["Created ACV-NFL-000421", "Pushed custom label mock", "No duplicate detected"],
-    lifecycleTimeline: ["Photo intake approved", "Priced", "Draft approved", "Listed"],
-    auditHistory: ["Price reviewed Jul 05", "SKU validated Jul 05"]
-  },
-  "ACV-POK-000382": {
-    playerCharacter: "Charizard",
-    team: "Pokemon",
-    autoRelicFlags: "No auto / no relic",
-    conditionNotes: "Back image and condition notes required before listing.",
-    listingType: "None",
-    listingStatus: "Internal",
-    views: 0,
-    watchers: 0,
-    soldMedian: 342,
-    activeLow: 318,
-    driftStatus: "Not listed",
-    draftSource: "None",
-    titleStatus: "Needs Review",
-    descriptionStatus: "Generated",
-    photoStatus: "Missing Back",
-    priceStatus: "Needs Comps",
-    suggestedPrice: 379.99,
-    nextAction: "Send to pricing",
-    compSummary: "Vintage comps vary by condition. Manual condition review required.",
-    skuHistory: ["Created ACV-POK-000382", "Uniqueness check passed"],
-    lifecycleTimeline: ["Manual intake", "Needs pricing", "Condition review pending"],
-    auditHistory: ["Condition warning added Jul 05"]
-  },
-  "ACV-NBA-000511": {
-    playerCharacter: "Anthony Edwards",
-    team: "Minnesota Timberwolves",
-    autoRelicFlags: "No auto / no relic",
-    conditionNotes: "Photos reviewed. Ready for listing QA.",
-    listingType: "None",
-    listingStatus: "Draft",
-    views: 0,
-    watchers: 0,
-    soldMedian: 48,
-    activeLow: 44.99,
-    driftStatus: "Draft",
-    draftSource: "ACV Draft",
-    titleStatus: "Generated",
-    descriptionStatus: "Generated",
-    photoStatus: "Reviewed",
-    priceStatus: "Suggested",
-    suggestedPrice: 54.99,
-    nextAction: "Review draft",
-    compSummary: "Market estimate $49 with a $54.99 suggested ask.",
-    skuHistory: ["Created ACV-NBA-000511", "Draft queued"],
-    lifecycleTimeline: ["Photo reviewed", "Price suggested", "Draft ready"],
-    auditHistory: ["Draft generated Jul 05"]
-  },
-  "ACV-MLB-000301": {
-    playerCharacter: "Shohei Ohtani",
-    team: "Los Angeles Angels",
-    autoRelicFlags: "No auto / no relic",
-    conditionNotes: "Quantity 2. Recheck both copies before relist.",
-    lotName: "LOT-EBAY-US1-2018",
-    platform: "eBay",
-    listingType: "Auction",
-    listingStatus: "Active",
-    views: 88,
-    watchers: 9,
-    soldMedian: 67.25,
-    activeLow: 59.99,
-    currentBid: 42,
-    bids: 6,
-    auctionEndDate: "Jul 12, 8:30 PM",
-    lastCompUpdate: "Jul 04",
-    lastPriceChange: "Jun 29",
-    promotionPct: 0,
-    offers: 1,
-    shippingMethod: "BMWT",
-    driftStatus: "Price drift",
-    draftSource: "None",
-    titleStatus: "Approved",
-    descriptionStatus: "Approved",
-    photoStatus: "Reviewed",
-    priceStatus: "Review",
-    suggestedPrice: 19.99,
-    nextAction: "Monitor auction",
-    compSummary: "Auction started at $19.99 and is currently bid to $42.00 with 6 bids.",
-    skuHistory: ["Created ACV-MLB-000301", "Quantity changed to 2", "Price review staged"],
-    lifecycleTimeline: ["Imported lot", "Priced", "Listed", "Stale review"],
-    auditHistory: ["Price drift flagged Jul 04"]
-  },
-  "ACV-TCG-000143": {
-    playerCharacter: "Monkey D. Luffy",
-    team: "Straw Hat Crew",
-    autoRelicFlags: "No auto / no relic",
-    conditionNotes: "Low confidence. Confirm card number, rarity, and condition.",
-    listingType: "None",
-    listingStatus: "Internal",
-    views: 0,
-    watchers: 0,
-    soldMedian: 140,
-    activeLow: 132,
-    driftStatus: "Needs review",
-    draftSource: "None",
-    titleStatus: "Generated",
-    descriptionStatus: "Needs AI",
-    photoStatus: "Needs Review",
-    priceStatus: "Needs Comps",
-    suggestedPrice: 154.99,
-    nextAction: "Review AI match",
-    compSummary: "No reliable price until identification confidence improves.",
-    skuHistory: ["Created ACV-TCG-000143", "AI confidence warning"],
-    lifecycleTimeline: ["Trade intake", "AI staged", "Manual review pending"],
-    auditHistory: ["Low confidence flagged Jul 04"]
-  },
-  "ACV-NFL-000612": {
-    playerCharacter: "Caleb Williams",
-    team: "Chicago Bears",
-    autoRelicFlags: "No auto / no relic",
-    conditionNotes: "Clean card. Confirm team keywords before listing.",
-    listingType: "None",
-    listingStatus: "Draft",
-    views: 0,
-    watchers: 0,
-    soldMedian: 62,
-    activeLow: 58,
-    driftStatus: "Draft",
-    draftSource: "Future eBay Draft",
-    titleStatus: "Generated",
-    descriptionStatus: "Generated",
-    photoStatus: "Reviewed",
-    priceStatus: "Suggested",
-    suggestedPrice: 69.99,
-    nextAction: "Stage draft",
-    compSummary: "Suggested ask $69.99 with active competition near $58.",
-    skuHistory: ["Created ACV-NFL-000612", "Future eBay draft placeholder"],
-    lifecycleTimeline: ["Manual intake", "Draft prepared"],
-    auditHistory: ["Draft shell created Jul 05"]
-  },
-  "ACV-POK-000208": {
-    playerCharacter: "Umbreon",
-    team: "Pokemon",
-    autoRelicFlags: "No auto / no relic",
-    conditionNotes: "Sold. Keep record for reconciliation and shipping.",
-    platform: "eBay",
-    listingType: "BIN",
-    listingStatus: "Sold",
-    views: 141,
-    watchers: 15,
-    soldMedian: 32.5,
-    activeLow: 28.99,
-    driftStatus: "Sold",
-    draftSource: "None",
-    titleStatus: "Approved",
-    descriptionStatus: "Approved",
-    photoStatus: "Reviewed",
-    priceStatus: "Sold",
-    suggestedPrice: 32.5,
-    nextAction: "Ship order",
-    compSummary: "Sold at current median.",
-    skuHistory: ["Created ACV-POK-000208", "Custom label synced mock"],
-    lifecycleTimeline: ["Listed", "Sold", "Shipping queue"],
-    auditHistory: ["Sale reconciled Jul 05"]
-  },
-  "ACV-TCG-000098": {
-    playerCharacter: "Elsa",
-    team: "Lorcana",
-    autoRelicFlags: "No auto / no relic",
-    conditionNotes: "Missing location. Confirm before next pick list.",
-    platform: "eBay",
-    listingType: "BIN",
-    listingStatus: "Paused",
-    views: 301,
-    watchers: 27,
-    soldMedian: 179.5,
-    activeLow: 169,
-    lastCompUpdate: "Jul 03",
-    lastPriceChange: "Jul 01",
-    promotionPct: 4,
-    offers: 6,
-    shippingMethod: "BMWT",
-    driftStatus: "Quantity drift",
-    draftSource: "None",
-    titleStatus: "Approved",
-    descriptionStatus: "Approved",
-    photoStatus: "Reviewed",
-    priceStatus: "Review",
-    suggestedPrice: 184.99,
-    nextAction: "Fix location",
-    compSummary: "High watcher count. Quantity/location drift needs review.",
-    skuHistory: ["Created ACV-TCG-000098", "Location removed", "Quantity drift staged"],
-    lifecycleTimeline: ["Trade intake", "Listed", "Paused for location check"],
-    auditHistory: ["Location warning Jul 03"]
-  },
-  "ACV-NBA-000777": {
-    playerCharacter: "Victor Wembanyama",
-    team: "San Antonio Spurs",
-    autoRelicFlags: "No auto / no relic",
-    conditionNotes: "Purchase cost missing. AI match needs review.",
-    listingType: "None",
-    listingStatus: "Internal",
-    views: 0,
-    watchers: 0,
-    soldMedian: 55,
-    activeLow: 49.99,
-    driftStatus: "Needs review",
-    draftSource: "None",
-    titleStatus: "Needs Review",
-    descriptionStatus: "Not Started",
-    photoStatus: "Needs Review",
-    priceStatus: "Needs Cost",
-    suggestedPrice: 64.99,
-    nextAction: "Add cost",
-    compSummary: "Pricing blocked until purchase cost is added.",
-    skuHistory: ["Created ACV-NBA-000777", "Missing cost warning"],
-    lifecycleTimeline: ["Break intake", "Needs review"],
-    auditHistory: ["Cost warning Jul 02"]
-  },
-  "ACV-MLB-000888": {
-    playerCharacter: "Elly De La Cruz",
-    team: "Cincinnati Reds",
-    autoRelicFlags: "No auto / no relic",
-    conditionNotes: "Needs comps before draft.",
-    listingType: "None",
-    listingStatus: "Internal",
-    views: 0,
-    watchers: 0,
-    soldMedian: 34,
-    activeLow: 29.99,
-    driftStatus: "Not listed",
-    draftSource: "None",
-    titleStatus: "Not Started",
-    descriptionStatus: "Not Started",
-    photoStatus: "Reviewed",
-    priceStatus: "Needs Comps",
-    suggestedPrice: 39.99,
-    nextAction: "Send to pricing",
-    compSummary: "Market value $36. Need sold comps before draft.",
-    skuHistory: ["Created ACV-MLB-000888", "Pricing queue"],
-    lifecycleTimeline: ["Manual intake", "Needs pricing"],
-    auditHistory: ["Pricing queue Jul 01"]
-  }
-};
-
 function defaultOps(item: InventoryItem): InventoryOps {
   return {
     playerCharacter: item.name,
     team: "-",
     autoRelicFlags: "Unconfirmed",
     conditionNotes: item.notes,
-    listingType: item.status === "Listed" ? "BIN" : "None",
+    listingType: "None",
     listingStatus: item.status,
-    views: 0,
-    watchers: 0,
-    soldMedian: item.marketValue,
-    activeLow: item.marketValue,
-    driftStatus: item.status === "Listed" ? "In sync" : "Not listed",
+    views: null,
+    watchers: null,
+    soldMedian: null,
+    activeLow: null,
+    driftStatus: "Not connected",
     draftSource: item.status === "Ready for Draft" ? "ACV Draft" : "None",
     titleStatus: item.status === "Ready for Draft" ? "Generated" : "Not Started",
     descriptionStatus: item.status === "Ready for Draft" ? "Generated" : "Not Started",
     photoStatus: "Reviewed",
     priceStatus: item.askingPrice ? "Approved" : "Needs Comps",
-    suggestedPrice: item.askingPrice || item.marketValue,
+    suggestedPrice: item.askingPrice || item.marketValue || 0,
     nextAction: item.status,
-    compSummary: "Mock comp summary pending.",
+    compSummary: "Pricing and marketplace data unavailable until ACV has saved pricing evidence or a connected marketplace sync.",
     skuHistory: [`Created ${item.sku}`],
     lifecycleTimeline: ["Inventory record created"],
-    auditHistory: ["Mock audit placeholder"]
+    auditHistory: ["Supabase inventory record loaded"]
   };
 }
 
 function rowWithOps(item: InventoryItem): Row {
-  return { ...item, ops: opsBySku[item.sku] || defaultOps(item) };
+  return { ...item, ops: defaultOps(item) };
 }
 
 function approvedItemToRow(item: ApprovedInventoryItem): Row {
@@ -432,6 +187,8 @@ function approvedItemToRow(item: ApprovedInventoryItem): Row {
   const source = item.proposed.acquisitionSource || "Photo Intake";
   const location = item.proposed.location || "Photo Intake";
   const internalNotes = item.proposed.internalNotes?.trim();
+  const workflowStatus = item.workflowStatus || "Needs Pricing";
+  const listingType = item.listingType === "BIN" || item.listingType === "Auction" ? item.listingType : "None";
   const inventoryItem: InventoryItem = {
     id: rowId,
     sku: item.sku,
@@ -445,28 +202,29 @@ function approvedItemToRow(item: ApprovedInventoryItem): Row {
     status: "Needs Pricing",
     location,
     purchaseCost,
-    askingPrice: 0,
-    marketValue: 0,
+    askingPrice: item.listedPrice ?? null,
+    marketValue: item.marketValue ?? null,
     quantity,
     source,
-    ebayId: "-",
-    daysListed: 0,
+    ebayId: item.ebayItemId || "—",
+    daysListed: item.daysListed ?? null,
     aiConfidence: typeof item.aiConfidence === "number" ? item.aiConfidence / 100 : 0,
     lastUpdated: item.approvedAt,
     notes:
       internalNotes ||
       (item.needsImageReupload
-        ? "Approved locally from Photo Intake. Images need to be re-uploaded after refresh."
-        : "Approved locally from Photo Intake. Mock item awaiting pricing.")
+        ? "Approved from Photo Intake. Images need to be re-uploaded after refresh."
+        : "Approved from Photo Intake. Awaiting pricing and marketplace sync.")
   };
   const baseRow = rowWithOps(inventoryItem);
 
   return {
     ...baseRow,
+    status: workflowStatus,
     inventoryId: item.inventoryId,
     profileId: item.profileId,
     intakeGroupId: item.intakeGroupId,
-    recordSource: item.inventoryId || item.profileId ? "supabase" : "local",
+    recordSource: "supabase",
     localImages: item.images,
     localPrimaryImageUrl: item.primaryImageUrl,
     localNeedsImageReupload: item.needsImageReupload,
@@ -479,14 +237,17 @@ function approvedItemToRow(item: ApprovedInventoryItem): Row {
       team: item.proposed.team,
       autoRelicFlags: `${item.proposed.autoFlag ? "Auto" : "No auto"} / ${item.proposed.relicFlag ? "Relic" : "No relic"}`,
       conditionNotes: item.proposed.conditionNotes,
-      listingStatus: "Internal",
+      listingType,
+      listingStatus: workflowStatus,
+      views: item.views ?? null,
+      watchers: item.watchers ?? null,
       photoStatus: item.needsImageReupload ? "Needs Reupload" : "Reviewed",
       priceStatus: "Needs Comps",
       nextAction: "Send to pricing",
-      compSummary: "Approved locally from Photo Intake. Market placeholder remains $0 until pricing comps run.",
-      skuHistory: [`Assigned ${item.sku} from Photo Intake local approval`, `Batch ${item.batch} / Group ${item.group}`],
-      lifecycleTimeline: ["Uploaded in Photo Intake", "Approved locally", "Needs pricing"],
-      auditHistory: item.auditHistory?.length ? item.auditHistory : [`Mock approval ${item.approvedAt}`, "No database write yet"]
+      compSummary: item.marketValue ? `Saved market value ${formatCurrency(item.marketValue)}.` : "No saved pricing evidence yet. Market value stays unavailable until pricing is saved.",
+      skuHistory: [`Assigned ${item.sku} from Photo Intake approval`, `Batch ${item.batch} / Group ${item.group}`],
+      lifecycleTimeline: ["Uploaded in Photo Intake", "Approved to Supabase inventory", "Needs pricing"],
+      auditHistory: item.auditHistory?.length ? item.auditHistory : [`Supabase approval ${item.approvedAt}`]
     }
   };
 }
@@ -545,7 +306,15 @@ function rowToApprovedItem(row: Row, proposed: ProposedRecord, images: IntakeIma
     confirmedFields: Object.keys(proposed) as Array<keyof ProposedRecord>,
     approvedAt: row.lastUpdated || new Date().toLocaleString(),
     needsImageReupload: images.length === 0 || !primary?.url,
-    auditHistory: row.ops.auditHistory
+    auditHistory: row.ops.auditHistory,
+    listedPrice: row.askingPrice,
+    marketValue: row.marketValue,
+    views: row.ops.views,
+    watchers: row.ops.watchers,
+    daysListed: row.daysListed,
+    workflowStatus: row.status,
+    listingType: row.ops.listingType,
+    ebayItemId: row.ebayId === "—" ? null : row.ebayId
   };
 }
 
@@ -569,6 +338,18 @@ function confidenceBand(confidence: number): ConfidenceBand {
   if (confidence < 0.75) return "Low";
   if (confidence < 0.9) return "Medium";
   return "High";
+}
+
+function numericValue(value: number | null | undefined) {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+function optionalCurrency(value: number | null | undefined, className = "font-semibold text-acv-text") {
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? <span className={className}>{formatCurrency(value)}</span> : <span className="text-acv-muted">—</span>;
+}
+
+function optionalNumber(value: number | null | undefined, className = "font-semibold text-acv-text") {
+  return typeof value === "number" && Number.isFinite(value) ? <span className={className}>{value}</span> : <span className="text-acv-muted">—</span>;
 }
 
 function uniqueValues<T extends string>(values: T[]) {
@@ -836,14 +617,14 @@ function ItemDetailDrawer({
   onSave,
   onArchive,
   onDelete,
-  onMockAction
+  onComingSoon
 }: {
   row: Row;
   onClose: () => void;
   onSave: (row: Row, proposed: ProposedRecord, images: IntakeImage[], removedImageIds: string[]) => void | Promise<void>;
   onArchive: (row: Row) => void;
   onDelete: (row: Row) => void;
-  onMockAction: (label: string) => void;
+  onComingSoon: (label: string) => void;
 }) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [draft, setDraft] = useState<ProposedRecord>(() => rowToProposed(row));
@@ -1076,7 +857,7 @@ function ItemDetailDrawer({
                   <EditableProfileField label="Location" value={draft.location} onChange={(value) => updateDraft("location", value)} />
                   <DetailField label="Lot" value={lotLabel(row)} />
                   <EditableProfileField label="Purchase Cost" type="number" value={draft.purchaseCost} onChange={(value) => updateDraft("purchaseCost", Number(value) || 0)} />
-                  <DetailField label={row.ops.listingType === "Auction" ? "Listed / Start Price" : "Ask / Listed"} value={row.askingPrice ? formatCurrency(row.askingPrice) : "—"} tone="gold" />
+                  <DetailField label={row.ops.listingType === "Auction" ? "Listed / Start Price" : "Ask / Listed"} value={optionalCurrency(row.askingPrice, "font-semibold text-acv-gold")} tone="gold" />
                   {row.ops.listingType === "Auction" && (
                     <>
                       <DetailField label="Current Bid" value={currentBidLabel(row)} tone="green" />
@@ -1084,7 +865,7 @@ function ItemDetailDrawer({
                       <DetailField label="Auction End" value={auctionEndLabel(row)} tone="gold" />
                     </>
                   )}
-                  <DetailField label="Market Value" value={formatCurrency(row.marketValue)} tone="green" />
+                  <DetailField label="Market Value" value={optionalCurrency(row.marketValue, "font-semibold text-acv-green")} tone="green" />
                   <EditableProfileField label="Quantity" type="number" value={draft.quantity} onChange={(value) => updateDraft("quantity", Math.max(1, Number(value) || 1))} />
                   <EditableProfileField label="Source" value={draft.acquisitionSource} onChange={(value) => updateDraft("acquisitionSource", value)} />
                   {row.localBatch && <DetailField label="Intake Batch" value={row.localBatch} tone="gold" />}
@@ -1092,11 +873,11 @@ function ItemDetailDrawer({
                   <DetailField label="AI Confidence" value={formatPercent(row.aiConfidence)} tone={confidenceBand(row.aiConfidence) === "Low" ? "pink" : confidenceBand(row.aiConfidence) === "Medium" ? "gold" : "teal"} />
                   <DetailField label="Listing Type" value={row.ops.listingType} tone={row.ops.listingType === "None" ? undefined : "gold"} />
                   <DetailField label="eBay Item ID" value={row.ebayId} />
-                  <DetailField label="Sold Median Comp" value={formatCurrency(row.ops.soldMedian)} />
-                  <DetailField label="Active Low" value={formatCurrency(row.ops.activeLow)} tone="pink" />
-                  <DetailField label="Views" value={row.ops.views} />
-                  <DetailField label="Watchers" value={row.ops.watchers} tone="teal" />
-                  <DetailField label="Days Listed" value={row.daysListed ? `${row.daysListed} days` : "Not listed"} />
+                  <DetailField label="Sold Median Comp" value={optionalCurrency(row.ops.soldMedian)} />
+                  <DetailField label="Active Low" value={optionalCurrency(row.ops.activeLow, "font-semibold text-acv-pink")} tone="pink" />
+                  <DetailField label="Views" value={optionalNumber(row.ops.views)} />
+                  <DetailField label="Watchers" value={optionalNumber(row.ops.watchers, "font-semibold text-acv-teal")} tone="teal" />
+                  <DetailField label="Days Listed" value={typeof row.daysListed === "number" ? `${row.daysListed} days` : "Not listed"} />
                   <DetailField label="Comp Summary" value={row.ops.compSummary} tone="teal" />
                 </div>
               </section>
@@ -1241,11 +1022,11 @@ function lotLabel(row: Row) {
 }
 
 function platformLabel(row: Row) {
-  return row.ops.platform || (row.status === "Listed" || row.status === "Sold" ? "eBay" : "ACV");
+  return row.ops.platform || "ACV";
 }
 
 function lastCompUpdate(row: Row) {
-  return row.ops.lastCompUpdate || "Mock pending";
+  return row.ops.lastCompUpdate || "—";
 }
 
 function lastPriceChange(row: Row) {
@@ -1261,7 +1042,7 @@ function offersCount(row: Row) {
 }
 
 function shippingMethod(row: Row) {
-  return row.ops.shippingMethod || (row.status === "Listed" ? "Standard envelope" : "Not set");
+  return row.ops.shippingMethod || "Not set";
 }
 
 function currentBidLabel(row: Row) {
@@ -1282,33 +1063,34 @@ function needsReview(row: Row) {
 
 function marketRangeMatches(row: Row, filter: string) {
   if (filter === "All") return true;
-  if (filter === "Under $50") return row.marketValue < 50;
-  if (filter === "$50-$150") return row.marketValue >= 50 && row.marketValue <= 150;
-  return row.marketValue > 150;
+  const marketValue = row.marketValue;
+  if (typeof marketValue !== "number" || !Number.isFinite(marketValue) || marketValue <= 0) return false;
+  if (filter === "Under $50") return marketValue < 50;
+  if (filter === "$50-$150") return marketValue >= 50 && marketValue <= 150;
+  return marketValue > 150;
 }
 
 function listedDateMatches(row: Row, filter: string) {
   if (filter === "All") return true;
-  if (filter === "Live") return row.daysListed > 0;
-  if (filter === "Not listed") return row.daysListed === 0;
-  return row.daysListed >= 21;
+  if (filter === "Live") return typeof row.daysListed === "number";
+  if (filter === "Not listed") return typeof row.daysListed !== "number";
+  return typeof row.daysListed === "number" && row.daysListed >= 21;
 }
 
 export default function InventoryPage() {
-  const { approvedInventory, setApprovedInventory, backendStatus } = useAcvLocalState();
+  const { backendStatus } = useAcvLocalState();
+  const [inventoryRecords, setInventoryRecords] = useState<ApprovedInventoryItem[]>([]);
+  const [archivedRecords, setArchivedRecords] = useState<ApprovedInventoryItem[]>([]);
+  const [inventoryLoading, setInventoryLoading] = useState(true);
+  const [inventoryError, setInventoryError] = useState("");
   const [archivedIds, setArchivedIds] = useState<Set<string>>(new Set());
   const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set());
-  const [mockOverrides, setMockOverrides] = useState<Record<string, Partial<InventoryItem>>>({});
+  const [selectedRow, setSelectedRow] = useState<Row | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>("All Inventory");
   const rows = useMemo(() => {
     const inactiveIds = new Set([...Array.from(archivedIds), ...Array.from(deletedIds)]);
-    const mockRows = inventoryItems
-      .map((item) => rowWithOps({ ...item, id: `mock:${item.id}`, ...(mockOverrides[item.sku] || {}) }))
-      .filter((row) => !inactiveIds.has(row.id));
-    const approvedRows = approvedInventory.map(approvedItemToRow).filter((row) => !inactiveIds.has(row.id));
-    return [...mockRows, ...approvedRows];
-  }, [approvedInventory, archivedIds, deletedIds, mockOverrides]);
-  const [selectedRow, setSelectedRow] = useState<Row | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>("Listings");
+    return inventoryRecords.map(approvedItemToRow).filter((row) => !inactiveIds.has(row.id));
+  }, [archivedIds, deletedIds, inventoryRecords]);
   const [listingSubTab, setListingSubTab] = useState<ListingSubTab>("All Listings");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState("");
@@ -1327,16 +1109,61 @@ export default function InventoryPage() {
   const [enabledOptionalColumns, setEnabledOptionalColumns] = useState<Set<DataColumnKey>>(new Set());
   const [saveMessage, setSaveMessage] = useState("");
 
+  const refreshInventory = useCallback(async () => {
+    if (backendStatus.connectionState === "connecting") {
+      setInventoryRecords([]);
+      setArchivedRecords([]);
+      setInventoryLoading(true);
+      setInventoryError("");
+      return;
+    }
+
+    if (backendStatus.connectionState !== "connected") {
+      setInventoryRecords([]);
+      setArchivedRecords([]);
+      setInventoryLoading(false);
+      setInventoryError("Inventory unavailable. Supabase is not connected, so ACV will not display cached inventory records.");
+      return;
+    }
+
+    setInventoryLoading(true);
+    setInventoryError("");
+    try {
+      const [active, archived] = await Promise.all([loadApprovedInventoryFromSupabase(), loadArchivedApprovedInventoryFromSupabase()]);
+      setInventoryRecords(active);
+      setArchivedRecords(archived);
+      setArchivedIds(new Set());
+      setDeletedIds(new Set());
+    } catch (error) {
+      console.error("[ACV Inventory] Supabase inventory load failed", error);
+      setInventoryRecords([]);
+      setArchivedRecords([]);
+      setInventoryError(error instanceof Error ? error.message : "Inventory unavailable. Supabase inventory could not be loaded.");
+    } finally {
+      setInventoryLoading(false);
+    }
+  }, [backendStatus.connectionState]);
+
+  useEffect(() => {
+    void refreshInventory();
+  }, [refreshInventory]);
+
+  useEffect(() => {
+    if (selectedRow && !rows.some((row) => row.id === selectedRow.id)) {
+      setSelectedRow(null);
+    }
+  }, [rows, selectedRow]);
+
   const listedRows = rows.filter((row) => row.status === "Listed");
   const draftRows = rows.filter((row) => row.ops.draftSource !== "None");
   const unlistedRows = rows.filter((row) => row.status !== "Listed" && row.ops.draftSource === "None");
 
   const summary = {
     inventoryCost: rows.reduce((total, row) => total + row.purchaseCost * row.quantity, 0),
-    marketValue: rows.reduce((total, row) => total + row.marketValue * row.quantity, 0),
-    listedValue: listedRows.reduce((total, row) => total + row.askingPrice * row.quantity, 0),
-    draftValue: draftRows.reduce((total, row) => total + row.marketValue * row.quantity, 0),
-    unlistedValue: unlistedRows.reduce((total, row) => total + row.marketValue * row.quantity, 0),
+    marketValue: rows.reduce((total, row) => total + numericValue(row.marketValue) * row.quantity, 0),
+    listedValue: listedRows.reduce((total, row) => total + numericValue(row.askingPrice) * row.quantity, 0),
+    draftValue: draftRows.reduce((total, row) => total + numericValue(row.marketValue) * row.quantity, 0),
+    unlistedValue: unlistedRows.reduce((total, row) => total + numericValue(row.marketValue) * row.quantity, 0),
     totalUnits: rows.reduce((total, row) => total + row.quantity, 0),
     activeListings: listedRows.length,
     drafts: draftRows.length,
@@ -1403,48 +1230,18 @@ export default function InventoryPage() {
   async function saveInventoryChanges(row: Row, proposed: ProposedRecord, images: IntakeImage[], removedImageIds: string[]) {
     const nextImages = images.map((image, order) => ({ ...image, order }));
     const nextItem = rowToApprovedItem(row, proposed, nextImages);
-    const rowIdentity = row.id;
-    const approvedExists = approvedInventory.some((item) => approvedInventoryIdentity(item) === rowIdentity);
+    if (backendStatus.connectionState !== "connected" || !row.inventoryId) {
+      setSaveMessage(`${row.sku} could not be saved because Supabase inventory is unavailable.`);
+      return;
+    }
 
-    if (approvedExists || row.recordSource === "local" || row.recordSource === "supabase") {
-      setApprovedInventory((current) => {
-        const exists = current.some((item) => approvedInventoryIdentity(item) === rowIdentity);
-        return exists ? current.map((item) => (approvedInventoryIdentity(item) === rowIdentity ? nextItem : item)) : [...current, nextItem];
-      });
-
-      try {
-        if (backendStatus.connectionState === "connected") {
-          const savedItem = await saveApprovedInventoryItemChanges(nextItem, removedImageIds);
-          const remoteInventory = await loadApprovedInventoryFromSupabase();
-          setApprovedInventory(remoteInventory.map((item) => (approvedInventoryIdentity(item) === approvedInventoryIdentity(savedItem) ? savedItem : item)));
-          setSaveMessage(`${row.sku} saved to Supabase + local UI.`);
-        } else {
-          setSaveMessage(`${row.sku} saved locally. Supabase is not connected.`);
-        }
-      } catch (error) {
-        console.error("[ACV Inventory] Save failed", error);
-        setSaveMessage(`${row.sku} saved locally. Supabase sync failed; local fallback retained.`);
-      }
-    } else {
-      setMockOverrides((current) => ({
-        ...current,
-        [row.sku]: {
-          name: proposed.cardName,
-          category: proposed.category,
-          year: proposed.year || "-",
-          brandSet: `${proposed.brand} ${proposed.set}`.trim() || row.brandSet,
-          parallel: proposed.parallel || "-",
-          cardNumber: proposed.cardNumber || "-",
-          serialNumber: proposed.serialNumber || "-",
-          location: proposed.location,
-          purchaseCost: proposed.purchaseCost,
-          quantity: proposed.quantity,
-          source: proposed.acquisitionSource,
-          notes: proposed.internalNotes,
-          lastUpdated: new Date().toLocaleString()
-        }
-      }));
-      setSaveMessage(`${row.sku} mock/test row saved locally.`);
+    try {
+      await saveApprovedInventoryItemChanges(nextItem, removedImageIds);
+      await refreshInventory();
+      setSaveMessage(`${row.sku} saved to Supabase inventory.`);
+    } catch (error) {
+      console.error("[ACV Inventory] Save failed", error);
+      setSaveMessage(`${row.sku} could not be saved to Supabase. No cached inventory row was written.`);
     }
 
     setSelectedRow(null);
@@ -1452,32 +1249,73 @@ export default function InventoryPage() {
 
   async function archiveInventoryRow(row: Row, requireConfirmation = true) {
     if (requireConfirmation && !window.confirm(`Archive inventory record ${row.id} (${row.sku})? It will leave active Inventory views but remain recoverable as a soft-deleted record where Supabase supports it.`)) return;
+    if (backendStatus.connectionState !== "connected" || !row.inventoryId) {
+      setSaveMessage(`${row.sku} could not be archived because Supabase inventory is unavailable.`);
+      return;
+    }
     setArchivedIds((current) => new Set(current).add(row.id));
     setSelectedRow(null);
 
     try {
-      if (backendStatus.connectionState === "connected" && row.inventoryId) await archiveApprovedInventoryItemById(row.inventoryId);
+      await archiveApprovedInventoryItemById(row.inventoryId);
+      await refreshInventory();
       setSaveMessage(`${row.sku} archived (${row.id}).`);
     } catch (error) {
       console.error("[ACV Inventory] Archive failed", error);
-      setSaveMessage(`${row.sku} archived locally. Supabase archive failed for ${row.id}; local fallback retained.`);
+      setArchivedIds((current) => {
+        const next = new Set(current);
+        next.delete(row.id);
+        return next;
+      });
+      setSaveMessage(`${row.sku} could not be archived in Supabase.`);
     }
   }
 
   async function deleteInventoryRow(row: Row, options: { requireConfirmation?: boolean; archiveImages?: boolean } = {}) {
     const requireConfirmation = options.requireConfirmation ?? true;
     if (requireConfirmation && !window.confirm(`Remove inventory record ${row.id} (${row.sku}) from active Inventory? ACV will use a safe soft delete/archive path and will not permanently delete images by default.`)) return;
+    if (backendStatus.connectionState !== "connected" || !row.inventoryId) {
+      setSaveMessage(`${row.sku} could not be deleted because Supabase inventory is unavailable.`);
+      return;
+    }
     const archiveImages = options.archiveImages ?? window.confirm("Also archive image records for this item? Choose Cancel to keep image records recoverable.");
     setDeletedIds((current) => new Set(current).add(row.id));
-    setApprovedInventory((current) => current.filter((item) => approvedInventoryIdentity(item) !== row.id));
     setSelectedRow(null);
 
     try {
-      if (backendStatus.connectionState === "connected" && row.inventoryId) await softDeleteApprovedInventoryItemById(row.inventoryId, archiveImages);
+      await softDeleteApprovedInventoryItemById(row.inventoryId, archiveImages);
+      await refreshInventory();
       setSaveMessage(`${row.sku} safely removed from active Inventory (${row.id}).`);
     } catch (error) {
       console.error("[ACV Inventory] Delete failed", error);
-      setSaveMessage(`${row.sku} removed locally. Supabase soft delete failed for ${row.id}; local fallback retained.`);
+      setDeletedIds((current) => {
+        const next = new Set(current);
+        next.delete(row.id);
+        return next;
+      });
+      setSaveMessage(`${row.sku} could not be removed in Supabase.`);
+    }
+  }
+
+  async function restoreArchivedItem(item: ApprovedInventoryItem) {
+    const rowId = approvedInventoryIdentity(item);
+    if (!item.inventoryId) {
+      setSaveMessage(`${item.sku} cannot be restored because it is missing a Supabase inventory record ID.`);
+      return;
+    }
+
+    try {
+      await restoreApprovedInventoryItemById(item.inventoryId);
+      setArchivedIds((current) => {
+        const next = new Set(current);
+        next.delete(rowId);
+        return next;
+      });
+      await refreshInventory();
+      setSaveMessage(`${item.sku} restored to active inventory.`);
+    } catch (error) {
+      console.error("[ACV Inventory] Restore failed", error);
+      setSaveMessage(`${item.sku} could not be restored in Supabase.`);
     }
   }
 
@@ -1536,15 +1374,21 @@ export default function InventoryPage() {
     },
     listedPrice: {
       header: "Listed Price",
-      cell: (row) => <span className={row.askingPrice ? "font-semibold text-acv-gold" : "font-semibold text-acv-muted"}>{row.askingPrice ? formatCurrency(row.askingPrice) : "—"}</span>
+      cell: (row) => optionalCurrency(row.askingPrice, "font-semibold text-acv-gold")
     },
     currentBid: {
       header: "Current Bid",
       cell: (row) => <span className={row.ops.listingType === "Auction" ? "font-semibold text-acv-green" : "text-acv-muted"}>{currentBidLabel(row)}</span>
     },
-    marketValue: { header: "Market Value", cell: (row) => <span className="font-semibold text-acv-green">{formatCurrency(row.marketValue)}</span> },
-    views: { header: "Views", cell: (row) => <span className="font-semibold text-acv-text">{row.ops.views}</span> },
-    watchers: { header: "Watchers", cell: (row) => <span className="font-semibold text-acv-teal">{row.ops.watchers}</span> },
+    marketValue: { header: "Market Value", cell: (row) => optionalCurrency(row.marketValue, "font-semibold text-acv-green") },
+    views: {
+      header: "Views",
+      cell: (row) => optionalNumber(row.ops.views, "font-semibold text-acv-text")
+    },
+    watchers: {
+      header: "Watchers",
+      cell: (row) => optionalNumber(row.ops.watchers, "font-semibold text-acv-teal")
+    },
     bids: {
       header: "Bids",
       cell: (row) => <span className={row.ops.listingType === "Auction" ? "font-semibold text-acv-text" : "text-acv-muted"}>{bidsLabel(row)}</span>
@@ -1552,8 +1396,8 @@ export default function InventoryPage() {
     daysListed: { header: "Days Listed", cell: (row) => <span className={row.daysListed ? "font-semibold text-acv-text" : "text-acv-muted"}>{row.daysListed ? `${row.daysListed}d` : "—"}</span> },
     status: { header: "Status", cell: (row) => <StatusPill tone={statusTone(row.ops.listingStatus)}>{row.ops.listingStatus}</StatusPill> },
     lot: { header: "Lot", cell: (row) => <span className="whitespace-nowrap text-acv-muted">{lotLabel(row)}</span> },
-    soldMedian: { header: "Sold Median Comp", cell: (row) => <span className="text-acv-text">{formatCurrency(row.ops.soldMedian)}</span> },
-    activeLow: { header: "Active Low", cell: (row) => <span className="font-semibold text-acv-pink">{formatCurrency(row.ops.activeLow)}</span> },
+    soldMedian: { header: "Sold Median Comp", cell: (row) => optionalCurrency(row.ops.soldMedian, "text-acv-text") },
+    activeLow: { header: "Active Low", cell: (row) => optionalCurrency(row.ops.activeLow, "font-semibold text-acv-pink") },
     listingType: { header: "Listing Type", cell: (row) => <StatusPill tone={statusTone(row.ops.listingType)}>{row.ops.listingType}</StatusPill> },
     platform: { header: "Platform", cell: (row) => <span className="whitespace-nowrap text-acv-muted">{platformLabel(row)}</span> },
     source: { header: "Source", cell: (row) => <span className="whitespace-nowrap text-acv-muted">{row.source}</span> },
@@ -1619,9 +1463,8 @@ export default function InventoryPage() {
         <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 border-b border-acv-border pb-2">
           <div className="min-w-0">
             <div className="mb-1 flex flex-wrap items-center gap-2">
-              <StatusPill tone="purple">Mock data</StatusPill>
               <StatusPill tone={backendStatus.connectionState === "connected" ? "teal" : "gold"}>
-                {backendStatus.connectionState === "connected" ? "Supabase" : "Local fallback"}
+                {backendStatus.connectionState === "connected" ? "Supabase inventory" : "Inventory unavailable"}
               </StatusPill>
               <StatusPill tone="teal">ACV OS v1 shell</StatusPill>
             </div>
@@ -1788,20 +1631,77 @@ export default function InventoryPage() {
             )}
           </div>
 
-          <DataTable<Row>
-            rows={filteredRows}
-            getRowKey={(row) => row.id}
-            onRowClick={(row) => setSelectedRow(row)}
-            columns={inventoryColumns}
-          />
+          {inventoryLoading ? (
+            <div className="flex min-h-64 items-center justify-center px-4 py-10">
+              <div className="rounded-lg border border-acv-border bg-acv-panel2 px-5 py-4 text-center">
+                <p className="text-sm font-semibold text-acv-text">Loading Supabase inventory...</p>
+                <p className="mt-1 text-xs text-acv-muted">ACV is reading live inventory records.</p>
+              </div>
+            </div>
+          ) : inventoryError ? (
+            <div className="flex min-h-64 items-center justify-center px-4 py-10">
+              <div className="max-w-lg rounded-lg border border-acv-pink/35 bg-acv-pink/10 px-5 py-4 text-center">
+                <p className="text-sm font-semibold text-acv-pink">Inventory unavailable</p>
+                <p className="mt-2 text-xs leading-5 text-acv-text">{inventoryError}</p>
+                <button
+                  type="button"
+                  onClick={() => void refreshInventory()}
+                  className="mt-4 inline-flex h-9 items-center justify-center rounded-md border border-acv-teal/45 bg-acv-teal/10 px-4 text-xs font-semibold text-acv-teal transition hover:bg-acv-teal/15"
+                >
+                  Retry
+                </button>
+              </div>
+            </div>
+          ) : rows.length === 0 ? (
+            <div className="flex min-h-72 items-center justify-center px-4 py-12">
+              <div className="max-w-lg rounded-lg border border-acv-border bg-acv-panel2 px-6 py-5 text-center shadow-glow">
+                <p className="text-base font-semibold text-acv-text">No inventory yet</p>
+                <p className="mt-2 text-sm leading-6 text-acv-muted">Approve a card from Photo Intake to create your first inventory record.</p>
+                <a
+                  href="/photo-intake"
+                  className="mt-5 inline-flex h-10 items-center justify-center rounded-md border border-acv-teal/45 bg-acv-teal px-4 text-xs font-bold text-black transition hover:bg-acv-teal/90"
+                >
+                  Go to Photo Intake
+                </a>
+              </div>
+            </div>
+          ) : (
+            <DataTable<Row>
+              rows={filteredRows}
+              getRowKey={(row) => row.id}
+              onRowClick={(row) => setSelectedRow(row)}
+              columns={inventoryColumns}
+            />
+          )}
 
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-acv-border px-3 py-2 text-[11px] text-acv-muted">
             <span>
-              {filteredRows.length ? `1-${filteredRows.length} of ${filteredRows.length}` : "No records match the current controls"}
+              {rows.length === 0 ? "0 live records" : filteredRows.length ? `1-${filteredRows.length} of ${filteredRows.length}` : "No records match the current controls"}
             </span>
-            <span>{backendStatus.connectionState === "connected" ? "Supabase inventory + mock marketplace data" : "Local fallback inventory - no live eBay sync"}</span>
+            <span>{backendStatus.connectionState === "connected" ? "Supabase inventory · marketplace columns available after eBay sync" : "Inventory unavailable"}</span>
           </div>
         </section>
+
+        {archivedRecords.length > 0 && (
+          <details className="min-w-0 rounded-lg border border-acv-border bg-acv-panel/70 px-3 py-2 text-xs text-acv-muted">
+            <summary className="cursor-pointer select-none text-[11px] font-semibold uppercase tracking-[0.12em] text-acv-gold">
+              Archived Inventory ({archivedRecords.length})
+            </summary>
+            <div className="mt-3 space-y-2">
+              {archivedRecords.map((item) => (
+                <div key={approvedInventoryIdentity(item)} className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-md border border-acv-border bg-acv-panel2 px-3 py-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-xs font-semibold text-acv-text">{item.proposed.cardName || item.sku}</p>
+                    <p className="mt-0.5 truncate text-[11px] text-acv-muted">{item.sku} · {item.inventoryId || "Missing record ID"}</p>
+                  </div>
+                  <MiniActionButton tone="teal" onClick={() => void restoreArchivedItem(item)}>
+                    Restore
+                  </MiniActionButton>
+                </div>
+              ))}
+            </div>
+          </details>
+        )}
 
         <details className="min-w-0 rounded-lg border border-acv-border bg-acv-panel/60 px-3 py-2 text-xs text-acv-muted">
           <summary className="cursor-pointer select-none text-[11px] font-semibold uppercase tracking-[0.12em] text-acv-gold">Secondary ACV notes</summary>
@@ -1817,8 +1717,8 @@ export default function InventoryPage() {
               </div>
             </div>
             <div className="rounded-md border border-acv-border bg-acv-panel2 p-3">
-              <p className="font-semibold text-acv-text">{backendStatus.connectionState === "connected" ? "Supabase Mode" : "Mock Mode"}</p>
-              <p className="mt-2 leading-5">Detailed card attributes live in the drawer. Bulk actions and SKU pushes are staged controls only.</p>
+              <p className="font-semibold text-acv-text">{backendStatus.connectionState === "connected" ? "Supabase Mode" : "Inventory Offline"}</p>
+              <p className="mt-2 leading-5">Detailed card attributes live in the drawer. Marketplace sync columns stay unavailable until connected data is saved.</p>
             </div>
           </div>
         </details>
@@ -1831,7 +1731,7 @@ export default function InventoryPage() {
           onSave={saveInventoryChanges}
           onArchive={archiveInventoryRow}
           onDelete={deleteInventoryRow}
-          onMockAction={showComingSoon}
+          onComingSoon={showComingSoon}
         />
       )}
     </>

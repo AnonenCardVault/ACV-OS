@@ -155,6 +155,14 @@ export type ApprovedInventoryItem = {
   approvedAt: string;
   needsImageReupload?: boolean;
   auditHistory?: string[];
+  listedPrice?: number | null;
+  marketValue?: number | null;
+  views?: number | null;
+  watchers?: number | null;
+  daysListed?: number | null;
+  workflowStatus?: string | null;
+  listingType?: string | null;
+  ebayItemId?: string | null;
 };
 
 export function approvedInventoryIdentity(item: Pick<ApprovedInventoryItem, "inventoryId" | "profileId" | "intakeGroupId" | "batch" | "group" | "sku">) {
