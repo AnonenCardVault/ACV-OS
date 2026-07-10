@@ -1,6 +1,7 @@
 import type { ApprovedInventoryItem, IntakeImage, ProposedRecord } from "@/lib/acv-local-state";
 import { getOrCreateAcvUser, insertRows, patchRows, selectRows, upsertRows } from "@/lib/supabase/client";
 import { buildStoragePath, uploadDataUrlToBucket } from "@/lib/supabase/storage";
+import { logParallelRecognitionEvent } from "@/lib/supabase/parallel-recognition";
 import type { AuditHistoryRow, ImageRow, IntakeBatchRow, IntakeGroupRow, InventoryRow, UniversalCardProfileRow } from "@/lib/supabase/types";
 
 function asNumber(value: unknown, fallback = 0) {
@@ -92,6 +93,7 @@ export async function loadApprovedInventoryFromSupabase(): Promise<ApprovedInven
       primaryImageUrl: primary?.publicUrl || primary?.url || "",
       images,
       proposed: profileToProposed(profile, inventory),
+      aiConfidence: typeof profile.confidence === "number" ? Math.round(profile.confidence * 100) : undefined,
       approvedAt: profile.created_at,
       needsImageReupload: images.length === 0 || !primary?.url,
       auditHistory: auditByProfile.get(profile.id) || []
@@ -125,7 +127,7 @@ export async function upsertApprovedInventoryItem(item: ApprovedInventoryItem) {
         grader: item.proposed.grader || "Raw",
         grade: item.proposed.grade || "Raw",
         status: "Needs Pricing",
-        confidence: 0.9,
+        confidence: typeof item.aiConfidence === "number" ? item.aiConfidence / 100 : null,
         condition_notes: item.proposed.conditionNotes,
         uncertainty_notes: item.proposed.uncertaintyNotes,
         internal_notes: item.proposed.internalNotes,
@@ -203,6 +205,7 @@ export async function upsertApprovedInventoryItem(item: ApprovedInventoryItem) {
     summary: `Approved to Inventory: ${item.sku}`,
     payload: { sku: item.sku, batch: item.batch, group: item.group }
   });
+  await logParallelRecognitionEvent({ profileId: profile.id, item }).catch(() => undefined);
 
   return profile;
 }

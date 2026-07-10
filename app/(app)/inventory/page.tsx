@@ -115,7 +115,7 @@ const optionalDataColumns: Array<{ key: DataColumnKey; label: string }> = [
   { key: "listingType", label: "Listing type" },
   { key: "platform", label: "Platform" },
   { key: "source", label: "Source" },
-  { key: "confidence", label: "Confidence" },
+  { key: "confidence", label: "AI Confidence" },
   { key: "drift", label: "Drift" },
   { key: "lastCompUpdate", label: "Last comp update" },
   { key: "lastPriceChange", label: "Last price change" },
@@ -446,7 +446,7 @@ function approvedItemToRow(item: ApprovedInventoryItem): Row {
     source,
     ebayId: "-",
     daysListed: 0,
-    aiConfidence: 0.72,
+    aiConfidence: typeof item.aiConfidence === "number" ? item.aiConfidence / 100 : 0,
     lastUpdated: item.approvedAt,
     notes:
       internalNotes ||
@@ -529,6 +529,8 @@ function rowToApprovedItem(row: Row, proposed: ProposedRecord, images: IntakeIma
     primaryImageUrl: primary?.publicUrl || primary?.url || primary?.dataUrl || "",
     images,
     proposed,
+    aiConfidence: row.aiConfidence > 0 ? row.aiConfidence * 100 : undefined,
+    confirmedFields: Object.keys(proposed) as Array<keyof ProposedRecord>,
     approvedAt: row.lastUpdated || new Date().toLocaleString(),
     needsImageReupload: images.length === 0 || !primary?.url,
     auditHistory: row.ops.auditHistory
@@ -950,7 +952,7 @@ function ItemDetailDrawer({
             <div className="mb-2 flex flex-wrap gap-2">
               <StatusPill tone={statusTone(row.status)}>{row.status}</StatusPill>
               <StatusPill tone={statusTone(row.ops.listingType)}>{row.ops.listingType === "None" ? "No live listing" : row.ops.listingType}</StatusPill>
-              <StatusPill tone={statusTone(confidenceBand(row.aiConfidence))}>{formatPercent(row.aiConfidence)} confidence</StatusPill>
+              <StatusPill tone={statusTone(confidenceBand(row.aiConfidence))}>{formatPercent(row.aiConfidence)} AI</StatusPill>
             </div>
             <h2 className="truncate text-lg font-semibold text-acv-text">{draft.cardName || row.name}</h2>
             <p className="mt-1 text-xs text-acv-muted">{row.sku}</p>
@@ -1519,7 +1521,7 @@ export default function InventoryPage() {
     platform: { header: "Platform", cell: (row) => <span className="whitespace-nowrap text-acv-muted">{platformLabel(row)}</span> },
     source: { header: "Source", cell: (row) => <span className="whitespace-nowrap text-acv-muted">{row.source}</span> },
     confidence: {
-      header: "Confidence",
+      header: "AI Confidence",
       cell: (row) => <span className={confidenceBand(row.aiConfidence) === "Low" ? "font-semibold text-acv-pink" : confidenceBand(row.aiConfidence) === "Medium" ? "font-semibold text-acv-gold" : "font-semibold text-acv-teal"}>{formatPercent(row.aiConfidence)}</span>
     },
     drift: { header: "Drift", cell: (row) => <StatusPill tone={statusTone(row.ops.driftStatus)}>{row.ops.driftStatus}</StatusPill> },
@@ -1712,7 +1714,7 @@ export default function InventoryPage() {
 
             {showMoreFilters && (
               <div className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(120px,1fr))] gap-2 rounded-md border border-acv-border bg-black/25 p-2">
-                <ToolbarSelect label="Confidence" value={confidenceFilter} options={["All", "Low", "Medium", "High"]} onChange={setConfidenceFilter} />
+                <ToolbarSelect label="AI Confidence" value={confidenceFilter} options={["All", "Low", "Medium", "High"]} onChange={setConfidenceFilter} />
                 <ToolbarSelect label="Drift" value={driftFilter} options={["All", ...uniqueValues(rows.map((row) => row.ops.driftStatus))]} onChange={setDriftFilter} />
                 <ToolbarSelect label="Needs Review" value={needsReviewFilter} options={["All", "Needs Review", "Clean"]} onChange={setNeedsReviewFilter} />
                 <ToolbarSelect label="Date Listed" value={dateListedFilter} options={["All", "Live", "Not listed", "Stale 21d+"]} onChange={setDateListedFilter} />

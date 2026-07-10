@@ -1,5 +1,6 @@
 import type { AIExtractionResult as EngineExtractionResult, AIImageInput as ExtractionImage } from "@/lib/ai";
 import type { AiExtractionStatus, AiFieldConfidenceMap, IntakeImage, ProposedRecord } from "@/lib/acv-local-state";
+import type { ParallelRecognitionResult } from "@/lib/parallel-recognition";
 
 export type ExtractCardInput = {
   images: IntakeImage[];
@@ -42,6 +43,7 @@ export type ExtractionResult = {
     types?: string[];
     warnings: string[];
   };
+  parallelRecognition?: ParallelRecognitionResult;
   providerDiagnostics: Array<{
     providerName: string;
     status: "used" | "skipped" | "failed" | "fallback";
@@ -209,6 +211,7 @@ function adaptEngineResult(result: EngineExtractionResult, existingValues: Propo
     modelLabel,
     extractionSources: result.extractionSources,
     catalogDiagnostics: catalogDiagnostics(result),
+    parallelRecognition: result.parallelRecognition,
     providerDiagnostics: providerDiagnostics(result)
   };
 }

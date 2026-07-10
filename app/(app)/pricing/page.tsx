@@ -26,7 +26,6 @@ type PricingDrawerItem = { kind: "sold"; row: SoldCompRow } | { kind: "active"; 
 const SOLD_COMP_TARGET = 5;
 const currentAsk = 129.99;
 const marketEstimate = 128;
-const pricingConfidence = 0.84;
 const dateRangeOptions = ["7 days", "14 days", "30 days", "60 days", "90 days", "180 days", "365 days", "Custom"];
 const graderOptions = ["All", "Raw", "PSA", "SGC", "BGS", "CGC", "Other"];
 const gradeOptions = ["All", "Raw", "10", "9.5", "9", "8.5", "8", "7", "6", "5", "Other"];
@@ -543,14 +542,6 @@ function PricingEnginePanel({
           <ManualNumberInput label="Estimated Value" prefix="$" value={manualInput.estimatedValue} onChange={(value) => onManualInputChange({ ...manualInput, estimatedValue: value })} />
           <ManualNumberInput label="Target Sale Price" prefix="$" value={manualInput.targetSalePrice} onChange={(value) => onManualInputChange({ ...manualInput, targetSalePrice: value })} />
           <ManualNumberInput label="Floor Price" prefix="$" value={manualInput.floorPrice} onChange={(value) => onManualInputChange({ ...manualInput, floorPrice: value })} />
-          <ManualNumberInput
-            label="Pricing Confidence"
-            suffix="%"
-            min={0}
-            max={100}
-            value={Math.round(manualInput.confidence * 100)}
-            onChange={(value) => onManualInputChange({ ...manualInput, confidence: Math.max(0, Math.min(100, value)) / 100 })}
-          />
         </div>
 
         <label className="block rounded-md border border-acv-border bg-acv-panel2 px-3 py-2">
@@ -610,8 +601,7 @@ export default function PricingPage() {
     estimatedValue: marketEstimate,
     targetSalePrice: currentAsk,
     floorPrice: 109.99,
-    notes: "Manual starting estimate. Replace with real comp rationale before publishing.",
-    confidence: pricingConfidence
+    notes: "Manual starting estimate. Replace with real comp rationale before publishing."
   });
   const [pricingLastUpdated, setPricingLastUpdated] = useState("Not saved");
   const [pricingSaveMessage, setPricingSaveMessage] = useState("");
@@ -656,8 +646,7 @@ export default function PricingPage() {
       estimatedValue: marketEstimate,
       targetSalePrice: currentAsk,
       floorPrice: 0,
-      notes: "Manual pricing needed for this Universal Card Profile.",
-      confidence: 0.65
+      notes: "Manual pricing needed for this Universal Card Profile."
     });
   }, [selectedApprovedItem]);
 
@@ -673,8 +662,7 @@ export default function PricingPage() {
           estimatedValue: Number(pricing.market_value) || current.estimatedValue,
           targetSalePrice: Number(pricing.suggested_price) || current.targetSalePrice,
           floorPrice: Number((pricing.comp_summary?.floorPrice as number | undefined) || current.floorPrice),
-          notes: Array.isArray(pricing.comp_summary?.notes) ? (pricing.comp_summary.notes as string[]).join(" ") : current.notes,
-          confidence: Number(pricing.pricing_confidence) || current.confidence
+          notes: Array.isArray(pricing.comp_summary?.notes) ? (pricing.comp_summary.notes as string[]).join(" ") : current.notes
         }));
         setPricingLastUpdated(pricing.last_priced_at ? new Date(pricing.last_priced_at).toLocaleString() : new Date(pricing.updated_at).toLocaleString());
       })

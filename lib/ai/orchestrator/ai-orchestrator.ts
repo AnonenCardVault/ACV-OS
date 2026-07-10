@@ -7,6 +7,7 @@ import type { AIDecision, AIExtractionInput, AIExtractionResult, AIFieldKey, AII
 import { blankCardFields, createSuggestedTitle, hasFieldValue, mergeCardFields } from "@/lib/ai/utils/fields";
 import { createLearningEvent } from "@/lib/ai/learning";
 import { validateCatalogFields } from "@/lib/catalog";
+import { recognizeParallel } from "@/lib/parallel-recognition";
 
 function runId() {
   return `ai-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -135,12 +136,16 @@ function confidenceCapFromEvidence({
   fields,
   fieldConfidence,
   warnings,
-  catalogStatus
+  catalogStatus,
+  parallelStatus,
+  parallelConfidence
 }: {
   fields: ExtractedCardFields;
   fieldConfidence: Partial<Record<AIFieldKey, number>>;
   warnings: AIWarning[];
   catalogStatus?: string;
+  parallelStatus?: string;
+  parallelConfidence?: number;
 }) {
   let cap = 99;
   const requiredFields: Array<keyof ExtractedCardFields> = ["cardTitle", "playerOrCharacter", "sportCategory", "year", "brand", "set", "cardNumber"];
@@ -152,9 +157,13 @@ function confidenceCapFromEvidence({
   const hasProviderConflict = warnings.some((warning) => warning.code.startsWith("field_conflict_"));
   const hasCatalogDisagreement = catalogStatus === "disagreement" || catalogStatus === "ambiguous";
   const hasBlocking = warnings.some((warning) => warning.severity === "blocking");
+  const hasParallelConflict = parallelStatus === "ambiguous" || parallelStatus === "unsupported";
 
   if (hasBlocking) cap = Math.min(cap, 45);
   if (hasProviderConflict || hasCatalogDisagreement) cap = Math.min(cap, 74);
+  if (hasParallelConflict) cap = Math.min(cap, 78);
+  if (parallelStatus === "not_found") cap = Math.min(cap, 88);
+  if (typeof parallelConfidence === "number" && parallelConfidence > 0 && parallelConfidence < 60) cap = Math.min(cap, 72);
   if (lowestRequired > 0 && lowestRequired < 50) cap = Math.min(cap, 60);
   else if (lowestRequired > 0 && lowestRequired < 70) cap = Math.min(cap, 78);
   else if (requiredScores.length < 3) cap = Math.min(cap, 70);
@@ -406,20 +415,42 @@ export async function runAIExtraction({
   }
   const catalog = await validateCatalogFields(fields);
   fields = catalog.fields;
+  const parallelRecognition = recognizeParallel({
+    fields,
+    images: input.images,
+    providerOutputs: context.providerOutputs,
+    catalogValidation: catalog.validation
+  });
+  if (!hasFieldValue(fields.parallel) && parallelRecognition.recommendedParallel) {
+    fields = { ...fields, parallel: parallelRecognition.recommendedParallel };
+  }
   const suggestedTitle = createSuggestedTitle(fields) || fields.cardTitle;
   const confidence = calculateAIConfidence({ fields, images: input.images, providerOutputs: context.providerOutputs, config });
-  const fieldConfidence = { ...confidence.fieldConfidence, ...catalog.fieldConfidence };
-  const warnings = dedupeWarnings(context.providerOutputs, [...confidence.warnings, ...catalog.warnings]);
+  const fieldConfidence = {
+    ...confidence.fieldConfidence,
+    ...catalog.fieldConfidence,
+    parallel: parallelRecognition.confidence ?? confidence.fieldConfidence.parallel
+  };
+  const parallelWarnings: AIWarning[] = parallelRecognition.warnings.map((message) => ({
+    code: `parallel_${parallelRecognition.status}`,
+    message,
+    severity: parallelRecognition.status === "unsupported" || parallelRecognition.status === "ambiguous" ? "warning" : "info",
+    field: "parallel"
+  }));
+  const warnings = dedupeWarnings(context.providerOutputs, [...confidence.warnings, ...catalog.warnings, ...parallelWarnings]);
   const adjustedOverall = Math.min(
     clampConfidence(confidence.overall + catalog.confidenceAdjustment),
     confidenceCapFromEvidence({
       fields,
       fieldConfidence,
       warnings,
-      catalogStatus: catalog.validation?.status
+      catalogStatus: catalog.validation?.status,
+      parallelStatus: parallelRecognition.status,
+      parallelConfidence: parallelRecognition.confidence
     })
   );
   let extractionStatus = (catalog.validation?.status === "disagreement" || catalog.validation?.status === "ambiguous") && confidence.status === "Ready to Approve" ? "Needs Review" : confidence.status;
+  if ((parallelRecognition.status === "ambiguous" || parallelRecognition.status === "unsupported") && extractionStatus === "Ready to Approve") extractionStatus = "Needs Review";
   if (extractionStatus === "Ready to Approve" && adjustedOverall < config.highConfidence) extractionStatus = adjustedOverall < config.mediumConfidence ? "Needs Research" : "Needs Review";
   const learningEvent = createLearningEvent({ input, providerOutputs: context.providerOutputs });
   const log = createExtractionLog({
@@ -448,6 +479,7 @@ export async function runAIExtraction({
           matchedCard: catalog.validation.matchedCard
         }
       : undefined,
+    parallelRecognition,
     providersUsed: context.providerOutputs.map((output) => ({
       id: output.providerId,
       name: output.providerLabel,
@@ -467,6 +499,7 @@ export async function runAIExtraction({
     providersUsed: context.providerOutputs.map((output) => output.providerId),
     providerOutputs: context.providerOutputs,
     catalogValidation: catalog.validation,
+    parallelRecognition,
     decisionTrace: context.decisionTrace as AIDecision[],
     learningEvent,
     log

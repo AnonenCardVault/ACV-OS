@@ -22,7 +22,6 @@ export class ManualPricingProvider implements PricingProvider {
         label: "Estimated market value",
         value: input.estimatedValue,
         notes: input.notes,
-        confidence: input.confidence,
         createdAt
       },
       {
@@ -32,7 +31,6 @@ export class ManualPricingProvider implements PricingProvider {
         label: "Target sale price",
         value: input.targetSalePrice,
         notes: input.notes,
-        confidence: input.confidence,
         createdAt
       },
       {
@@ -42,7 +40,6 @@ export class ManualPricingProvider implements PricingProvider {
         label: "Floor price",
         value: input.floorPrice,
         notes: input.notes,
-        confidence: input.confidence,
         createdAt
       }
     ];

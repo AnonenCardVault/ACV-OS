@@ -31,7 +31,6 @@ export type ManualPricingInput = {
   targetSalePrice: number;
   floorPrice: number;
   notes: string;
-  confidence: number;
 };
 
 export type PricingEvidence = {

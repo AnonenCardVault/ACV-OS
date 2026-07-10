@@ -11,6 +11,7 @@ import {
   uploadTempIntakeFile
 } from "@/lib/supabase/intake";
 import { cleanupLargeAcvStorageKeys, safeGetStorageItem, safeSetStorageItem } from "@/lib/safe-storage";
+import type { ParallelRecognitionResult } from "@/lib/parallel-recognition";
 import type { SupabaseBackendStatus } from "@/lib/supabase/types";
 
 export type SourceKey = "Computer Upload" | "eBay Active Listings" | "eBay Drafts" | "Google Drive" | "Dropbox" | "Mobile Camera Upload" | "Scanner" | "Shared Team Uploads" | "Future Sources";
@@ -121,6 +122,7 @@ export type AiExtractionSnapshot = {
   extractionSources?: string[];
   catalogDiagnostics?: CatalogDiagnostic;
   providerDiagnostics?: AiProviderDiagnostic[];
+  parallelRecognition?: ParallelRecognitionResult;
 };
 
 export type IntakeGroup = {
@@ -132,6 +134,7 @@ export type IntakeGroup = {
   confidence: number;
   warnings: string[];
   proposed: ProposedRecord;
+  confirmedFields?: Array<keyof ProposedRecord>;
   aiExtraction?: AiExtractionSnapshot;
 };
 
@@ -143,6 +146,9 @@ export type ApprovedInventoryItem = {
   primaryImageUrl: string;
   images: IntakeImage[];
   proposed: ProposedRecord;
+  aiConfidence?: number;
+  confirmedFields?: Array<keyof ProposedRecord>;
+  parallelRecognition?: ParallelRecognitionResult;
   approvedAt: string;
   needsImageReupload?: boolean;
   auditHistory?: string[];

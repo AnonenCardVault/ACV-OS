@@ -90,7 +90,10 @@ export function buildPricingRecommendation(profile: UniversalCardPricingProfile,
   const marketValue = manualInput?.estimatedValue || 0;
   const targetSalePrice = manualInput?.targetSalePrice || marketValue;
   const floorPrice = manualInput?.floorPrice || 0;
-  const pricingConfidence = manualInput?.confidence || 0;
+  const manualValues = [manualInput?.estimatedValue, manualInput?.targetSalePrice, manualInput?.floorPrice].filter((value) => Number(value) > 0).length;
+  const noteBonus = manualInput?.notes?.trim() ? 8 : 0;
+  const providerBonus = evidence.filter((item) => item.evidenceType !== "manual_estimate").length > 0 ? 10 : 0;
+  const pricingConfidence = Math.min(86, manualValues > 0 ? 38 + manualValues * 10 + noteBonus + providerBonus : providerBonus);
 
   return {
     profile,

@@ -29,6 +29,7 @@ import { StatusPill } from "@/components/status-pill";
 import { extractCardFromImagesViaApi } from "@/lib/ai-extraction";
 import { compactApprovedInventoryItemForCache, compactIntakeImageForCache, compactUploadedImageForCache, useAcvLocalState, type BatchHistoryEntry } from "@/lib/acv-local-state";
 import { generateMarketplaceTitles, type MarketplaceTitleCatalogFacts, type MarketplaceTitleResult } from "@/lib/marketplace-title";
+import type { ParallelRecognitionResult } from "@/lib/parallel-recognition";
 import { cn } from "@/lib/utils";
 
 type SourceKey = "Computer Upload" | "eBay Active Listings" | "eBay Drafts" | "Google Drive" | "Dropbox" | "Mobile Camera Upload" | "Scanner" | "Shared Team Uploads" | "Future Sources";
@@ -142,6 +143,7 @@ type AiExtractionSnapshot = {
   extractionSources?: string[];
   catalogDiagnostics?: CatalogDiagnostic;
   providerDiagnostics?: AiProviderDiagnostic[];
+  parallelRecognition?: ParallelRecognitionResult;
 };
 
 type IntakeGroup = {
@@ -153,6 +155,7 @@ type IntakeGroup = {
   confidence: number;
   warnings: string[];
   proposed: ProposedRecord;
+  confirmedFields?: Array<keyof ProposedRecord>;
   aiExtraction?: AiExtractionSnapshot;
 };
 
@@ -393,7 +396,6 @@ function readinessIssuesForGroup(group?: IntakeGroup | null) {
   if (!hasFieldValue(proposed.category)) issues.push("Category missing");
   if (!hasFieldValue(proposed.year) && !uncertainty) issues.push("Year missing");
   if (!hasBrandOrSet && !uncertainty) issues.push("Brand or set missing");
-  if (safeConfidence(group) < 90) issues.push("Confidence below 90%");
   if (aiStatusForGroup(group) === "Failed") issues.push("AI extraction failed");
   warnings
     .filter((warning) => !issues.includes(warning))
@@ -462,7 +464,6 @@ function statusForGroup(group?: IntakeGroup | null): RouteStatus {
   const hasFront = images.some((image) => image.role === "Front");
   if (!hasFront || warnings.some((warning) => warning.toLowerCase().includes("mismatch"))) return "Blocked";
   if (!hasFieldValue(proposed.cardName) || !hasFieldValue(proposed.category)) return "Needs Research";
-  if (safeConfidence(group) < 70) return "Needs Research";
   if (readinessIssuesForGroup(group).length > 0) return "Review";
   return "Ready to Approve";
 }
@@ -697,6 +698,85 @@ function FieldRow({ label, value, tone }: { label: string; value: React.ReactNod
   );
 }
 
+function ParallelRecognitionPanel({
+  recognition,
+  finalParallel,
+  confirmedFields
+}: {
+  recognition?: ParallelRecognitionResult;
+  finalParallel: string;
+  confirmedFields?: Array<keyof ProposedRecord>;
+}) {
+  const parallelConfirmed = Boolean(finalParallel && confirmedFields?.includes("parallel"));
+  const confidence = typeof recognition?.confidence === "number" ? `${recognition.confidence}%` : parallelConfirmed ? "Confirmed" : "Not scored";
+  const recommended = recognition?.recommendedParallel || finalParallel || "No recommendation";
+  const evidence = recognition?.evidence || [];
+  const candidates = recognition?.candidates || [];
+  const warnings = recognition?.warnings || [];
+
+  return (
+    <div className="mt-3 rounded-lg border border-acv-border bg-acv-panel2 p-3">
+      <div className="mb-3 flex min-w-0 flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-acv-muted">Parallel Recognition</p>
+          <p className="mt-1 text-[11px] leading-5 text-acv-muted">AI recommends a parallel from provider, catalog, serial, and correction evidence. Final Parallel stays editable.</p>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          <StatusPill tone={parallelConfirmed ? "green" : recognition?.status === "ambiguous" || recognition?.status === "unsupported" ? "gold" : recognition?.status === "not_found" ? "neutral" : "teal"}>
+            {parallelConfirmed ? "Confirmed Value" : recognition?.status ? recognition.status.replace("_", " ") : "Not Run"}
+          </StatusPill>
+          <StatusPill tone={parallelConfirmed ? "green" : recognition?.confidence && recognition.confidence >= 80 ? "teal" : recognition?.confidence && recognition.confidence >= 60 ? "gold" : "purple"}>
+            {confidence}
+          </StatusPill>
+        </div>
+      </div>
+
+      <div className="grid min-w-0 gap-2 sm:grid-cols-2">
+        <AlertRow tone="neutral">Recommended Parallel: {recommended}</AlertRow>
+        <AlertRow tone="neutral">Final Parallel: {finalParallel || "Blank until confirmed"}</AlertRow>
+        {recognition?.serialEvidence?.detail && <AlertRow tone="neutral">{recognition.serialEvidence.detail}</AlertRow>}
+        {recognition?.catalogSupported !== undefined && <AlertRow tone={recognition.catalogSupported ? "neutral" : "gold"}>{recognition.catalogSupported ? "Catalog supports recommendation" : "Catalog support not confirmed"}</AlertRow>}
+      </div>
+
+      {candidates.length > 0 && (
+        <div className="mt-3 min-w-0 rounded-md border border-acv-border bg-black/20 p-2">
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-acv-muted">Candidate Parallels</p>
+          <div className="grid min-w-0 gap-1.5 sm:grid-cols-2">
+            {candidates.slice(0, 4).map((candidate) => (
+              <AlertRow key={`${candidate.normalizedLabel}-${candidate.confidence}`} tone={candidate.catalogSupported ? "neutral" : candidate.warnings.length ? "gold" : "neutral"}>
+                {candidate.officialCatalogLabel || candidate.normalizedLabel} • {candidate.confidence}%
+              </AlertRow>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {evidence.length > 0 && (
+        <div className="mt-3 min-w-0 rounded-md border border-acv-border bg-black/20 p-2">
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-acv-muted">Evidence Summary</p>
+          <div className="grid min-w-0 gap-1.5">
+            {evidence.slice(0, 6).map((item, index) => (
+              <AlertRow key={`${item.source}-${item.value || item.detail || index}`} tone="neutral">
+                {item.label}: {item.value || item.detail || "Evidence captured"}{item.confidence !== undefined ? ` (${item.confidence}%)` : ""}
+              </AlertRow>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {warnings.length > 0 && (
+        <div className="mt-3 grid min-w-0 gap-2">
+          {warnings.map((warning) => (
+            <AlertRow key={warning} tone="gold">
+              {warning}
+            </AlertRow>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SelectCheckbox({
   checked,
   label,
@@ -769,7 +849,7 @@ function ApprovalDecisionCard({
         <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-acv-muted">Decision Summary</p>
         <div className="grid min-w-0 gap-2 sm:grid-cols-2 xl:grid-cols-6">
           <DecisionSummaryItem state={missingFront ? "blocked" : missingImage ? "warning" : "ready"}>{missingImage || "Images paired"}</DecisionSummaryItem>
-          <DecisionSummaryItem state={safeConfidence(group) >= 90 ? "ready" : "warning"}>Manual confidence: {safeConfidence(group)}%</DecisionSummaryItem>
+          <DecisionSummaryItem state={safeConfidence(group) >= 90 ? "ready" : "warning"}>Pairing check: {safeConfidence(group)}%</DecisionSummaryItem>
           <DecisionSummaryItem state={aiConfidence === undefined ? "warning" : aiConfidence >= 90 ? "ready" : aiConfidence >= 70 ? "warning" : "blocked"}>{aiConfidence === undefined ? "AI confidence: Not run" : `AI confidence: ${aiConfidence}%`}</DecisionSummaryItem>
           <DecisionSummaryItem state={completeRecord ? "ready" : "warning"}>{completeRecord ? "Required fields complete" : requiredIssue || readinessIssues[0] || "Review recommended"}</DecisionSummaryItem>
           <DecisionSummaryItem state={isApproved ? "ready" : readyForApproval ? "ready" : "warning"}>{isApproved ? "SKU assigned" : readyForApproval ? "Ready for SKU assignment" : "SKU assignment needs review"}</DecisionSummaryItem>
@@ -1031,7 +1111,6 @@ function ReviewDrawer({
   onSetImageRole,
   onMoveImage,
   onUpdateProposed,
-  onUpdateConfidence,
   onRunExtraction,
   onClearExtraction,
   onApplyAiSuggestion,
@@ -1056,7 +1135,6 @@ function ReviewDrawer({
   onSetImageRole: (groupId: string, imageId: string, role: ImageRole) => void;
   onMoveImage: (groupId: string, imageId: string, direction: -1 | 1) => void;
   onUpdateProposed: <K extends keyof ProposedRecord>(groupId: string, key: K, value: ProposedRecord[K]) => void;
-  onUpdateConfidence: (groupId: string, confidence: number) => void;
   onRunExtraction: (groupId: string) => void | Promise<void>;
   onClearExtraction: (groupId: string) => void;
   onApplyAiSuggestion: (groupId: string) => void;
@@ -1070,7 +1148,7 @@ function ReviewDrawer({
   const [showDiagnostics, setShowDiagnostics] = useState(true);
   const groupImages = safeImages(group);
   const proposed = safeProposed(group);
-  const manualConfidence = safeConfidence(group);
+  const pairingConfidence = safeConfidence(group);
   const routeStatus: RouteStatus = isRejected ? "Blocked" : isResearch ? "Needs Research" : statusForGroup(group);
   const skuDisplay = skuStatus === "SKU Assigned" ? `${assignedSku} mock` : "Pending Approval";
   const drawerSkuTone = skuStatus === "SKU Assigned" ? "green" : "purple";
@@ -1082,6 +1160,8 @@ function ReviewDrawer({
   const providerDiagnostics = group.aiExtraction?.providerDiagnostics || [];
   const fieldConfidence = group.aiExtraction?.fieldConfidence || {};
   const fieldConfidenceEntries = Object.entries(fieldConfidence).filter(([, value]) => typeof value === "number");
+  const confirmedFieldEntries = (group.confirmedFields || []).map((field) => fieldConfidenceLabel(String(field))).slice(0, 12);
+  const needsReviewEntries = readinessIssues.slice(0, 8);
   const marketplaceTitle = marketplaceTitleForRecord(proposed, catalogDiagnostics);
   const recommendedEbayTitle = marketplaceTitle.ebayTitle;
   const hasAiSuggestion = Boolean(group.aiExtraction?.extracted || group.aiExtraction?.suggestedTitle);
@@ -1098,7 +1178,7 @@ function ReviewDrawer({
               <StatusPill tone="gold">Group: {group.id}</StatusPill>
               <StatusPill tone={drawerSkuTone}>SKU: {skuDisplay}</StatusPill>
               <StatusPill tone={toneForStatus(routeStatus)}>{routeStatus}</StatusPill>
-              <StatusPill tone={confidenceTone(manualConfidence)}>Manual {manualConfidence}%</StatusPill>
+              <StatusPill tone={confidenceTone(pairingConfidence)}>Pairing {pairingConfidence}%</StatusPill>
               <StatusPill tone={toneForAiStatus(aiStatus)}>AI: {aiStatus}</StatusPill>
             </div>
             <h2 className="truncate text-lg font-semibold text-acv-text">{proposed.cardName}</h2>
@@ -1172,7 +1252,7 @@ function ReviewDrawer({
                         <StatusPill tone={toneForAiStatus(aiStatus)}>AI Extraction: {aiStatus}</StatusPill>
                         {(aiStatus === "Extracted" || aiStatus === "Needs Review") && <StatusPill tone="teal">{aiProviderLabel}</StatusPill>}
                         {group.aiExtraction?.confidenceScore !== undefined && <StatusPill tone={confidenceTone(group.aiExtraction.confidenceScore)}>AI {group.aiExtraction.confidenceScore}%</StatusPill>}
-                        <StatusPill tone={confidenceTone(manualConfidence)}>Manual {manualConfidence}%</StatusPill>
+                        <StatusPill tone={confidenceTone(pairingConfidence)}>Pairing {pairingConfidence}%</StatusPill>
                       </div>
                       <p className="mt-2 text-xs leading-5 text-acv-muted">
                         Extraction runs only when clicked, fills this editable form, and never approves inventory automatically.
@@ -1235,25 +1315,6 @@ function ReviewDrawer({
                   <EditableField label="Serial Number" value={proposed.serialNumber} onChange={(value) => onUpdateProposed(group.id, "serialNumber", value)} />
                   <EditableSelectField label="Grader" value={proposed.grader || "Raw"} options={graderOptions} onChange={(value) => onUpdateProposed(group.id, "grader", value)} />
                   <EditableSelectField label="Grade" value={proposed.grade || "Raw"} options={gradeOptions} onChange={(value) => onUpdateProposed(group.id, "grade", value)} />
-                  <label className="min-w-0 rounded-md border border-acv-border bg-acv-panel2 px-3 py-2">
-                    <span className="truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-acv-muted">Manual Confidence</span>
-                    <input
-                      type="range"
-                      min={0}
-                      max={100}
-                      value={manualConfidence}
-                      onChange={(event) => onUpdateConfidence(group.id, Math.min(100, Math.max(0, Number(event.target.value) || 0)))}
-                      className="mt-2 w-full accent-acv-teal"
-                    />
-                    <input
-                      type="number"
-                      min={0}
-                      max={100}
-                      value={manualConfidence}
-                      onChange={(event) => onUpdateConfidence(group.id, Math.min(100, Math.max(0, Number(event.target.value) || 0)))}
-                      className="mt-1 w-full min-w-0 bg-transparent text-xs font-semibold text-acv-text outline-none"
-                    />
-                  </label>
                   <EditableFlag label="Rookie" checked={proposed.rookieFlag} onChange={(value) => onUpdateProposed(group.id, "rookieFlag", value)} />
                   <EditableFlag label="Auto" checked={proposed.autoFlag} onChange={(value) => onUpdateProposed(group.id, "autoFlag", value)} />
                   <EditableFlag label="Relic" checked={proposed.relicFlag} onChange={(value) => onUpdateProposed(group.id, "relicFlag", value)} />
@@ -1266,6 +1327,7 @@ function ReviewDrawer({
                   <EditableField label="Uncertainty Notes" value={proposed.uncertaintyNotes} multiline onChange={(value) => onUpdateProposed(group.id, "uncertaintyNotes", value)} />
                   <EditableField label="Internal Notes" value={proposed.internalNotes || ""} multiline onChange={(value) => onUpdateProposed(group.id, "internalNotes", value)} />
                 </div>
+                <ParallelRecognitionPanel recognition={group.aiExtraction?.parallelRecognition} finalParallel={proposed.parallel} confirmedFields={group.confirmedFields} />
                 <div className="mt-3 rounded-lg border border-acv-border bg-acv-panel2 p-3">
                   <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
                     <div className="min-w-0">
@@ -1303,11 +1365,32 @@ function ReviewDrawer({
                         <div className="min-w-0 rounded-md border border-acv-border bg-black/20 p-2">
                           <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-acv-muted">Field Confidence</p>
                           <div className="grid min-w-0 gap-1.5 sm:grid-cols-2">
+                            {group.aiExtraction?.confidenceScore !== undefined && (
+                              <AlertRow tone="neutral">AI Extraction Confidence: {group.aiExtraction.confidenceScore}%</AlertRow>
+                            )}
                             {fieldConfidenceEntries.slice(0, 12).map(([key, value]) => (
                               <div key={key} className="min-w-0 rounded-md border border-acv-border bg-acv-panel2 px-2 py-1.5 text-[11px] font-semibold leading-4 text-acv-text">
                                 <span className="text-acv-muted">{fieldConfidenceLabel(key)}:</span> <span className={cn(Number(value) >= 90 ? "text-acv-teal" : Number(value) >= 70 ? "text-acv-gold" : "text-acv-pink")}>{value}%</span>
                               </div>
                             ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {(confirmedFieldEntries.length > 0 || needsReviewEntries.length > 0) && (
+                        <div className="min-w-0 rounded-md border border-acv-border bg-black/20 p-2">
+                          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-acv-muted">Confirmed / Needs Review</p>
+                          <div className="grid min-w-0 gap-1.5 sm:grid-cols-2">
+                            {confirmedFieldEntries.length > 0 ? (
+                              <AlertRow tone="neutral">Confirmed fields: {confirmedFieldEntries.join(", ")}</AlertRow>
+                            ) : (
+                              <AlertRow tone="neutral">Confirmed fields appear after manual edits are saved or approved.</AlertRow>
+                            )}
+                            {needsReviewEntries.length > 0 ? (
+                              <AlertRow tone="gold">Needs review: {needsReviewEntries.join(", ")}</AlertRow>
+                            ) : (
+                              <AlertRow tone="neutral">No required fields are currently missing.</AlertRow>
+                            )}
                           </div>
                         </div>
                       )}
@@ -1813,6 +1896,9 @@ export default function PhotoIntakePage() {
         needsImageReupload: Boolean(primaryImage?.needsReupload || !(primaryImage?.dataUrl || primaryImage?.url || primaryImage?.publicUrl)),
         images: groupImages,
         proposed: safeProposed(group),
+        aiConfidence: group.aiExtraction?.confidenceScore,
+        confirmedFields: Object.keys(safeProposed(group)) as Array<keyof ProposedRecord>,
+        parallelRecognition: group.aiExtraction?.parallelRecognition,
         approvedAt: new Date().toLocaleString()
       };
       const approvedEntry = {
@@ -2044,11 +2130,11 @@ export default function PhotoIntakePage() {
   }
 
   function updateProposed<K extends keyof ProposedRecord>(groupId: string, key: K, value: ProposedRecord[K]) {
-    updateGroup(groupId, (group) => ({ ...group, proposed: { ...safeProposed(group), [key]: value } }));
-  }
-
-  function updateConfidence(groupId: string, confidence: number) {
-    updateGroup(groupId, (group) => ({ ...group, confidence }));
+    updateGroup(groupId, (group) => ({
+      ...group,
+      proposed: { ...safeProposed(group), [key]: value },
+      confirmedFields: Array.from(new Set([...(group.confirmedFields || []), key]))
+    }));
   }
 
   async function runAiExtraction(groupId: string) {
@@ -2086,7 +2172,10 @@ export default function PhotoIntakePage() {
       });
       updateGroup(groupId, (currentGroup) => ({
         ...currentGroup,
-        proposed: { ...currentGroup.proposed, ...result.extracted },
+        proposed: {
+          ...currentGroup.proposed,
+          ...Object.fromEntries(Object.entries(result.extracted).filter(([key]) => !(currentGroup.confirmedFields || []).includes(key as keyof ProposedRecord)))
+        },
         aiExtraction: {
           status: result.status,
           extracted: result.extracted,
@@ -2098,7 +2187,8 @@ export default function PhotoIntakePage() {
           modelLabel: result.modelLabel,
           extractionSources: result.extractionSources,
           catalogDiagnostics: result.catalogDiagnostics,
-          providerDiagnostics: result.providerDiagnostics
+          providerDiagnostics: result.providerDiagnostics,
+          parallelRecognition: result.parallelRecognition
         }
       }));
       logIntakeDev("AI Extraction Result", {
@@ -2108,6 +2198,7 @@ export default function PhotoIntakePage() {
         confidence: result.confidenceScore,
         extracted: result.extracted,
         catalogDiagnostics: result.catalogDiagnostics,
+        parallelRecognition: result.parallelRecognition,
         providerDiagnostics: result.providerDiagnostics
       });
       setStatusMessage(`${groupId} ACV AI Orchestrator extraction complete. Review editable fields before approving.`);
@@ -2482,7 +2573,7 @@ export default function PhotoIntakePage() {
                             </div>
                             <div className="flex shrink-0 flex-col items-end gap-1">
                               <StatusPill tone={toneForStatus(routeStatus)}>{routeStatus}</StatusPill>
-                              <StatusPill tone={confidenceTone(confidence)}>{confidence}%</StatusPill>
+                              <StatusPill tone={confidenceTone(confidence)}>Pairing {confidence}%</StatusPill>
                               <StatusPill tone={toneForAiStatus(aiStatus)}>AI: {aiStatus}</StatusPill>
                             </div>
                           </div>
@@ -2530,7 +2621,7 @@ export default function PhotoIntakePage() {
                 <>
                   <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                     <StatusPill tone={toneForStatus(statusForGroup(selectedGroup))}>{statusForGroup(selectedGroup)}</StatusPill>
-                    <StatusPill tone={confidenceTone(safeConfidence(selectedGroup))}>{safeConfidence(selectedGroup)}% confidence</StatusPill>
+                    <StatusPill tone={confidenceTone(safeConfidence(selectedGroup))}>Pairing {safeConfidence(selectedGroup)}%</StatusPill>
                     <StatusPill tone={toneForAiStatus(aiStatusForGroup(selectedGroup))}>AI: {aiStatusForGroup(selectedGroup)}</StatusPill>
                   </div>
                   <div className="grid min-w-0 gap-2 sm:grid-cols-2">
@@ -2633,7 +2724,7 @@ export default function PhotoIntakePage() {
               },
               { key: "item", header: "Proposed Item", className: "min-w-56", cell: (group) => <span className="font-semibold text-acv-text">{safeProposed(group).cardName}</span> },
               { key: "category", header: "Category", cell: (group) => <StatusPill tone="purple">{safeProposed(group).category}</StatusPill> },
-              { key: "confidence", header: "Confidence", cell: (group) => <span className={cn("font-semibold", safeConfidence(group) >= 90 ? "text-acv-teal" : safeConfidence(group) >= 70 ? "text-acv-gold" : "text-acv-pink")}>{safeConfidence(group)}%</span> },
+              { key: "pairing", header: "Pairing", cell: (group) => <span className={cn("font-semibold", safeConfidence(group) >= 90 ? "text-acv-teal" : safeConfidence(group) >= 70 ? "text-acv-gold" : "text-acv-pink")}>{safeConfidence(group)}%</span> },
               { key: "aiStatus", header: "AI Status", cell: (group) => <StatusPill tone={toneForAiStatus(aiStatusForGroup(group))}>{aiStatusForGroup(group)}</StatusPill> },
               { key: "status", header: "Status", cell: (group) => <StatusPill tone={toneForStatus(queueStatus(group))}>{queueStatus(group)}</StatusPill> },
               {
@@ -2784,7 +2875,6 @@ export default function PhotoIntakePage() {
             onSetImageRole={setImageRoleExclusive}
             onMoveImage={moveImage}
             onUpdateProposed={updateProposed}
-            onUpdateConfidence={updateConfidence}
             onRunExtraction={runAiExtraction}
             onClearExtraction={clearAiExtraction}
             onApplyAiSuggestion={applyAiSuggestion}

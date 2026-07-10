@@ -193,6 +193,29 @@ export type ExtractionAttemptRow = {
   deleted_at: string | null;
 };
 
+export type ParallelRecognitionEventRow = {
+  id: string;
+  user_id: string;
+  universal_card_profile_id: string | null;
+  intake_group_id: string | null;
+  sku: string | null;
+  original_prediction: string | null;
+  normalized_prediction: string | null;
+  confirmed_parallel: string | null;
+  recognition_status: string | null;
+  parallel_confidence: number | null;
+  provider_outputs: Record<string, unknown>;
+  evidence: unknown[];
+  candidates: unknown[];
+  warnings: unknown[];
+  product_context: Record<string, unknown>;
+  image_refs: unknown[];
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+};
+
 export type SupabaseLoadedState = {
   approvedInventory: ApprovedInventoryItem[];
   batchHistory: BatchHistoryEntry[];

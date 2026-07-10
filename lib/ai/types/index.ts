@@ -1,4 +1,5 @@
 import type { CatalogValidationResult } from "@/lib/catalog/types";
+import type { ParallelRecognitionResult } from "@/lib/parallel-recognition/types";
 
 export type AIImageRole =
   | "Front"
@@ -235,6 +236,7 @@ export type AIExtractionResult = ExtractedCardFields & {
   providersUsed: string[];
   providerOutputs: AIProviderOutput[];
   catalogValidation?: CatalogValidationResult;
+  parallelRecognition?: ParallelRecognitionResult;
   decisionTrace: AIDecision[];
   learningEvent: AILearningEvent;
   log: AIExtractionLog;
