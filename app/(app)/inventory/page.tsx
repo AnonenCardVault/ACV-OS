@@ -24,8 +24,8 @@ import { ActionButton } from "@/components/action-button";
 import { DataTable } from "@/components/data-table";
 import { StatusPill } from "@/components/status-pill";
 import { inventoryItems } from "@/data/mock";
-import { useAcvLocalState, type ApprovedInventoryItem, type IntakeImage, type ProposedRecord } from "@/lib/acv-local-state";
-import { archiveApprovedInventoryItemBySku, loadApprovedInventoryFromSupabase, saveApprovedInventoryItemChanges, softDeleteApprovedInventoryItemBySku } from "@/lib/supabase/cards";
+import { approvedInventoryIdentity, useAcvLocalState, type ApprovedInventoryItem, type IntakeImage, type ProposedRecord } from "@/lib/acv-local-state";
+import { archiveApprovedInventoryItemById, loadApprovedInventoryFromSupabase, saveApprovedInventoryItemChanges, softDeleteApprovedInventoryItemById } from "@/lib/supabase/cards";
 import { cn, formatCurrency, formatPercent } from "@/lib/utils";
 
 type InventoryItem = (typeof inventoryItems)[number];
@@ -58,6 +58,10 @@ type DataColumnKey =
   | "shippingMethod";
 type Row = InventoryItem & {
   ops: InventoryOps;
+  inventoryId?: string;
+  profileId?: string;
+  intakeGroupId?: string;
+  recordSource?: "mock" | "supabase" | "local";
   localImages?: IntakeImage[];
   localPrimaryImageUrl?: string;
   localNeedsImageReupload?: boolean;
@@ -422,13 +426,14 @@ function rowWithOps(item: InventoryItem): Row {
 }
 
 function approvedItemToRow(item: ApprovedInventoryItem): Row {
+  const rowId = approvedInventoryIdentity(item);
   const purchaseCost = Number(item.proposed.purchaseCost) || 0;
   const quantity = Math.max(1, Number(item.proposed.quantity) || 1);
   const source = item.proposed.acquisitionSource || "Photo Intake";
   const location = item.proposed.location || "Photo Intake";
   const internalNotes = item.proposed.internalNotes?.trim();
   const inventoryItem: InventoryItem = {
-    id: `local-${item.sku}`,
+    id: rowId,
     sku: item.sku,
     name: item.proposed.cardName || "Untitled intake item",
     category: item.proposed.category || "Other",
@@ -458,6 +463,10 @@ function approvedItemToRow(item: ApprovedInventoryItem): Row {
 
   return {
     ...baseRow,
+    inventoryId: item.inventoryId,
+    profileId: item.profileId,
+    intakeGroupId: item.intakeGroupId,
+    recordSource: item.inventoryId || item.profileId ? "supabase" : "local",
     localImages: item.images,
     localPrimaryImageUrl: item.primaryImageUrl,
     localNeedsImageReupload: item.needsImageReupload,
@@ -522,6 +531,9 @@ function rowToProposed(row: Row): ProposedRecord {
 function rowToApprovedItem(row: Row, proposed: ProposedRecord, images: IntakeImage[]): ApprovedInventoryItem {
   const primary = images.find((image) => image.role === "Front") || images[0];
   return {
+    inventoryId: row.inventoryId,
+    profileId: row.profileId,
+    intakeGroupId: row.intakeGroupId,
     sku: row.sku,
     batch: row.localBatch || "Inventory",
     group: row.localGroup || row.id,
@@ -1284,17 +1296,17 @@ function listedDateMatches(row: Row, filter: string) {
 
 export default function InventoryPage() {
   const { approvedInventory, setApprovedInventory, backendStatus } = useAcvLocalState();
-  const [archivedSkus, setArchivedSkus] = useState<Set<string>>(new Set());
-  const [deletedSkus, setDeletedSkus] = useState<Set<string>>(new Set());
+  const [archivedIds, setArchivedIds] = useState<Set<string>>(new Set());
+  const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set());
   const [mockOverrides, setMockOverrides] = useState<Record<string, Partial<InventoryItem>>>({});
   const rows = useMemo(() => {
-    const inactiveSkus = new Set([...Array.from(archivedSkus), ...Array.from(deletedSkus)]);
+    const inactiveIds = new Set([...Array.from(archivedIds), ...Array.from(deletedIds)]);
     const mockRows = inventoryItems
-      .filter((item) => !inactiveSkus.has(item.sku))
-      .map((item) => rowWithOps({ ...item, ...(mockOverrides[item.sku] || {}) }));
-    const approvedRows = approvedInventory.filter((item) => !inactiveSkus.has(item.sku)).map(approvedItemToRow);
+      .map((item) => rowWithOps({ ...item, id: `mock:${item.id}`, ...(mockOverrides[item.sku] || {}) }))
+      .filter((row) => !inactiveIds.has(row.id));
+    const approvedRows = approvedInventory.map(approvedItemToRow).filter((row) => !inactiveIds.has(row.id));
     return [...mockRows, ...approvedRows];
-  }, [approvedInventory, archivedSkus, deletedSkus, mockOverrides]);
+  }, [approvedInventory, archivedIds, deletedIds, mockOverrides]);
   const [selectedRow, setSelectedRow] = useState<Row | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("Listings");
   const [listingSubTab, setListingSubTab] = useState<ListingSubTab>("All Listings");
@@ -1391,19 +1403,20 @@ export default function InventoryPage() {
   async function saveInventoryChanges(row: Row, proposed: ProposedRecord, images: IntakeImage[], removedImageIds: string[]) {
     const nextImages = images.map((image, order) => ({ ...image, order }));
     const nextItem = rowToApprovedItem(row, proposed, nextImages);
-    const approvedExists = approvedInventory.some((item) => item.sku === row.sku);
+    const rowIdentity = row.id;
+    const approvedExists = approvedInventory.some((item) => approvedInventoryIdentity(item) === rowIdentity);
 
-    if (approvedExists || row.id.startsWith("local-")) {
+    if (approvedExists || row.recordSource === "local" || row.recordSource === "supabase") {
       setApprovedInventory((current) => {
-        const exists = current.some((item) => item.sku === row.sku);
-        return exists ? current.map((item) => (item.sku === row.sku ? nextItem : item)) : [...current, nextItem];
+        const exists = current.some((item) => approvedInventoryIdentity(item) === rowIdentity);
+        return exists ? current.map((item) => (approvedInventoryIdentity(item) === rowIdentity ? nextItem : item)) : [...current, nextItem];
       });
 
       try {
         if (backendStatus.connectionState === "connected") {
-          await saveApprovedInventoryItemChanges(nextItem, removedImageIds);
+          const savedItem = await saveApprovedInventoryItemChanges(nextItem, removedImageIds);
           const remoteInventory = await loadApprovedInventoryFromSupabase();
-          setApprovedInventory(remoteInventory);
+          setApprovedInventory(remoteInventory.map((item) => (approvedInventoryIdentity(item) === approvedInventoryIdentity(savedItem) ? savedItem : item)));
           setSaveMessage(`${row.sku} saved to Supabase + local UI.`);
         } else {
           setSaveMessage(`${row.sku} saved locally. Supabase is not connected.`);
@@ -1437,34 +1450,58 @@ export default function InventoryPage() {
     setSelectedRow(null);
   }
 
-  async function archiveInventoryRow(row: Row) {
-    if (!window.confirm(`Archive ${row.sku}? It will leave active Inventory views but remain recoverable as a soft-deleted record where Supabase supports it.`)) return;
-    setArchivedSkus((current) => new Set(current).add(row.sku));
+  async function archiveInventoryRow(row: Row, requireConfirmation = true) {
+    if (requireConfirmation && !window.confirm(`Archive inventory record ${row.id} (${row.sku})? It will leave active Inventory views but remain recoverable as a soft-deleted record where Supabase supports it.`)) return;
+    setArchivedIds((current) => new Set(current).add(row.id));
     setSelectedRow(null);
 
     try {
-      if (backendStatus.connectionState === "connected") await archiveApprovedInventoryItemBySku(row.sku);
-      setSaveMessage(`${row.sku} archived.`);
+      if (backendStatus.connectionState === "connected" && row.inventoryId) await archiveApprovedInventoryItemById(row.inventoryId);
+      setSaveMessage(`${row.sku} archived (${row.id}).`);
     } catch (error) {
       console.error("[ACV Inventory] Archive failed", error);
-      setSaveMessage(`${row.sku} archived locally. Supabase archive failed; local fallback retained.`);
+      setSaveMessage(`${row.sku} archived locally. Supabase archive failed for ${row.id}; local fallback retained.`);
     }
   }
 
-  async function deleteInventoryRow(row: Row) {
-    if (!window.confirm(`Remove ${row.sku} from active Inventory? ACV will use a safe soft delete/archive path and will not permanently delete images by default.`)) return;
-    const archiveImages = window.confirm("Also archive image records for this item? Choose Cancel to keep image records recoverable.");
-    setDeletedSkus((current) => new Set(current).add(row.sku));
-    setApprovedInventory((current) => current.filter((item) => item.sku !== row.sku));
+  async function deleteInventoryRow(row: Row, options: { requireConfirmation?: boolean; archiveImages?: boolean } = {}) {
+    const requireConfirmation = options.requireConfirmation ?? true;
+    if (requireConfirmation && !window.confirm(`Remove inventory record ${row.id} (${row.sku}) from active Inventory? ACV will use a safe soft delete/archive path and will not permanently delete images by default.`)) return;
+    const archiveImages = options.archiveImages ?? window.confirm("Also archive image records for this item? Choose Cancel to keep image records recoverable.");
+    setDeletedIds((current) => new Set(current).add(row.id));
+    setApprovedInventory((current) => current.filter((item) => approvedInventoryIdentity(item) !== row.id));
     setSelectedRow(null);
 
     try {
-      if (backendStatus.connectionState === "connected") await softDeleteApprovedInventoryItemBySku(row.sku, archiveImages);
-      setSaveMessage(`${row.sku} safely removed from active Inventory.`);
+      if (backendStatus.connectionState === "connected" && row.inventoryId) await softDeleteApprovedInventoryItemById(row.inventoryId, archiveImages);
+      setSaveMessage(`${row.sku} safely removed from active Inventory (${row.id}).`);
     } catch (error) {
       console.error("[ACV Inventory] Delete failed", error);
-      setSaveMessage(`${row.sku} removed locally. Supabase soft delete failed; local fallback retained.`);
+      setSaveMessage(`${row.sku} removed locally. Supabase soft delete failed for ${row.id}; local fallback retained.`);
     }
+  }
+
+  async function archiveSelectedRows() {
+    const selectedRows = rows.filter((row) => selectedIds.has(row.id));
+    if (selectedRows.length === 0) return;
+    if (!window.confirm(`Archive ${selectedRows.length} selected inventory record${selectedRows.length === 1 ? "" : "s"}?`)) return;
+    for (const row of selectedRows) {
+      await archiveInventoryRow(row, false);
+    }
+    setSelectedIds(new Set());
+    setSaveMessage(`${selectedRows.length} selected inventory record${selectedRows.length === 1 ? "" : "s"} archived.`);
+  }
+
+  async function deleteSelectedRows() {
+    const selectedRows = rows.filter((row) => selectedIds.has(row.id));
+    if (selectedRows.length === 0) return;
+    if (!window.confirm(`Delete/remove ${selectedRows.length} selected inventory record${selectedRows.length === 1 ? "" : "s"}? This uses the safe soft-delete path.`)) return;
+    const archiveImages = window.confirm("Also archive image records where safe? Choose Cancel to keep image records recoverable.");
+    for (const row of selectedRows) {
+      await deleteInventoryRow(row, { requireConfirmation: false, archiveImages });
+    }
+    setSelectedIds(new Set());
+    setSaveMessage(`${selectedRows.length} selected inventory record${selectedRows.length === 1 ? "" : "s"} removed.`);
   }
 
   function showComingSoon(label: string) {
@@ -1728,9 +1765,13 @@ export default function InventoryPage() {
                 {["Edit Selected", "Refresh Comps", "Update Location", "Generate Drafts", "Stage to eBay"].map((action) => (
                   <MiniActionButton key={action}>{action}</MiniActionButton>
                 ))}
-                <MiniActionButton tone="pink">
+                <MiniActionButton tone="pink" onClick={() => void archiveSelectedRows()}>
                   <Archive className="h-3.5 w-3.5" />
                   Archive
+                </MiniActionButton>
+                <MiniActionButton tone="pink" onClick={() => void deleteSelectedRows()}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Delete
                 </MiniActionButton>
                 <MiniActionButton tone="gold" onClick={() => setSelectedIds(new Set())}>
                   <X className="h-3.5 w-3.5" />

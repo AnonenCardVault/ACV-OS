@@ -139,6 +139,9 @@ export type IntakeGroup = {
 };
 
 export type ApprovedInventoryItem = {
+  inventoryId?: string;
+  profileId?: string;
+  intakeGroupId?: string;
   sku: string;
   batch: string;
   group: string;
@@ -153,6 +156,19 @@ export type ApprovedInventoryItem = {
   needsImageReupload?: boolean;
   auditHistory?: string[];
 };
+
+export function approvedInventoryIdentity(item: Pick<ApprovedInventoryItem, "inventoryId" | "profileId" | "intakeGroupId" | "batch" | "group" | "sku">) {
+  if (item.inventoryId) return item.inventoryId;
+  if (item.intakeGroupId) return `intake-group:${item.intakeGroupId}`;
+  if (item.profileId) return `profile:${item.profileId}`;
+  return `local-intake:${item.batch}:${item.group}:${item.sku}`;
+}
+
+function mergeApprovedInventoryItems(current: ApprovedInventoryItem[], incoming: ApprovedInventoryItem[]) {
+  const byId = new Map(current.map((item) => [approvedInventoryIdentity(item), item]));
+  incoming.forEach((item) => byId.set(approvedInventoryIdentity(item), item));
+  return Array.from(byId.values());
+}
 
 export type BatchHistoryEntry = {
   batchId: string;
@@ -240,7 +256,7 @@ type AcvLocalStateValue = {
   clearIntakeState: () => void;
   restoreBatch: (entry: BatchHistoryEntry) => void;
   saveBatchSnapshotToBackend: (entry: BatchHistoryEntry) => Promise<void>;
-  approveGroupToBackend: (entry: BatchHistoryEntry, group: IntakeGroup, approvedItem: ApprovedInventoryItem) => Promise<void>;
+  approveGroupToBackend: (entry: BatchHistoryEntry, group: IntakeGroup, approvedItem: ApprovedInventoryItem) => Promise<ApprovedInventoryItem | undefined>;
   updateGroupStatusInBackend: (entry: BatchHistoryEntry, group: IntakeGroup, status: "Rejected" | "Needs Research") => Promise<void>;
 };
 
@@ -445,11 +461,7 @@ export function AcvLocalStateProvider({ children }: { children: React.ReactNode 
         }
 
         const remote = await loadSupabaseState();
-        setApprovedInventory((current) => {
-          const bySku = new Map(current.map((item) => [item.sku, item]));
-          remote.approvedInventory.forEach((item) => bySku.set(item.sku, item));
-          return Array.from(bySku.values());
-        });
+        setApprovedInventory((current) => mergeApprovedInventoryItems(current, remote.approvedInventory));
         if (remote.groups.length > 0) {
           setGroups(remote.groups);
           setSelectedGroupId(remote.groups[0]?.id || "");
@@ -696,15 +708,11 @@ export function AcvLocalStateProvider({ children }: { children: React.ReactNode 
   }, []);
 
   const approveGroupToBackend = useCallback(async (entry: BatchHistoryEntry, group: IntakeGroup, approvedItem: ApprovedInventoryItem) => {
-    if (!isSupabaseConfigured()) return;
+    if (!isSupabaseConfigured()) return undefined;
     try {
-      await approveGroupToSupabase(entry, group, approvedItem);
+      const savedItem = await approveGroupToSupabase(entry, group, approvedItem);
       const remote = await loadSupabaseState();
-      setApprovedInventory((current) => {
-        const bySku = new Map(current.map((item) => [item.sku, item]));
-        remote.approvedInventory.forEach((item) => bySku.set(item.sku, item));
-        return Array.from(bySku.values());
-      });
+      setApprovedInventory((current) => mergeApprovedInventoryItems(current, remote.approvedInventory));
       setBackendStatus((current) => ({
         ...current,
         connectionState: "connected",
@@ -713,6 +721,7 @@ export function AcvLocalStateProvider({ children }: { children: React.ReactNode 
         lastSyncAt: new Date().toLocaleString(),
         message: `${approvedItem.sku} saved to Supabase.`
       }));
+      return remote.approvedInventory.find((item) => approvedInventoryIdentity(item) === approvedInventoryIdentity(savedItem)) || savedItem;
     } catch (error) {
       setBackendStatus((current) => ({
         ...current,
@@ -720,6 +729,7 @@ export function AcvLocalStateProvider({ children }: { children: React.ReactNode 
         mode: "Local Fallback",
         message: error instanceof Error ? error.message : "Could not approve to Supabase. Local fallback retained."
       }));
+      return undefined;
     }
   }, []);
 

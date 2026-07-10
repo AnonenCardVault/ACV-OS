@@ -180,21 +180,34 @@ export async function saveBatchSnapshotToSupabase(entry: BatchHistoryEntry) {
 }
 
 export async function approveGroupToSupabase(entry: BatchHistoryEntry, group: IntakeGroup, approvedItem: ApprovedInventoryItem) {
-  await saveBatchSnapshotToSupabase(entry);
-  const profile = await upsertApprovedInventoryItem(approvedItem);
+  const batchSnapshot = await saveBatchSnapshotToSupabase(entry);
   const batches = await selectRows<IntakeBatchRow>("intake_batches", `select=*&local_batch_id=eq.${encodeURIComponent(group.batch)}&deleted_at=is.null&limit=1`);
-  const batch = batches[0];
+  const batch = batches[0] || batchSnapshot;
+  const [groupRow] = batch
+    ? await selectRows<IntakeGroupRow>("intake_groups", `select=*&batch_id=eq.${batch.id}&group_id=eq.${encodeURIComponent(group.id)}&deleted_at=is.null&limit=1`)
+    : [];
+  const savedItem = await upsertApprovedInventoryItem(
+    {
+      ...approvedItem,
+      intakeGroupId: groupRow?.id || approvedItem.intakeGroupId
+    },
+    {
+      intakeGroupId: groupRow?.id,
+      approvedProfileId: groupRow?.approved_card_profile_id,
+      reuseExistingByIntakeGroup: true
+    }
+  );
   if (batch) {
     await patchRows<IntakeGroupRow>("intake_groups", `batch_id=eq.${batch.id}&group_id=eq.${encodeURIComponent(group.id)}`, {
       status: "Approved",
       assigned_sku: approvedItem.sku,
-      approved_card_profile_id: profile.id,
+      approved_card_profile_id: savedItem.profileId || null,
       proposed_fields: group.proposed,
       warnings: [...group.warnings, ...(group.aiExtraction?.warnings || [])],
       extraction_status: group.aiExtraction?.status || "Not Run"
     });
   }
-  return profile;
+  return savedItem;
 }
 
 export async function updateIntakeGroupStatusInSupabase(entry: BatchHistoryEntry, group: IntakeGroup, status: "Rejected" | "Needs Research") {

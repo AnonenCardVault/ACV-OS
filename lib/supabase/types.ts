@@ -53,6 +53,7 @@ export type InventoryRow = {
   id: string;
   user_id: string;
   universal_card_profile_id: string;
+  intake_group_id: string | null;
   quantity: number;
   purchase_cost: number;
   market_value: number;

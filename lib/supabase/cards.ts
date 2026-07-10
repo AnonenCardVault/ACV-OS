@@ -4,6 +4,12 @@ import { buildStoragePath, uploadDataUrlToBucket } from "@/lib/supabase/storage"
 import { logParallelRecognitionEvent } from "@/lib/supabase/parallel-recognition";
 import type { AuditHistoryRow, ImageRow, IntakeBatchRow, IntakeGroupRow, InventoryRow, UniversalCardProfileRow } from "@/lib/supabase/types";
 
+function cardsDevLog(message: string, payload?: Record<string, unknown>) {
+  if (process.env.NODE_ENV !== "production") {
+    console.info(`[ACV Supabase Cards] ${message}`, payload || {});
+  }
+}
+
 function asNumber(value: unknown, fallback = 0) {
   const next = Number(value);
   return Number.isFinite(next) ? next : fallback;
@@ -64,12 +70,13 @@ export async function loadApprovedInventoryFromSupabase(): Promise<ApprovedInven
     selectRows<IntakeBatchRow>("intake_batches", `select=*&user_id=eq.${user.id}&deleted_at=is.null`),
     selectRows<AuditHistoryRow>("audit_history", `select=*&user_id=eq.${user.id}&deleted_at=is.null&order=created_at.desc`)
   ]);
-  const inventoryByProfile = new Map(inventoryRows.map((row) => [row.universal_card_profile_id, row]));
+  const profileById = new Map(profiles.map((profile) => [profile.id, profile]));
   const imagesByProfile = imageRows.reduce((map, row) => {
     if (!row.universal_card_profile_id) return map;
     map.set(row.universal_card_profile_id, [...(map.get(row.universal_card_profile_id) || []), row]);
     return map;
   }, new Map<string, ImageRow[]>());
+  const groupById = new Map(groupRows.map((row) => [row.id, row]));
   const groupByProfile = new Map(groupRows.filter((row) => row.approved_card_profile_id).map((row) => [row.approved_card_profile_id as string, row]));
   const batchById = new Map(batchRows.map((row) => [row.id, row]));
   const auditByProfile = auditRows.reduce((map, row) => {
@@ -78,14 +85,16 @@ export async function loadApprovedInventoryFromSupabase(): Promise<ApprovedInven
     return map;
   }, new Map<string, string[]>());
 
-  return profiles.map((profile) => {
-    const inventory = inventoryByProfile.get(profile.id);
-    const group = groupByProfile.get(profile.id);
+  const itemFromRows = (profile: UniversalCardProfileRow, inventory?: InventoryRow): ApprovedInventoryItem => {
+    const group = inventory?.intake_group_id ? groupById.get(inventory.intake_group_id) : groupByProfile.get(profile.id);
     const batch = group ? batchById.get(group.batch_id) : undefined;
     const images = (imagesByProfile.get(profile.id) || []).map(rowToIntakeImage);
     const primary = images.find((image) => image.role === "Front") || images[0];
 
     return {
+      inventoryId: inventory?.id,
+      profileId: profile.id,
+      intakeGroupId: inventory?.intake_group_id || group?.id,
       sku: profile.sku,
       batch: batch?.local_batch_id || batch?.batch_name || "Supabase",
       group: group?.group_id || profile.local_cache_key || profile.id,
@@ -98,11 +107,108 @@ export async function loadApprovedInventoryFromSupabase(): Promise<ApprovedInven
       needsImageReupload: images.length === 0 || !primary?.url,
       auditHistory: auditByProfile.get(profile.id) || []
     };
-  });
+  };
+
+  const profileIdsWithInventory = new Set(inventoryRows.map((row) => row.universal_card_profile_id));
+  const inventoryItems = inventoryRows
+    .map((inventory) => {
+      const profile = profileById.get(inventory.universal_card_profile_id);
+      return profile ? itemFromRows(profile, inventory) : null;
+    })
+    .filter((item): item is ApprovedInventoryItem => Boolean(item));
+  const profileOnlyItems = profiles.filter((profile) => !profileIdsWithInventory.has(profile.id)).map((profile) => itemFromRows(profile));
+
+  return [...inventoryItems, ...profileOnlyItems];
 }
 
-export async function upsertApprovedInventoryItem(item: ApprovedInventoryItem) {
+async function loadApprovedInventoryByInventoryId(inventoryId: string) {
+  const items = await loadApprovedInventoryFromSupabase();
+  return items.find((item) => item.inventoryId === inventoryId);
+}
+
+async function findExistingInventoryByIntakeGroup(userId: string, intakeGroupId?: string) {
+  if (!intakeGroupId) return undefined;
+
+  try {
+    const [inventory] = await selectRows<InventoryRow>(
+      "inventory",
+      `select=*&user_id=eq.${userId}&intake_group_id=eq.${encodeURIComponent(intakeGroupId)}&deleted_at=is.null&limit=1`
+    );
+    return inventory;
+  } catch (error) {
+    cardsDevLog("intake_group_id lookup unavailable", {
+      intakeGroupId,
+      error: error instanceof Error ? error.message : String(error)
+    });
+    return undefined;
+  }
+}
+
+function inventoryPayload({
+  userId,
+  profileId,
+  item,
+  intakeGroupId
+}: {
+  userId: string;
+  profileId: string;
+  item: ApprovedInventoryItem;
+  intakeGroupId?: string;
+}) {
+  return {
+    user_id: userId,
+    universal_card_profile_id: profileId,
+    intake_group_id: intakeGroupId || null,
+    quantity: Math.max(1, Number(item.proposed.quantity) || 1),
+    purchase_cost: Number(item.proposed.purchaseCost) || 0,
+    market_value: 0,
+    listed_price: 0,
+    location: item.proposed.location || "Photo Intake",
+    source: item.source,
+    acquisition_source: item.proposed.acquisitionSource || item.source,
+    workflow_status: "Needs Pricing",
+    listing_type: "None",
+    views: 0,
+    watchers: 0,
+    days_listed: 0
+  };
+}
+
+export async function upsertApprovedInventoryItem(
+  item: ApprovedInventoryItem,
+  options: { intakeGroupId?: string; approvedProfileId?: string | null; reuseExistingByIntakeGroup?: boolean } = {}
+): Promise<ApprovedInventoryItem> {
   const user = await getOrCreateAcvUser();
+  const intakeGroupId = options.intakeGroupId || item.intakeGroupId;
+  if (options.reuseExistingByIntakeGroup) {
+    const existingInventory = await findExistingInventoryByIntakeGroup(user.id, intakeGroupId);
+    if (existingInventory) {
+      cardsDevLog("duplicate approval reused existing inventory", {
+        intakeGroupId,
+        inventoryId: existingInventory.id,
+        sku: item.sku
+      });
+      const existingItem = await loadApprovedInventoryByInventoryId(existingInventory.id);
+      if (existingItem) return existingItem;
+    }
+    if (options.approvedProfileId) {
+      const [existingByProfile] = await selectRows<InventoryRow>(
+        "inventory",
+        `select=*&user_id=eq.${user.id}&universal_card_profile_id=eq.${encodeURIComponent(options.approvedProfileId)}&deleted_at=is.null&limit=1`
+      );
+      if (existingByProfile) {
+        cardsDevLog("duplicate approval reused profile-linked inventory", {
+          intakeGroupId,
+          profileId: options.approvedProfileId,
+          inventoryId: existingByProfile.id,
+          sku: item.sku
+        });
+        const existingItem = await loadApprovedInventoryByInventoryId(existingByProfile.id);
+        if (existingItem) return existingItem;
+      }
+    }
+  }
+
   const localCacheKey = `intake:${item.batch}:${item.group}`;
   const [profile] = await upsertRows<UniversalCardProfileRow>(
     "universal_card_profiles",
@@ -137,28 +243,40 @@ export async function upsertApprovedInventoryItem(item: ApprovedInventoryItem) {
     "user_id,sku"
   );
 
-  await upsertRows<InventoryRow>(
-    "inventory",
-    [
-      {
-        user_id: user.id,
-        universal_card_profile_id: profile.id,
-        quantity: Math.max(1, Number(item.proposed.quantity) || 1),
-        purchase_cost: Number(item.proposed.purchaseCost) || 0,
-        market_value: 0,
-        listed_price: 0,
-        location: item.proposed.location || "Photo Intake",
-        source: item.source,
-        acquisition_source: item.proposed.acquisitionSource || item.source,
-        workflow_status: "Needs Pricing",
-        listing_type: "None",
-        views: 0,
-        watchers: 0,
-        days_listed: 0
+  let inventory: InventoryRow | undefined;
+  const nextInventoryPayload = inventoryPayload({ userId: user.id, profileId: profile.id, item, intakeGroupId });
+
+  if (item.inventoryId) {
+    [inventory] = await patchRows<InventoryRow>("inventory", `id=eq.${encodeURIComponent(item.inventoryId)}`, nextInventoryPayload);
+  } else {
+    try {
+      [inventory] = await upsertRows<InventoryRow>("inventory", [nextInventoryPayload], "user_id,universal_card_profile_id");
+    } catch (error) {
+      const existingInventory = await findExistingInventoryByIntakeGroup(user.id, intakeGroupId);
+      if (existingInventory) {
+        cardsDevLog("unique conflict resolved by reusing inventory", {
+          intakeGroupId,
+          inventoryId: existingInventory.id,
+          error: error instanceof Error ? error.message : String(error)
+        });
+        const existingItem = await loadApprovedInventoryByInventoryId(existingInventory.id);
+        if (existingItem) return existingItem;
       }
-    ],
-    "user_id,universal_card_profile_id"
-  );
+
+      const message = error instanceof Error ? error.message : String(error);
+      if (intakeGroupId && message.includes("intake_group_id")) {
+        const { intake_group_id: _intakeGroupId, ...fallbackPayload } = nextInventoryPayload;
+        [inventory] = await upsertRows<InventoryRow>("inventory", [fallbackPayload], "user_id,universal_card_profile_id");
+      } else {
+        throw error;
+      }
+    }
+  }
+
+  if (!inventory) {
+    const [selectedInventory] = await selectRows<InventoryRow>("inventory", `select=*&user_id=eq.${user.id}&universal_card_profile_id=eq.${profile.id}&deleted_at=is.null&limit=1`);
+    inventory = selectedInventory;
+  }
 
   const imageRows: Array<Record<string, unknown>> = [];
   for (const [index, image] of item.images.entries()) {
@@ -207,11 +325,23 @@ export async function upsertApprovedInventoryItem(item: ApprovedInventoryItem) {
   });
   await logParallelRecognitionEvent({ profileId: profile.id, item }).catch(() => undefined);
 
-  return profile;
+  cardsDevLog("inventory approval saved", {
+    intakeGroupId,
+    inventoryId: inventory?.id,
+    profileId: profile.id,
+    sku: item.sku
+  });
+
+  return {
+    ...item,
+    inventoryId: inventory?.id || item.inventoryId,
+    profileId: profile.id,
+    intakeGroupId: intakeGroupId || item.intakeGroupId
+  };
 }
 
 export async function saveApprovedInventoryItemChanges(item: ApprovedInventoryItem, removedImageIds: string[] = []) {
-  const profile = await upsertApprovedInventoryItem(item);
+  const savedItem = await upsertApprovedInventoryItem(item);
   const now = new Date().toISOString();
 
   if (removedImageIds.length > 0) {
@@ -221,19 +351,77 @@ export async function saveApprovedInventoryItemChanges(item: ApprovedInventoryIt
   }
 
   await insertAuditEvent({
-    profileId: profile.id,
+    profileId: savedItem.profileId,
     type: "inventory.updated",
     summary: `Updated Universal Card Profile: ${item.sku}`,
     payload: { sku: item.sku, removedImageIds }
   });
 
-  return profile;
+  return savedItem;
 }
 
 async function findProfileBySku(sku: string) {
   const user = await getOrCreateAcvUser();
   const [profile] = await selectRows<UniversalCardProfileRow>("universal_card_profiles", `select=*&user_id=eq.${user.id}&sku=eq.${encodeURIComponent(sku)}&deleted_at=is.null&limit=1`);
   return { user, profile };
+}
+
+async function findInventoryById(inventoryId: string) {
+  const user = await getOrCreateAcvUser();
+  const [inventory] = await selectRows<InventoryRow>("inventory", `select=*&user_id=eq.${user.id}&id=eq.${encodeURIComponent(inventoryId)}&deleted_at=is.null&limit=1`);
+  if (!inventory) return { user, inventory: undefined, profile: undefined };
+  const [profile] = await selectRows<UniversalCardProfileRow>(
+    "universal_card_profiles",
+    `select=*&user_id=eq.${user.id}&id=eq.${encodeURIComponent(inventory.universal_card_profile_id)}&deleted_at=is.null&limit=1`
+  );
+  return { user, inventory, profile };
+}
+
+async function hasOtherActiveInventory(profileId: string, inventoryId: string) {
+  const user = await getOrCreateAcvUser();
+  const rows = await selectRows<InventoryRow>(
+    "inventory",
+    `select=id&user_id=eq.${user.id}&universal_card_profile_id=eq.${encodeURIComponent(profileId)}&id=neq.${encodeURIComponent(inventoryId)}&deleted_at=is.null&limit=1`
+  );
+  return rows.length > 0;
+}
+
+export async function archiveApprovedInventoryItemById(inventoryId: string) {
+  const { inventory, profile } = await findInventoryById(inventoryId);
+  if (!inventory) return null;
+  const now = new Date().toISOString();
+
+  await patchRows<InventoryRow>("inventory", `id=eq.${encodeURIComponent(inventory.id)}`, { workflow_status: "Archived", deleted_at: now });
+
+  await insertAuditEvent({
+    profileId: profile?.id || inventory.universal_card_profile_id,
+    type: "inventory.archived",
+    summary: `Archived inventory row: ${inventory.id}`,
+    payload: { inventoryId: inventory.id, sku: profile?.sku }
+  });
+
+  return inventory;
+}
+
+export async function softDeleteApprovedInventoryItemById(inventoryId: string, archiveImages = false) {
+  const { inventory, profile } = await findInventoryById(inventoryId);
+  if (!inventory) return null;
+  const now = new Date().toISOString();
+
+  await patchRows<InventoryRow>("inventory", `id=eq.${encodeURIComponent(inventory.id)}`, { workflow_status: "Deleted", deleted_at: now });
+
+  if (archiveImages && profile && !(await hasOtherActiveInventory(profile.id, inventory.id))) {
+    await patchRows<ImageRow>("images", `universal_card_profile_id=eq.${profile.id}`, { deleted_at: now });
+  }
+
+  await insertAuditEvent({
+    profileId: profile?.id || inventory.universal_card_profile_id,
+    type: "inventory.deleted",
+    summary: `Soft deleted inventory row: ${inventory.id}`,
+    payload: { inventoryId: inventory.id, sku: profile?.sku, archiveImages }
+  });
+
+  return inventory;
 }
 
 export async function archiveApprovedInventoryItemBySku(sku: string) {

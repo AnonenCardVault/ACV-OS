@@ -27,7 +27,7 @@ import { PageHeader } from "@/components/page-header";
 import { SectionCard } from "@/components/section-card";
 import { StatusPill } from "@/components/status-pill";
 import { extractCardFromImagesViaApi } from "@/lib/ai-extraction";
-import { compactApprovedInventoryItemForCache, compactIntakeImageForCache, compactUploadedImageForCache, useAcvLocalState, type BatchHistoryEntry } from "@/lib/acv-local-state";
+import { approvedInventoryIdentity, compactApprovedInventoryItemForCache, compactIntakeImageForCache, compactUploadedImageForCache, useAcvLocalState, type BatchHistoryEntry } from "@/lib/acv-local-state";
 import { generateMarketplaceTitles, type MarketplaceTitleCatalogFacts, type MarketplaceTitleResult } from "@/lib/marketplace-title";
 import type { ParallelRecognitionResult } from "@/lib/parallel-recognition";
 import { cn } from "@/lib/utils";
@@ -1606,6 +1606,7 @@ export default function PhotoIntakePage() {
   const [showBatchHistory, setShowBatchHistory] = useState(false);
   const [extractingGroupId, setExtractingGroupId] = useState<string | null>(null);
   const [processingAction, setProcessingAction] = useState<{ type: "approve" | "reject" | "research"; groupId: string } | null>(null);
+  const actionInFlightRef = useRef<Map<string, Promise<unknown>>>(new Map());
   const {
     batchNumber,
     batchName,
@@ -1832,6 +1833,24 @@ export default function PhotoIntakePage() {
   }
 
   async function approveGroup(id: string, keepDrawerOpen = false) {
+    const actionKey = `approve:${currentBatchEntry.batchId}:${id}`;
+    const existing = actionInFlightRef.current.get(actionKey) as Promise<string | null> | undefined;
+    if (existing) {
+      logIntakeDev("Duplicate approve prevented", { batchId: currentBatchEntry.batchId, groupId: id });
+      setStatusMessage(`${id} approval is already running. ACV will reuse the in-flight request.`);
+      return existing;
+    }
+
+    const promise = approveGroupOnce(id, keepDrawerOpen);
+    actionInFlightRef.current.set(actionKey, promise);
+    try {
+      return await promise;
+    } finally {
+      actionInFlightRef.current.delete(actionKey);
+    }
+  }
+
+  async function approveGroupOnce(id: string, keepDrawerOpen = false) {
     const actionContext = {
       actionType: "approve",
       batchId: currentBatchEntry.batchId,
@@ -1912,8 +1931,8 @@ export default function PhotoIntakePage() {
         assignedSkus: { ...currentBatchEntry.assignedSkus, [id]: nextSku }
       };
 
-      await approveGroupToBackend(approvedEntry, group, approvedItem);
-      const cachedApprovedItem = compactApprovedInventoryItemForCache(approvedItem);
+      const savedApprovedItem = await approveGroupToBackend(approvedEntry, group, approvedItem);
+      const cachedApprovedItem = compactApprovedInventoryItemForCache(savedApprovedItem || approvedItem);
       const approvedUploadIds = new Set(groupImages.map((image) => image.uploadId).filter(Boolean) as string[]);
 
       if (!assignedSkus[id]) skuCounterRef.current += 1;
@@ -1941,7 +1960,10 @@ export default function PhotoIntakePage() {
         )
       );
       setApprovedInventory((current) => {
-        return current.some((item) => item.group === id) ? current.map((item) => (item.group === id ? cachedApprovedItem : item)) : [...current, cachedApprovedItem];
+        const nextIdentity = approvedInventoryIdentity(cachedApprovedItem);
+        return current.some((item) => approvedInventoryIdentity(item) === nextIdentity)
+          ? current.map((item) => (approvedInventoryIdentity(item) === nextIdentity ? cachedApprovedItem : item))
+          : [...current, cachedApprovedItem];
       });
 
       const nextId = advanceAfterProcessed(id, keepDrawerOpen);
@@ -1959,6 +1981,24 @@ export default function PhotoIntakePage() {
   }
 
   async function sendToResearch(id: string) {
+    const actionKey = `research:${currentBatchEntry.batchId}:${id}`;
+    const existing = actionInFlightRef.current.get(actionKey) as Promise<void> | undefined;
+    if (existing) {
+      logIntakeDev("Duplicate research prevented", { batchId: currentBatchEntry.batchId, groupId: id });
+      setStatusMessage(`${id} research update is already running.`);
+      return existing;
+    }
+
+    const promise = sendToResearchOnce(id);
+    actionInFlightRef.current.set(actionKey, promise);
+    try {
+      return await promise;
+    } finally {
+      actionInFlightRef.current.delete(actionKey);
+    }
+  }
+
+  async function sendToResearchOnce(id: string) {
     const actionContext = {
       actionType: "research",
       batchId: currentBatchEntry.batchId,
@@ -2008,6 +2048,24 @@ export default function PhotoIntakePage() {
   }
 
   async function rejectGroup(id: string, keepDrawerOpen = false) {
+    const actionKey = `reject:${currentBatchEntry.batchId}:${id}`;
+    const existing = actionInFlightRef.current.get(actionKey) as Promise<string | null> | undefined;
+    if (existing) {
+      logIntakeDev("Duplicate reject prevented", { batchId: currentBatchEntry.batchId, groupId: id });
+      setStatusMessage(`${id} rejection is already running.`);
+      return existing;
+    }
+
+    const promise = rejectGroupOnce(id, keepDrawerOpen);
+    actionInFlightRef.current.set(actionKey, promise);
+    try {
+      return await promise;
+    } finally {
+      actionInFlightRef.current.delete(actionKey);
+    }
+  }
+
+  async function rejectGroupOnce(id: string, keepDrawerOpen = false) {
     const actionContext = {
       actionType: "reject",
       batchId: currentBatchEntry.batchId,
@@ -2682,7 +2740,7 @@ export default function PhotoIntakePage() {
             selectedQueueIds.size > 0 ? (
               <div className="flex flex-wrap items-center gap-2">
                 <StatusPill tone="teal">{selectedQueueIds.size} selected</StatusPill>
-                <MiniButton tone="teal" onClick={() => selectedQueueIds.forEach((id) => approveGroup(id))}>
+                <MiniButton tone="teal" disabled={Boolean(processingAction)} onClick={() => selectedQueueIds.forEach((id) => approveGroup(id))}>
                   Approve selected
                 </MiniButton>
                 <MiniButton onClick={() => setSelectedQueueIds(new Set())}>Clear</MiniButton>
@@ -2753,22 +2811,23 @@ export default function PhotoIntakePage() {
                 cell: (group) => {
                   const isApproved = approvedIds.has(group.id);
                   const isRejected = rejectedIds.has(group.id);
+                  const isBusy = processingAction?.groupId === group.id;
                   return (
                     <div className="flex flex-wrap gap-2">
                       <MiniButton
                         tone="teal"
                         icon={<CheckCircle2 className="h-3.5 w-3.5" />}
-                        disabled={isApproved || isRejected}
+                        disabled={isApproved || isRejected || isBusy}
                         onClick={(event) => {
                           event.stopPropagation();
                           void approveGroup(group.id);
                         }}
                       >
-                        {isApproved ? "Approved" : "Approve to Inventory"}
+                        {isBusy && processingAction?.type === "approve" ? "Approving..." : isApproved ? "Approved" : "Approve to Inventory"}
                       </MiniButton>
                       <MiniButton
                         icon={<FileSearch className="h-3.5 w-3.5" />}
-                        disabled={isApproved || isRejected}
+                        disabled={isApproved || isRejected || isBusy}
                         onClick={(event) => {
                           event.stopPropagation();
                           void sendToResearch(group.id);
@@ -2779,6 +2838,7 @@ export default function PhotoIntakePage() {
                       <MiniButton
                         tone="pink"
                         icon={<XCircle className="h-3.5 w-3.5" />}
+                        disabled={isBusy}
                         onClick={(event) => {
                           event.stopPropagation();
                           if (isRejected) undoRejectGroup(group.id);
