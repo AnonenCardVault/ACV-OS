@@ -3,17 +3,17 @@ import type { AcvSupabaseUser } from "@/lib/supabase/types";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 const supabasePublishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "";
-const supabaseKey = supabaseAnonKey || supabasePublishableKey;
+const supabaseKey = supabasePublishableKey || supabaseAnonKey;
 
 export function getSupabaseConfig() {
   const missing: string[] = [];
   if (!supabaseUrl) missing.push("NEXT_PUBLIC_SUPABASE_URL");
-  if (!supabaseKey) missing.push("NEXT_PUBLIC_SUPABASE_ANON_KEY");
+  if (!supabaseKey) missing.push("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY or NEXT_PUBLIC_SUPABASE_ANON_KEY");
 
   return {
     url: supabaseUrl.replace(/\/$/, ""),
     key: supabaseKey,
-    keySource: supabaseAnonKey ? "NEXT_PUBLIC_SUPABASE_ANON_KEY" : supabasePublishableKey ? "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY" : "",
+    keySource: supabasePublishableKey ? "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY" : supabaseAnonKey ? "NEXT_PUBLIC_SUPABASE_ANON_KEY" : "",
     missing,
     configured: missing.length === 0
   };

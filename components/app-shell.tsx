@@ -2,8 +2,9 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Bell, Search } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { Bell, LogOut, Search } from "lucide-react";
+import { useState } from "react";
 import { navItems } from "@/data/mock";
 import { cn } from "@/lib/utils";
 import { StatusPill } from "@/components/status-pill";
@@ -11,6 +12,8 @@ import { useAcvLocalState } from "@/lib/acv-local-state";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const [signingOut, setSigningOut] = useState(false);
   const { backendStatus } = useAcvLocalState();
   const statusLabel = (status: string) => {
     if (status === "connected") return "Connected";
@@ -41,6 +44,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       minute: "2-digit"
     }).format(date);
   })();
+
+  async function signOut() {
+    setSigningOut(true);
+    try {
+      await fetch("/api/auth/sign-out", { method: "POST" });
+    } finally {
+      router.replace("/sign-in");
+      router.refresh();
+    }
+  }
 
   return (
     <div className="min-h-screen overflow-x-clip bg-acv-black text-acv-text">
@@ -133,6 +146,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
             <div className="ml-auto flex items-center gap-2">
               <StatusPill tone="gold">AnonenCardVault</StatusPill>
+              <button
+                type="button"
+                title="Sign out"
+                disabled={signingOut}
+                onClick={signOut}
+                className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border border-acv-border bg-white/[0.03] px-2.5 text-[11px] font-semibold text-acv-muted transition hover:border-acv-pink/45 hover:text-acv-pink disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <LogOut className="h-4 w-4" />
+                <span className="hidden sm:inline">{signingOut ? "Signing out" : "Logout"}</span>
+              </button>
               <button
                 type="button"
                 title="Notifications"
