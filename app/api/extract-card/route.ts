@@ -65,8 +65,11 @@ export async function POST(request: NextRequest) {
     images,
     categoryHint: payload.categoryHint,
     existingFields: payload.existingFields,
+    confirmedFields: payload.confirmedFields,
     batchId: payload.batchId,
-    groupId: payload.groupId
+    groupId: payload.groupId,
+    extractionRunId: payload.extractionRunId,
+    imageSignature: payload.imageSignature
   };
   const providerEnv = providerEnvironmentSummary({
     cardsightApiKey: process.env.CARDSIGHT_API_KEY,
@@ -89,6 +92,7 @@ export async function POST(request: NextRequest) {
   routeLog("request", {
     batchId: payload.batchId,
     groupId: payload.groupId,
+    extractionRunId: payload.extractionRunId,
     imageCount: images.length,
     images: routeImageDiagnostics(images),
     providerEnv,

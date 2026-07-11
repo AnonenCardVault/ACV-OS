@@ -88,6 +88,18 @@ function normalizeNumber(value: unknown) {
     [0].replace(/[^a-z0-9]/g, "");
 }
 
+function normalizeYearKey(value: unknown) {
+  const text = normalize(value);
+  const match = text.match(/\b(20\d{2})(?:\s+\d{2})?\b/);
+  return match?.[1] || text;
+}
+
+function yearsMatch(inputYear: unknown, catalogYear: unknown) {
+  const input = normalizeYearKey(inputYear);
+  const catalog = normalizeYearKey(catalogYear);
+  return Boolean(input && catalog && input === catalog);
+}
+
 function hasValue(value: unknown) {
   const text = String(value || "").trim();
   return Boolean(text && text !== "-");
@@ -195,6 +207,21 @@ function includesNormalized(haystack: unknown, needle: unknown) {
   return Boolean(source && target && (source === target || source.includes(target) || target.includes(source)));
 }
 
+function detectedBrandFromText(value: unknown) {
+  const text = normalize(value);
+  if (text.includes("panini")) return "panini";
+  if (text.includes("topps")) return "topps";
+  if (text.includes("bowman")) return "bowman";
+  if (text.includes("upper deck")) return "upper deck";
+  if (text.includes("leaf")) return "leaf";
+  return "";
+}
+
+function hasSpecificProductEvidence(fields: ExtractedCardFields) {
+  const text = normalize([fields.brand, fields.set, fields.cardTitle].filter(hasValue).join(" "));
+  return /\b(panini|topps|bowman|select|prizm|chrome|mosaic|optic|donruss|phoenix|hoops|revolution|certified|contenders|elite|prestige|score|absolute|illusions|zenith|chronicles|legacy|finest|heritage|update|series)\b/.test(text);
+}
+
 function nameMatches(input: string, catalogName: string) {
   const a = normalize(input);
   const b = normalize(catalogName);
@@ -219,8 +246,8 @@ function scoreRow(fields: ExtractedCardFields, row: SportsCatalogRow): ScoredSpo
   let score = 0;
 
   const inputSport = specificSport(fields.sportCategory);
-  const inputYear = normalize(fields.year);
-  const inputBrand = normalize(fields.brand);
+  const inputYear = fields.year;
+  const inputBrand = normalize(fields.brand) || detectedBrandFromText(fields.cardTitle);
   const inputNumber = normalizeNumber(fields.cardNumber);
   const catalogNumber = normalizeNumber(row.cardNumber);
   const inputPlayer = fields.playerOrCharacter || fields.cardTitle;
@@ -229,14 +256,31 @@ function scoreRow(fields: ExtractedCardFields, row: SportsCatalogRow): ScoredSpo
   const numberMatch = Boolean(inputNumber && catalogNumber && inputNumber === catalogNumber);
   const playerMatch = nameMatches(inputPlayer, catalogPlayer);
   const teamMatch = nameMatches(fields.team, catalogTeam || "");
-  const yearMatch = Boolean(inputYear && inputYear === normalize(row.year));
+  const yearMatch = Boolean(inputYear && yearsMatch(inputYear, row.year));
   const sportMatch = Boolean(inputSport && inputSport === normalize(row.sport));
-  const brandMatch = Boolean(inputBrand && includesNormalized(fields.brand, row.brand));
+  const brandMatch = Boolean(inputBrand && includesNormalized(inputBrand, row.brand));
   const productMatch = productMatches(fields, row);
   const subsetMatch = subsetMatches(fields, row);
+  const productEvidence = hasSpecificProductEvidence(fields);
 
   if (inputSport && !sportMatch) return { row, score: 0, warnings, evidence };
   if (inputYear && !yearMatch) return { row, score: 0, warnings, evidence };
+  if (inputBrand && !brandMatch) {
+    warnings.push({
+      code: "sports_catalog_brand_conflict",
+      message: `Catalog candidate brand "${row.brand}" conflicts with visible/provider brand evidence.`,
+      severity: "warning"
+    });
+    return { row, score: 0, warnings, evidence };
+  }
+  if (productEvidence && !productMatch && !subsetMatch) {
+    warnings.push({
+      code: "sports_catalog_product_conflict",
+      message: `Catalog candidate product "${row.product}" conflicts with visible/provider product evidence.`,
+      severity: "warning"
+    });
+    return { row, score: 0, warnings, evidence };
+  }
   if (!numberMatch && !playerMatch.exact && !playerMatch.partial) return { row, score: 0, warnings, evidence };
 
   if (sportMatch) {
@@ -428,18 +472,8 @@ function matchedCard(row: SportsCatalogRow): CatalogMatchedCard {
 }
 
 function catalogSet(fields: ExtractedCardFields, row: SportsCatalogRow) {
-  const current = fields.set;
   const product = row.product;
-  const subset = row.subset;
-  if (!subset) return product || current;
-  if (!hasValue(current)) return `${product} ${subset}`.trim();
-
-  const currentNorm = normalize(current);
-  const productNorm = normalize(product);
-  const subsetNorm = normalize(subset);
-  if (currentNorm.includes(subsetNorm)) return current;
-  if (currentNorm === productNorm || currentNorm.includes(productNorm)) return `${current} ${subset}`.trim();
-  return current;
+  return product || fields.set;
 }
 
 function normalizedFields(fields: ExtractedCardFields, row: SportsCatalogRow): Partial<ExtractedCardFields> {

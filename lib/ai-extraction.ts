@@ -1,4 +1,4 @@
-import type { AIExtractionResult as EngineExtractionResult, AIImageInput as ExtractionImage } from "@/lib/ai";
+import type { AIExtractionResult as EngineExtractionResult, AIImageInput as ExtractionImage, ExtractedCardFields } from "@/lib/ai";
 import type { AiExtractionStatus, AiFieldConfidenceMap, IntakeImage, ProposedRecord } from "@/lib/acv-local-state";
 import type { ParallelRecognitionResult } from "@/lib/parallel-recognition";
 
@@ -7,8 +7,10 @@ export type ExtractCardInput = {
   imageRoles?: Array<{ id: string; role: string }>;
   batchId?: string;
   groupId?: string;
+  extractionRunId?: string;
   categoryHint?: string;
   existingValues: ProposedRecord;
+  confirmedFields?: Array<keyof ProposedRecord>;
 };
 
 export type ExtractionResult = {
@@ -64,6 +66,44 @@ function engineImage(image: IntakeImage): ExtractionImage {
     dataUrl: image.dataUrl,
     order: image.order,
     needsReupload: image.needsReupload
+  };
+}
+
+const proposedToEngineField: Partial<Record<keyof ProposedRecord, keyof ExtractedCardFields>> = {
+  cardName: "cardTitle",
+  playerCharacter: "playerOrCharacter",
+  team: "team",
+  category: "sportCategory",
+  year: "year",
+  brand: "brand",
+  set: "set",
+  cardNumber: "cardNumber",
+  parallel: "parallel",
+  serialNumber: "serialNumber",
+  rookieFlag: "rookie",
+  autoFlag: "auto",
+  relicFlag: "relic",
+  variationFlag: "variation",
+  grader: "grader",
+  grade: "grade",
+  conditionNotes: "conditionNotes",
+  uncertaintyNotes: "uncertaintyNotes"
+};
+
+function confirmedEngineFields(input: ExtractCardInput) {
+  const existingFields: Partial<ExtractedCardFields> = {};
+  const confirmedFields: Array<keyof ExtractedCardFields> = [];
+
+  for (const proposedKey of input.confirmedFields || []) {
+    const engineKey = proposedToEngineField[proposedKey];
+    if (!engineKey) continue;
+    confirmedFields.push(engineKey);
+    (existingFields as Record<string, unknown>)[engineKey] = input.existingValues[proposedKey];
+  }
+
+  return {
+    existingFields,
+    confirmedFields: Array.from(new Set(confirmedFields))
   };
 }
 
@@ -160,6 +200,7 @@ function providerDiagnostics(result: EngineExtractionResult): ExtractionResult["
         label: mappedFieldLabel(key),
         value: typeof value === "boolean" ? "Yes" : String(value)
       }));
+    const runField = result.log?.runId ? [{ label: "Run ID", value: result.log.runId }] : [];
 
     return {
       providerName: output.providerLabel,
@@ -167,7 +208,7 @@ function providerDiagnostics(result: EngineExtractionResult): ExtractionResult["
       reason,
       confidence: output.providerConfidence || undefined,
       mode,
-      mappedFields
+      mappedFields: [...runField, ...mappedFields]
     };
   });
 }
@@ -217,10 +258,14 @@ function adaptEngineResult(result: EngineExtractionResult, existingValues: Propo
 }
 
 function engineInput(input: ExtractCardInput) {
+  const confirmed = confirmedEngineFields(input);
   return {
     images: input.images.map(engineImage),
     categoryHint: undefined,
-    existingFields: {}
+    existingFields: confirmed.existingFields,
+    confirmedFields: confirmed.confirmedFields,
+    extractionRunId: input.extractionRunId,
+    imageSignature: input.images.map((image) => `${image.id}:${image.role}:${image.order}:${image.fileName}`).join("|")
   };
 }
 

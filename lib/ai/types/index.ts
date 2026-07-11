@@ -61,8 +61,11 @@ export type AIExtractionInput = {
   images: AIImageInput[];
   categoryHint?: string;
   existingFields?: Partial<ExtractedCardFields>;
+  confirmedFields?: Array<keyof ExtractedCardFields>;
   batchId?: string;
   groupId?: string;
+  extractionRunId?: string;
+  imageSignature?: string;
 };
 
 export type AIProviderKind = "ocr" | "cardsight" | "gpt-vision" | "checklist" | "mock";

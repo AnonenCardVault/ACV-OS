@@ -22,6 +22,12 @@ function cardNumber(value: string) {
   return text ? `#${text}` : "";
 }
 
+function includesPart(value: string, part: string) {
+  const source = value.toLowerCase();
+  const target = part.toLowerCase();
+  return Boolean(source && target && source.includes(target));
+}
+
 function gradedLabel(facts: MarketplaceTitleFacts) {
   const grader = clean(facts.grader);
   const grade = clean(facts.grade);
@@ -52,11 +58,16 @@ export function buildSportsEbayTitle(facts: MarketplaceTitleFacts) {
   const includeTeam = !player;
   const team = includeTeam ? clean(facts.team) : "";
   const serial = clean(facts.serialNumber);
+  const catalogProduct = clean(facts.catalog?.matchedProduct);
+  const catalogSubset = clean(facts.catalog?.matchedSubset);
+  const setName = catalogProduct || clean(facts.setName);
+  const insertOrParallel = catalogSubset || clean(facts.parallel);
+  const safeParallel = insertOrParallel && !includesPart(setName, insertOrParallel) ? insertOrParallel : "";
   const parts = [
     clean(facts.year),
     clean(facts.brand),
-    clean(facts.setName),
-    clean(facts.parallel),
+    setName,
+    safeParallel,
     player,
     team,
     facts.rookie ? "RC" : "",
@@ -67,7 +78,7 @@ export function buildSportsEbayTitle(facts: MarketplaceTitleFacts) {
     gradedLabel(facts)
   ].filter(Boolean);
   const ebayTitle = trimSportsTitle(parts, team);
-  const rawCatalogTitle = withoutDuplicateParts([clean(facts.year), clean(facts.brand), clean(facts.setName), player, cardNumber(clean(facts.cardNumber))].filter(Boolean)).join(" ").trim() || ebayTitle;
+  const rawCatalogTitle = withoutDuplicateParts([clean(facts.year), clean(facts.brand), setName, safeParallel, player, cardNumber(clean(facts.cardNumber))].filter(Boolean)).join(" ").trim() || ebayTitle;
   const compactTitle = withoutDuplicateParts([clean(facts.year), clean(facts.brand), player, cardNumber(clean(facts.cardNumber))].filter(Boolean)).join(" ").trim() || ebayTitle;
 
   return {

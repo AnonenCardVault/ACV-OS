@@ -6,6 +6,8 @@ export type MarketplaceTitleCatalogFacts = {
   confidence?: number;
   matchedCard?: string;
   matchedSet?: string;
+  matchedProduct?: string;
+  matchedSubset?: string | null;
   matchedNumber?: string;
   rarity?: string;
   setId?: string;

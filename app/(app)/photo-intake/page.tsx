@@ -500,6 +500,8 @@ function marketplaceCatalogFacts(catalog?: CatalogDiagnostic): MarketplaceTitleC
     confidence: catalog.confidence,
     matchedCard: catalog.matchedCard,
     matchedSet: catalog.matchedSet,
+    matchedProduct: catalog.matchedProduct,
+    matchedSubset: catalog.matchedSubset,
     matchedNumber: catalog.matchedNumber,
     rarity: catalog.rarity,
     setId: catalog.setId,
@@ -538,6 +540,10 @@ function imagesPerCard(mode: ImageCountMode, customCount: number) {
   if (mode === "3 images/card") return 3;
   if (mode === "Custom") return customCount;
   return 2;
+}
+
+function extractionImageSignature(images: IntakeImage[]) {
+  return images.map((image) => `${image.id}:${image.role}:${image.order}:${image.fileName}:${image.storagePath || image.publicUrl || image.url || ""}`).join("|");
 }
 
 function formatBatchDate(value: string, format: "short" | "long" = "short") {
@@ -1607,6 +1613,8 @@ export default function PhotoIntakePage() {
   const [extractingGroupId, setExtractingGroupId] = useState<string | null>(null);
   const [processingAction, setProcessingAction] = useState<{ type: "approve" | "reject" | "research"; groupId: string } | null>(null);
   const actionInFlightRef = useRef<Map<string, Promise<unknown>>>(new Map());
+  const extractionRunsRef = useRef<Record<string, string>>({});
+  const groupsRef = useRef<IntakeGroup[]>([]);
   const {
     batchNumber,
     batchName,
@@ -1707,6 +1715,10 @@ export default function PhotoIntakePage() {
   );
 
   const allQueueSelected = activeReviewGroups.length > 0 && activeReviewGroups.every((group) => selectedQueueIds.has(group.id));
+
+  useEffect(() => {
+    groupsRef.current = groups;
+  }, [groups]);
 
   useEffect(() => {
     if (backendStatus.connectionState !== "connected" || currentBatchEntry.groups.length === 0) return;
@@ -2200,17 +2212,21 @@ export default function PhotoIntakePage() {
     if (!group) return;
     if (extractingGroupId) return;
 
+    const groupImages = safeImages(group);
+    const proposed = safeProposed(group);
+    const extractionRunId = `${currentBatchEntry.batchId}:${group.id}:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`;
+    const startingImageSignature = extractionImageSignature(groupImages);
+    extractionRunsRef.current[groupId] = extractionRunId;
     setExtractingGroupId(groupId);
     updateGroup(groupId, (currentGroup) => ({
       ...currentGroup,
       aiExtraction: defaultAiExtraction()
     }));
     try {
-      const groupImages = safeImages(group);
-      const proposed = safeProposed(group);
       logIntakeDev("Run AI Extraction", {
         batchId: currentBatchEntry.batchId,
         groupId: group.id,
+        extractionRunId,
         images: groupImages.map((image) => ({
           id: image.id,
           fileName: image.fileName,
@@ -2225,9 +2241,24 @@ export default function PhotoIntakePage() {
         imageRoles: groupImages.map((image) => ({ id: image.id, role: image.role })),
         batchId: currentBatchEntry.batchId,
         groupId: group.id,
+        extractionRunId,
         categoryHint: proposed.category,
-        existingValues: proposed
+        existingValues: proposed,
+        confirmedFields: group.confirmedFields || []
       });
+      const latestGroup = groupsRef.current.find((item) => item.id === groupId);
+      const latestSignature = latestGroup ? extractionImageSignature(safeImages(latestGroup)) : "";
+      if (extractionRunsRef.current[groupId] !== extractionRunId || !latestGroup || latestSignature !== startingImageSignature) {
+        logIntakeDev("Ignored stale AI extraction result", {
+          batchId: currentBatchEntry.batchId,
+          groupId,
+          extractionRunId,
+          activeRunId: extractionRunsRef.current[groupId],
+          startingImageSignature,
+          latestSignature
+        });
+        return;
+      }
       updateGroup(groupId, (currentGroup) => ({
         ...currentGroup,
         proposed: {
@@ -2252,6 +2283,7 @@ export default function PhotoIntakePage() {
       logIntakeDev("AI Extraction Result", {
         batchId: currentBatchEntry.batchId,
         groupId: group.id,
+        extractionRunId,
         status: result.status,
         confidence: result.confidenceScore,
         extracted: result.extracted,
@@ -2261,6 +2293,16 @@ export default function PhotoIntakePage() {
       });
       setStatusMessage(`${groupId} ACV AI Orchestrator extraction complete. Review editable fields before approving.`);
     } catch (error) {
+      if (extractionRunsRef.current[groupId] !== extractionRunId) {
+        logIntakeDev("Ignored stale AI extraction error", {
+          batchId: currentBatchEntry.batchId,
+          groupId,
+          extractionRunId,
+          activeRunId: extractionRunsRef.current[groupId],
+          error: error instanceof Error ? error.message : "AI extraction failed"
+        });
+        return;
+      }
       updateGroup(groupId, (currentGroup) => ({
         ...currentGroup,
         aiExtraction: {
@@ -2283,7 +2325,10 @@ export default function PhotoIntakePage() {
       }));
       setStatusMessage(`${groupId} AI extraction failed. Manual field values were preserved.`);
     } finally {
-      setExtractingGroupId(null);
+      if (extractionRunsRef.current[groupId] === extractionRunId) {
+        delete extractionRunsRef.current[groupId];
+        setExtractingGroupId(null);
+      }
     }
   }
 
