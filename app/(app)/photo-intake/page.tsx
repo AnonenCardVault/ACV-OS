@@ -146,6 +146,20 @@ type AiExtractionSnapshot = {
   parallelRecognition?: ParallelRecognitionResult;
 };
 
+type FieldProvenanceSource = "empty" | "default" | "ai_suggested" | "catalog_suggested" | "user_edited" | "user_confirmed";
+
+type FieldProvenance = {
+  source: FieldProvenanceSource;
+  dirty?: boolean;
+  confirmed?: boolean;
+  extractionRunId?: string;
+  confidence?: number;
+  previousValue?: string;
+  rejectedReason?: string;
+};
+
+type FieldProvenanceMap = Partial<Record<keyof ProposedRecord, FieldProvenance>>;
+
 type IntakeGroup = {
   id: string;
   batch: string;
@@ -156,6 +170,7 @@ type IntakeGroup = {
   warnings: string[];
   proposed: ProposedRecord;
   confirmedFields?: Array<keyof ProposedRecord>;
+  fieldProvenance?: FieldProvenanceMap;
   aiExtraction?: AiExtractionSnapshot;
 };
 
@@ -253,6 +268,81 @@ function defaultProposedRecord(groupNumber: number): ProposedRecord {
     acquisitionSource: "Computer Upload",
     location: "Photo Intake",
     internalNotes: ""
+  };
+}
+
+const proposedFieldKeys = Object.keys(defaultProposedRecord(0)) as Array<keyof ProposedRecord>;
+const userProtectedSources = new Set<FieldProvenanceSource>(["user_edited", "user_confirmed"]);
+
+function defaultFieldProvenance(record: ProposedRecord): FieldProvenanceMap {
+  return proposedFieldKeys.reduce<FieldProvenanceMap>((memo, key) => {
+    const value = record[key];
+    memo[key] = {
+      source: hasFieldValue(value as string | number | undefined | null) ? "default" : "empty",
+      dirty: false,
+      confirmed: false
+    };
+    return memo;
+  }, {});
+}
+
+function safeFieldProvenance(group?: Partial<IntakeGroup> | null): FieldProvenanceMap {
+  const proposed = safeProposed(group);
+  return {
+    ...defaultFieldProvenance(proposed),
+    ...(group?.fieldProvenance || {})
+  };
+}
+
+function isUserProtectedField(group: IntakeGroup | Partial<IntakeGroup> | undefined | null, key: keyof ProposedRecord) {
+  const provenance = safeFieldProvenance(group)[key];
+  return Boolean(provenance && (userProtectedSources.has(provenance.source) || provenance.dirty || provenance.confirmed));
+}
+
+function protectedFieldsForExtraction(group: IntakeGroup) {
+  return proposedFieldKeys.filter((key) => isUserProtectedField(group, key));
+}
+
+function applyExtractedFieldsToGroup(group: IntakeGroup, extracted: Partial<ProposedRecord>, extractionRunId?: string) {
+  const proposed = safeProposed(group);
+  const provenance = safeFieldProvenance(group);
+  const nextProposed: ProposedRecord = { ...proposed };
+  const nextProvenance: FieldProvenanceMap = { ...provenance };
+  const preserved: string[] = [];
+  const applied: string[] = [];
+
+  for (const [rawKey, rawValue] of Object.entries(extracted)) {
+    const key = rawKey as keyof ProposedRecord;
+    if (!proposedFieldKeys.includes(key)) continue;
+    if (isUserProtectedField(group, key)) {
+      preserved.push(fieldConfidenceLabel(String(key)));
+      continue;
+    }
+
+    const previousValue = nextProposed[key];
+    (nextProposed as Record<string, unknown>)[key] = rawValue;
+    nextProvenance[key] = {
+      source: "ai_suggested",
+      dirty: false,
+      confirmed: false,
+      extractionRunId,
+      previousValue: hasFieldValue(previousValue as string | number | undefined | null) && previousValue !== rawValue ? String(previousValue) : undefined,
+      rejectedReason: previousValue !== rawValue ? "replaced stale non-user value with current extraction" : undefined
+    };
+    applied.push(fieldConfidenceLabel(String(key)));
+  }
+
+  const confirmedFields = (group.confirmedFields || []).filter((key) => isUserProtectedField({ ...group, fieldProvenance: nextProvenance }, key));
+
+  return {
+    group: {
+      ...group,
+      proposed: nextProposed,
+      confirmedFields,
+      fieldProvenance: nextProvenance
+    },
+    applied,
+    preserved
   };
 }
 
@@ -376,6 +466,49 @@ function hasFieldValue(value: string | number | undefined | null) {
   return Boolean(normalized && normalized !== "-" && normalized !== "pending");
 }
 
+function normalizedIdentityValue(value: unknown) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
+const visibleProductHints = [
+  { brand: "Panini", set: "Select", aliases: ["panini select", "select"] },
+  { brand: "Panini", set: "Prizm", aliases: ["panini prizm", "prizm"] },
+  { brand: "Panini", set: "Phoenix", aliases: ["panini phoenix", "phoenix"] },
+  { brand: "Topps", set: "Topps Chrome", aliases: ["topps chrome"] },
+  { brand: "Bowman", set: "Bowman Chrome", aliases: ["bowman chrome"] }
+];
+
+function identityClusterWarnings(group?: IntakeGroup | null) {
+  if (!group) return [];
+  const proposed = safeProposed(group);
+  const text = normalizedIdentityValue([
+    proposed.cardName,
+    group.aiExtraction?.extracted?.cardName,
+    group.aiExtraction?.extracted?.brand,
+    group.aiExtraction?.extracted?.set,
+    group.aiExtraction?.extracted?.parallel,
+    group.aiExtraction?.suggestedTitle,
+    proposed.uncertaintyNotes,
+    ...(group.aiExtraction?.warnings || [])
+  ].filter(Boolean).join(" "));
+  const hint = visibleProductHints.find((item) => item.aliases.some((alias) => text.includes(alias)));
+  if (!hint) return [];
+
+  const conflicts: string[] = [];
+  if (hasFieldValue(proposed.brand) && normalizedIdentityValue(proposed.brand) !== normalizedIdentityValue(hint.brand) && !isUserProtectedField(group, "brand")) {
+    conflicts.push(`Brand should resolve to ${hint.brand}`);
+  }
+  if (hasFieldValue(proposed.set) && !normalizedIdentityValue(proposed.set).includes(normalizedIdentityValue(hint.set)) && !isUserProtectedField(group, "set")) {
+    conflicts.push(`Set should resolve to ${hint.set}`);
+  }
+
+  return conflicts.length > 0 ? [`IDENTITY CLUSTER INCONSISTENT: ${conflicts.join("; ")}.`] : [];
+}
+
 function hasUncertaintyNote(group?: IntakeGroup | null) {
   return hasFieldValue(safeProposed(group).uncertaintyNotes);
 }
@@ -397,6 +530,9 @@ function readinessIssuesForGroup(group?: IntakeGroup | null) {
   if (!hasFieldValue(proposed.year) && !uncertainty) issues.push("Year missing");
   if (!hasBrandOrSet && !uncertainty) issues.push("Brand or set missing");
   if (aiStatusForGroup(group) === "Failed") issues.push("AI extraction failed");
+  identityClusterWarnings(group)
+    .filter((warning) => !issues.includes(warning))
+    .forEach((warning) => issues.push(warning));
   warnings
     .filter((warning) => !issues.includes(warning))
     .forEach((warning) => issues.push(warning));
@@ -439,6 +575,7 @@ function buildGroupsFromUploads({
       needsReupload: image.needsReupload
     }));
 
+    const proposed = defaultProposedRecord(groupNumber);
     const draftGroup: IntakeGroup = {
       id: groupId,
       batch: batchId,
@@ -447,7 +584,8 @@ function buildGroupsFromUploads({
       confidence: mode === "Auto-detect" ? 76 : chunk.length === perCard ? 92 : 68,
       warnings,
       images,
-      proposed: defaultProposedRecord(groupNumber),
+      proposed,
+      fieldProvenance: defaultFieldProvenance(proposed),
       aiExtraction: defaultAiExtraction()
     };
 
@@ -1167,6 +1305,9 @@ function ReviewDrawer({
   const fieldConfidence = group.aiExtraction?.fieldConfidence || {};
   const fieldConfidenceEntries = Object.entries(fieldConfidence).filter(([, value]) => typeof value === "number");
   const confirmedFieldEntries = (group.confirmedFields || []).map((field) => fieldConfidenceLabel(String(field))).slice(0, 12);
+  const fieldProvenanceEntries = Object.entries(safeFieldProvenance(group))
+    .filter(([, value]) => value && value.source !== "empty")
+    .slice(0, 12);
   const needsReviewEntries = readinessIssues.slice(0, 8);
   const marketplaceTitle = marketplaceTitleForRecord(proposed, catalogDiagnostics);
   const recommendedEbayTitle = marketplaceTitle.ebayTitle;
@@ -1397,6 +1538,22 @@ function ReviewDrawer({
                             ) : (
                               <AlertRow tone="neutral">No required fields are currently missing.</AlertRow>
                             )}
+                          </div>
+                        </div>
+                      )}
+
+                      {fieldProvenanceEntries.length > 0 && (
+                        <div className="min-w-0 rounded-md border border-acv-border bg-black/20 p-2">
+                          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-acv-muted">Field Provenance</p>
+                          <div className="grid min-w-0 gap-1.5 sm:grid-cols-2">
+                            {fieldProvenanceEntries.map(([key, value]) => (
+                              <AlertRow key={`${key}-${value.extractionRunId || value.source}`} tone={value.source.startsWith("user") ? "neutral" : value.rejectedReason ? "gold" : "neutral"}>
+                                {fieldConfidenceLabel(key)}: {value.source.replace("_", " ")}
+                                {value.dirty ? " / dirty" : ""}
+                                {value.extractionRunId ? ` / ${value.extractionRunId}` : ""}
+                                {value.previousValue ? ` / replaced ${value.previousValue}` : ""}
+                              </AlertRow>
+                            ))}
                           </div>
                         </div>
                       )}
@@ -2203,6 +2360,15 @@ export default function PhotoIntakePage() {
     updateGroup(groupId, (group) => ({
       ...group,
       proposed: { ...safeProposed(group), [key]: value },
+      fieldProvenance: {
+        ...safeFieldProvenance(group),
+        [key]: {
+          source: "user_edited",
+          dirty: true,
+          confirmed: true,
+          extractionRunId: group.aiExtraction?.extractedAt
+        }
+      },
       confirmedFields: Array.from(new Set([...(group.confirmedFields || []), key]))
     }));
   }
@@ -2244,7 +2410,7 @@ export default function PhotoIntakePage() {
         extractionRunId,
         categoryHint: proposed.category,
         existingValues: proposed,
-        confirmedFields: group.confirmedFields || []
+        confirmedFields: protectedFieldsForExtraction(group)
       });
       const latestGroup = groupsRef.current.find((item) => item.id === groupId);
       const latestSignature = latestGroup ? extractionImageSignature(safeImages(latestGroup)) : "";
@@ -2259,27 +2425,33 @@ export default function PhotoIntakePage() {
         });
         return;
       }
-      updateGroup(groupId, (currentGroup) => ({
-        ...currentGroup,
-        proposed: {
-          ...currentGroup.proposed,
-          ...Object.fromEntries(Object.entries(result.extracted).filter(([key]) => !(currentGroup.confirmedFields || []).includes(key as keyof ProposedRecord)))
-        },
-        aiExtraction: {
-          status: result.status,
-          extracted: result.extracted,
-          fieldConfidence: result.fieldConfidence,
-          warnings: result.warnings,
-          suggestedTitle: result.suggestedTitle,
-          extractedAt: result.extractedAt,
-          confidenceScore: result.confidenceScore,
-          modelLabel: result.modelLabel,
-          extractionSources: result.extractionSources,
-          catalogDiagnostics: result.catalogDiagnostics,
-          providerDiagnostics: result.providerDiagnostics,
-          parallelRecognition: result.parallelRecognition
-        }
-      }));
+      updateGroup(groupId, (currentGroup) => {
+        const merged = applyExtractedFieldsToGroup(currentGroup, result.extracted || {}, extractionRunId);
+        logIntakeDev("Applied AI extraction to form", {
+          batchId: currentBatchEntry.batchId,
+          groupId,
+          extractionRunId,
+          appliedFields: merged.applied,
+          preservedUserFields: merged.preserved
+        });
+        return {
+          ...merged.group,
+          aiExtraction: {
+            status: result.status,
+            extracted: result.extracted,
+            fieldConfidence: result.fieldConfidence,
+            warnings: result.warnings,
+            suggestedTitle: result.suggestedTitle,
+            extractedAt: result.extractedAt,
+            confidenceScore: result.confidenceScore,
+            modelLabel: result.modelLabel,
+            extractionSources: result.extractionSources,
+            catalogDiagnostics: result.catalogDiagnostics,
+            providerDiagnostics: result.providerDiagnostics,
+            parallelRecognition: result.parallelRecognition
+          }
+        };
+      });
       logIntakeDev("AI Extraction Result", {
         batchId: currentBatchEntry.batchId,
         groupId: group.id,
@@ -2345,8 +2517,18 @@ export default function PhotoIntakePage() {
       return;
     }
 
-    updateGroup(groupId, (currentGroup) => ({ ...currentGroup, proposed: { ...currentGroup.proposed, ...extracted } }));
-    setStatusMessage(`${groupId} AI suggestion applied to editable fields. Mock only.`);
+    const extractionRunId = group.aiExtraction?.extractedAt || `manual-apply:${Date.now()}`;
+    let applied: string[] = [];
+    let preserved: string[] = [];
+    updateGroup(groupId, (currentGroup) => {
+      const merged = applyExtractedFieldsToGroup(currentGroup, extracted, extractionRunId);
+      applied = merged.applied;
+      preserved = merged.preserved;
+      return merged.group;
+    });
+    setStatusMessage(
+      `${groupId} AI suggestion applied to ${applied.length || 0} field${applied.length === 1 ? "" : "s"}.${preserved.length ? ` Preserved user-confirmed: ${preserved.join(", ")}.` : ""}`
+    );
   }
 
   function applySuggestedTitle(groupId: string, previewTitle?: string) {

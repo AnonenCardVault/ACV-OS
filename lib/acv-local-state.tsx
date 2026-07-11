@@ -126,6 +126,20 @@ export type AiExtractionSnapshot = {
   parallelRecognition?: ParallelRecognitionResult;
 };
 
+export type FieldProvenanceSource = "empty" | "default" | "ai_suggested" | "catalog_suggested" | "user_edited" | "user_confirmed";
+
+export type FieldProvenance = {
+  source: FieldProvenanceSource;
+  dirty?: boolean;
+  confirmed?: boolean;
+  extractionRunId?: string;
+  confidence?: number;
+  previousValue?: string;
+  rejectedReason?: string;
+};
+
+export type FieldProvenanceMap = Partial<Record<keyof ProposedRecord, FieldProvenance>>;
+
 export type IntakeGroup = {
   id: string;
   batch: string;
@@ -136,6 +150,7 @@ export type IntakeGroup = {
   warnings: string[];
   proposed: ProposedRecord;
   confirmedFields?: Array<keyof ProposedRecord>;
+  fieldProvenance?: FieldProvenanceMap;
   aiExtraction?: AiExtractionSnapshot;
 };
 
