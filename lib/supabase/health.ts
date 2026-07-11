@@ -136,9 +136,14 @@ async function checkDatabaseHealth(): Promise<SupabaseServiceHealth> {
 
 async function checkStorageBucket(bucket: string) {
   const config = getSupabaseConfig();
-  const { response, latencyMs } = await fetchWithTimeout(`${config.url}/storage/v1/bucket/${encodeURIComponent(bucket)}`, {
-    method: "GET",
-    headers: headers(config.key)
+  const { response, latencyMs } = await fetchWithTimeout(`${config.url}/storage/v1/object/list/${encodeURIComponent(bucket)}`, {
+    method: "POST",
+    headers: headers(config.key, { "Content-Type": "application/json" }),
+    body: JSON.stringify({
+      prefix: "",
+      limit: 1,
+      offset: 0
+    })
   });
 
   return { bucket, response, latencyMs };
@@ -170,12 +175,19 @@ async function checkStorageHealth(): Promise<SupabaseServiceHealth> {
     const detail = await first.response.text();
     const health = classifyHttpFailure("storage", first.response.status, detail, first.latencyMs);
 
-    if (first.response.status === 401 || first.response.status === 403) {
+    if (first.response.status === 400 || first.response.status === 401 || first.response.status === 403) {
       health.status = "degraded";
-      health.message = `Storage bucket metadata check is blocked by policy (${first.response.status}). Uploads may still work; local fallback is used only after upload failure.`;
+      health.message = `Storage object-list health check is not permitted or returned ${first.response.status}. Uploads may still work; local fallback is used only after upload failure.`;
     }
 
-    healthDevLog("storage check failed", { status: health.status, category: health.category, latencyMs: health.latencyMs });
+    healthDevLog("storage check failed", {
+      method: "object-list",
+      bucket: first.bucket,
+      httpStatus: first.response.status,
+      status: health.status,
+      category: health.category,
+      latencyMs: health.latencyMs
+    });
     return health;
   } catch (error) {
     const isAbort = error instanceof DOMException && error.name === "AbortError";

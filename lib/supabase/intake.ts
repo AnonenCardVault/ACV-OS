@@ -1,6 +1,7 @@
 import type { ApprovedInventoryItem, BatchHistoryEntry, IntakeGroup, IntakeImage, ProposedRecord, UploadedImage } from "@/lib/acv-local-state";
 import { getOrCreateAcvUser, patchRows, selectRows, upsertRows } from "@/lib/supabase/client";
 import { insertAuditEvent, loadApprovedInventoryFromSupabase, upsertApprovedInventoryItem } from "@/lib/supabase/cards";
+import { saveImageMetadataRows } from "@/lib/supabase/images";
 import { buildStoragePath, uploadDataUrlToBucket, uploadFileToBucket } from "@/lib/supabase/storage";
 import type { ImageRow, IntakeBatchRow, IntakeGroupRow, SupabaseLoadedState, SupabaseStoredImage } from "@/lib/supabase/types";
 
@@ -175,7 +176,7 @@ export async function saveBatchSnapshotToSupabase(entry: BatchHistoryEntry) {
     }
   }
 
-  await upsertRows<ImageRow>("images", imageRows, "user_id,local_image_id");
+  await saveImageMetadataRows(imageRows);
   return batch;
 }
 

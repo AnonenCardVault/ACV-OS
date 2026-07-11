@@ -1,5 +1,6 @@
 import type { ApprovedInventoryItem, IntakeImage, ProposedRecord } from "@/lib/acv-local-state";
 import { getOrCreateAcvUser, insertRows, patchRows, selectRows, upsertRows } from "@/lib/supabase/client";
+import { saveImageMetadataRows } from "@/lib/supabase/images";
 import { buildStoragePath, uploadDataUrlToBucket } from "@/lib/supabase/storage";
 import { logParallelRecognitionEvent } from "@/lib/supabase/parallel-recognition";
 import type { AuditHistoryRow, ImageRow, IntakeBatchRow, IntakeGroupRow, InventoryRow, UniversalCardProfileRow } from "@/lib/supabase/types";
@@ -341,7 +342,7 @@ export async function upsertApprovedInventoryItem(
     }
   }
 
-  await upsertRows<ImageRow>("images", imageRows, "user_id,local_image_id");
+  await saveImageMetadataRows(imageRows);
   await insertAuditEvent({
     profileId: profile.id,
     type: "inventory.approved",
