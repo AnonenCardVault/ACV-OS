@@ -1078,10 +1078,12 @@ function listedDateMatches(row: Row, filter: string) {
 }
 
 export default function InventoryPage() {
-  const { backendStatus } = useAcvLocalState();
+  const { backendStatus, refreshBackendHealth } = useAcvLocalState();
+  const inventoryRequestIdRef = useRef(0);
   const [inventoryRecords, setInventoryRecords] = useState<ApprovedInventoryItem[]>([]);
   const [archivedRecords, setArchivedRecords] = useState<ApprovedInventoryItem[]>([]);
   const [inventoryLoading, setInventoryLoading] = useState(true);
+  const [inventoryRetrying, setInventoryRetrying] = useState(false);
   const [inventoryError, setInventoryError] = useState("");
   const [archivedIds, setArchivedIds] = useState<Set<string>>(new Set());
   const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set());
@@ -1109,8 +1111,31 @@ export default function InventoryPage() {
   const [enabledOptionalColumns, setEnabledOptionalColumns] = useState<Set<DataColumnKey>>(new Set());
   const [saveMessage, setSaveMessage] = useState("");
 
+  const loadInventoryRecords = useCallback(async () => {
+    const requestId = ++inventoryRequestIdRef.current;
+    const [active, archived] = await Promise.all([loadApprovedInventoryFromSupabase(), loadArchivedApprovedInventoryFromSupabase()]);
+
+    if (requestId !== inventoryRequestIdRef.current) {
+      if (process.env.NODE_ENV !== "production") {
+        console.info("[ACV Inventory] stale inventory response ignored", { requestId, latest: inventoryRequestIdRef.current });
+      }
+      return false;
+    }
+
+    setInventoryRecords(active);
+    setArchivedRecords(archived);
+    setArchivedIds(new Set());
+    setDeletedIds(new Set());
+
+    if (process.env.NODE_ENV !== "production") {
+      console.info("[ACV Inventory] Supabase inventory loaded", { activeRows: active.length, archivedRows: archived.length });
+    }
+
+    return true;
+  }, []);
+
   const refreshInventory = useCallback(async () => {
-    if (backendStatus.connectionState === "connecting") {
+    if (backendStatus.connectionState === "checking") {
       setInventoryRecords([]);
       setArchivedRecords([]);
       setInventoryLoading(true);
@@ -1122,18 +1147,18 @@ export default function InventoryPage() {
       setInventoryRecords([]);
       setArchivedRecords([]);
       setInventoryLoading(false);
-      setInventoryError("Inventory unavailable. Supabase is not connected, so ACV will not display cached inventory records.");
+      setInventoryError(
+        backendStatus.connectionState === "misconfigured"
+          ? backendStatus.databaseMessage || "Supabase configuration missing."
+          : backendStatus.databaseMessage || "Inventory unavailable. Supabase database is not connected."
+      );
       return;
     }
 
     setInventoryLoading(true);
     setInventoryError("");
     try {
-      const [active, archived] = await Promise.all([loadApprovedInventoryFromSupabase(), loadArchivedApprovedInventoryFromSupabase()]);
-      setInventoryRecords(active);
-      setArchivedRecords(archived);
-      setArchivedIds(new Set());
-      setDeletedIds(new Set());
+      await loadInventoryRecords();
     } catch (error) {
       console.error("[ACV Inventory] Supabase inventory load failed", error);
       setInventoryRecords([]);
@@ -1142,11 +1167,53 @@ export default function InventoryPage() {
     } finally {
       setInventoryLoading(false);
     }
-  }, [backendStatus.connectionState]);
+  }, [backendStatus.connectionState, backendStatus.databaseMessage, loadInventoryRecords]);
+
+  const retryInventory = useCallback(async () => {
+    if (inventoryRetrying) return;
+    setInventoryRetrying(true);
+    setInventoryLoading(true);
+    setInventoryError("");
+
+    let lastMessage = "Inventory unavailable. Retry did not complete.";
+
+    try {
+      for (let attempt = 1; attempt <= 3; attempt += 1) {
+        if (process.env.NODE_ENV !== "production") {
+          console.info("[ACV Inventory] retry attempt", { attempt });
+        }
+
+        const status = await refreshBackendHealth();
+        if (status.connectionState === "connected") {
+          try {
+            await loadInventoryRecords();
+            setInventoryError("");
+            return;
+          } catch (error) {
+            lastMessage = error instanceof Error ? error.message : "Supabase inventory query failed.";
+          }
+        } else {
+          lastMessage = status.databaseMessage || status.message || "Supabase database is not connected.";
+        }
+
+        if (attempt < 3) {
+          await new Promise((resolve) => setTimeout(resolve, 400 * 2 ** (attempt - 1)));
+        }
+      }
+
+      setInventoryRecords([]);
+      setArchivedRecords([]);
+      setInventoryError(lastMessage);
+    } finally {
+      setInventoryLoading(false);
+      setInventoryRetrying(false);
+    }
+  }, [inventoryRetrying, loadInventoryRecords, refreshBackendHealth]);
 
   useEffect(() => {
+    if (inventoryRetrying) return;
     void refreshInventory();
-  }, [refreshInventory]);
+  }, [inventoryRetrying, refreshInventory]);
 
   useEffect(() => {
     if (selectedRow && !rows.some((row) => row.id === selectedRow.id)) {
@@ -1456,6 +1523,15 @@ export default function InventoryPage() {
     dateListedFilter,
     marketRangeFilter
   ].filter((value) => value !== "All").length + (query ? 1 : 0);
+  const inventorySourceLabel =
+    backendStatus.connectionState === "connected"
+      ? "Supabase inventory"
+      : backendStatus.connectionState === "checking"
+        ? "Checking Supabase"
+        : backendStatus.connectionState === "misconfigured"
+          ? "Config missing"
+          : "Inventory unavailable";
+  const inventorySourceTone = backendStatus.connectionState === "connected" ? "teal" : backendStatus.connectionState === "checking" || backendStatus.connectionState === "degraded" ? "gold" : "pink";
 
   return (
     <>
@@ -1463,8 +1539,8 @@ export default function InventoryPage() {
         <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 border-b border-acv-border pb-2">
           <div className="min-w-0">
             <div className="mb-1 flex flex-wrap items-center gap-2">
-              <StatusPill tone={backendStatus.connectionState === "connected" ? "teal" : "gold"}>
-                {backendStatus.connectionState === "connected" ? "Supabase inventory" : "Inventory unavailable"}
+              <StatusPill tone={inventorySourceTone}>
+                {inventorySourceLabel}
               </StatusPill>
               <StatusPill tone="teal">ACV OS v1 shell</StatusPill>
             </div>
@@ -1645,10 +1721,14 @@ export default function InventoryPage() {
                 <p className="mt-2 text-xs leading-5 text-acv-text">{inventoryError}</p>
                 <button
                   type="button"
-                  onClick={() => void refreshInventory()}
-                  className="mt-4 inline-flex h-9 items-center justify-center rounded-md border border-acv-teal/45 bg-acv-teal/10 px-4 text-xs font-semibold text-acv-teal transition hover:bg-acv-teal/15"
+                  onClick={() => void retryInventory()}
+                  disabled={inventoryRetrying}
+                  className={cn(
+                    "mt-4 inline-flex h-9 items-center justify-center rounded-md border border-acv-teal/45 bg-acv-teal/10 px-4 text-xs font-semibold text-acv-teal transition hover:bg-acv-teal/15",
+                    inventoryRetrying && "cursor-not-allowed opacity-60"
+                  )}
                 >
-                  Retry
+                  {inventoryRetrying ? "Retrying..." : "Retry"}
                 </button>
               </div>
             </div>
@@ -1678,7 +1758,7 @@ export default function InventoryPage() {
             <span>
               {rows.length === 0 ? "0 live records" : filteredRows.length ? `1-${filteredRows.length} of ${filteredRows.length}` : "No records match the current controls"}
             </span>
-            <span>{backendStatus.connectionState === "connected" ? "Supabase inventory · marketplace columns available after eBay sync" : "Inventory unavailable"}</span>
+            <span>{backendStatus.connectionState === "connected" ? "Supabase inventory · marketplace columns available after eBay sync" : inventorySourceLabel}</span>
           </div>
         </section>
 
@@ -1717,7 +1797,7 @@ export default function InventoryPage() {
               </div>
             </div>
             <div className="rounded-md border border-acv-border bg-acv-panel2 p-3">
-              <p className="font-semibold text-acv-text">{backendStatus.connectionState === "connected" ? "Supabase Mode" : "Inventory Offline"}</p>
+              <p className="font-semibold text-acv-text">{backendStatus.connectionState === "connected" ? "Supabase Mode" : inventorySourceLabel}</p>
               <p className="mt-2 leading-5">Detailed card attributes live in the drawer. Marketplace sync columns stay unavailable until connected data is saved.</p>
             </div>
           </div>

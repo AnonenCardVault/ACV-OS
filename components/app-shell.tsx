@@ -12,26 +12,26 @@ import { useAcvLocalState } from "@/lib/acv-local-state";
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { backendStatus } = useAcvLocalState();
-  const databaseStatus =
-    backendStatus.connectionState === "connected"
-      ? "Connected"
-      : backendStatus.connectionState === "offline"
-        ? "Offline"
-        : backendStatus.configured
-          ? "Connecting"
-          : "Local";
-  const storageStatus =
-    backendStatus.storageState === "connected"
-      ? "Connected"
-      : backendStatus.storageState === "offline"
-        ? "Fallback"
-        : backendStatus.configured
-          ? "Connecting"
-          : "Local";
-  const databaseTone = backendStatus.connectionState === "connected" ? "teal" : backendStatus.configured ? "gold" : "purple";
-  const storageTone = backendStatus.storageState === "connected" ? "teal" : backendStatus.configured ? "gold" : "purple";
+  const statusLabel = (status: string) => {
+    if (status === "connected") return "Connected";
+    if (status === "checking") return "Checking";
+    if (status === "degraded") return "Degraded";
+    if (status === "fallback") return "Fallback";
+    if (status === "misconfigured") return "Misconfigured";
+    return "Offline";
+  };
+  const statusTone = (status: string) => {
+    if (status === "connected") return "teal";
+    if (status === "degraded" || status === "checking") return "gold";
+    if (status === "fallback" || status === "offline") return "pink";
+    return "purple";
+  };
+  const databaseStatus = statusLabel(backendStatus.connectionState);
+  const storageStatus = statusLabel(backendStatus.storageState);
+  const databaseTone = statusTone(backendStatus.connectionState);
+  const storageTone = statusTone(backendStatus.storageState);
   const lastSyncLabel = (() => {
-    if (!backendStatus.lastSyncAt) return backendStatus.configured ? "Pending" : "Local";
+    if (!backendStatus.lastSyncAt) return backendStatus.lastHealthCheckAt ? "No sync yet" : backendStatus.configured ? "Checking" : "Config missing";
     const date = new Date(backendStatus.lastSyncAt);
     if (Number.isNaN(date.getTime())) return backendStatus.lastSyncAt.length > 14 ? `${backendStatus.lastSyncAt.slice(0, 14)}...` : backendStatus.lastSyncAt;
     return new Intl.DateTimeFormat("en-US", {
@@ -91,13 +91,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <div className="space-y-2 text-xs">
                 {[
                   ["eBay", "Mock", "pink"],
-                  ["Database", databaseStatus, databaseTone],
-                  ["Storage", storageStatus, storageTone],
+                  ["Database", databaseStatus, databaseTone, backendStatus.databaseMessage || backendStatus.message],
+                  ["Storage", storageStatus, storageTone, backendStatus.storageMessage || backendStatus.message],
                   ["AI", "Mock", "purple"]
-                ].map(([label, value, tone]) => (
-                  <div key={label} className="grid grid-cols-[58px_minmax(0,1fr)] items-center gap-2">
+                ].map(([label, value, tone, detail]) => (
+                  <div key={label} className="grid grid-cols-[56px_minmax(0,1fr)] items-center gap-2" title={String(detail || value)}>
                     <span className="text-acv-muted">{label}</span>
-                    <StatusPill tone={tone as "pink" | "purple" | "teal" | "gold"} className="w-full justify-center !whitespace-normal px-1.5 text-center text-[9px] leading-3 tracking-[0.05em]">
+                    <StatusPill tone={tone as "pink" | "purple" | "teal" | "gold"} className="w-full justify-center !whitespace-normal break-words px-1 text-center text-[8.5px] leading-3 tracking-[0.03em]">
                       {value}
                     </StatusPill>
                   </div>
@@ -106,7 +106,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <div className="mt-3 border-t border-acv-border pt-3">
                 <div className="grid grid-cols-[58px_minmax(0,1fr)] items-center gap-2 text-[11px]">
                   <span className="text-acv-muted">Sync</span>
-                  <span className="min-w-0 break-words text-right font-semibold leading-4 text-acv-teal">{lastSyncLabel}</span>
+                  <span className="min-w-0 break-words text-right text-[10px] font-semibold leading-4 text-acv-teal" title={backendStatus.lastSyncAt || backendStatus.lastHealthCheckAt || backendStatus.message}>{lastSyncLabel}</span>
                 </div>
               </div>
             </div>

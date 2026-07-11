@@ -1,31 +1,48 @@
 import type { AcvSupabaseUser } from "@/lib/supabase/types";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 const supabasePublishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "";
+const supabaseKey = supabaseAnonKey || supabasePublishableKey;
+
+export function getSupabaseConfig() {
+  const missing: string[] = [];
+  if (!supabaseUrl) missing.push("NEXT_PUBLIC_SUPABASE_URL");
+  if (!supabaseKey) missing.push("NEXT_PUBLIC_SUPABASE_ANON_KEY");
+
+  return {
+    url: supabaseUrl.replace(/\/$/, ""),
+    key: supabaseKey,
+    keySource: supabaseAnonKey ? "NEXT_PUBLIC_SUPABASE_ANON_KEY" : supabasePublishableKey ? "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY" : "",
+    missing,
+    configured: missing.length === 0
+  };
+}
 
 export function isSupabaseConfigured() {
-  return Boolean(supabaseUrl && supabasePublishableKey);
+  return getSupabaseConfig().configured;
 }
 
 export function getSupabasePublicUrl() {
-  return supabaseUrl.replace(/\/$/, "");
+  return getSupabaseConfig().url;
 }
 
 export function getSupabasePublishableKey() {
-  return supabasePublishableKey;
+  return getSupabaseConfig().key;
 }
 
 function assertConfigured() {
-  if (!isSupabaseConfigured()) {
-    throw new Error("Supabase env vars are missing. ACV is using local fallback.");
+  const config = getSupabaseConfig();
+  if (!config.configured) {
+    throw new Error(`Supabase configuration missing: ${config.missing.join(", ")}`);
   }
 }
 
 function jsonHeaders(extra?: HeadersInit) {
   assertConfigured();
   return {
-    apikey: supabasePublishableKey,
-    Authorization: `Bearer ${supabasePublishableKey}`,
+    apikey: getSupabasePublishableKey(),
+    Authorization: `Bearer ${getSupabasePublishableKey()}`,
     "Content-Type": "application/json",
     ...extra
   };
@@ -82,12 +99,6 @@ export async function patchRows<T>(table: string, query: string, values: Record<
     headers: { Prefer: "return=representation" },
     body: JSON.stringify(values)
   });
-}
-
-export async function testSupabaseConnection() {
-  if (!isSupabaseConfigured()) return false;
-  await selectRows("users", "select=id&limit=1");
-  return true;
 }
 
 export async function getOrCreateAcvUser(): Promise<AcvSupabaseUser> {

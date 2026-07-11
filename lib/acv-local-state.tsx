@@ -1,7 +1,8 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
-import { isSupabaseConfigured, testSupabaseConnection } from "@/lib/supabase/client";
+import { isSupabaseConfigured } from "@/lib/supabase/client";
+import { checkSupabaseHealth } from "@/lib/supabase/health";
 import {
   approveGroupToSupabase,
   loadSupabaseState,
@@ -12,7 +13,7 @@ import {
 } from "@/lib/supabase/intake";
 import { cleanupLargeAcvStorageKeys, safeGetStorageItem, safeSetStorageItem } from "@/lib/safe-storage";
 import type { ParallelRecognitionResult } from "@/lib/parallel-recognition";
-import type { SupabaseBackendStatus } from "@/lib/supabase/types";
+import type { SupabaseBackendStatus, SupabaseHealthResult, SupabaseStorageRuntimeStatus } from "@/lib/supabase/types";
 
 export type SourceKey = "Computer Upload" | "eBay Active Listings" | "eBay Drafts" | "Google Drive" | "Dropbox" | "Mobile Camera Upload" | "Scanner" | "Shared Team Uploads" | "Future Sources";
 export type ImageCountMode = "2 images/card" | "3 images/card" | "Custom" | "Auto-detect";
@@ -266,6 +267,7 @@ type AcvLocalStateValue = {
   saveBatchSnapshotToBackend: (entry: BatchHistoryEntry) => Promise<void>;
   approveGroupToBackend: (entry: BatchHistoryEntry, group: IntakeGroup, approvedItem: ApprovedInventoryItem) => Promise<ApprovedInventoryItem | undefined>;
   updateGroupStatusInBackend: (entry: BatchHistoryEntry, group: IntakeGroup, status: "Rejected" | "Needs Research") => Promise<void>;
+  refreshBackendHealth: () => Promise<SupabaseBackendStatus>;
 };
 
 const storageKey = "acv-os-local-intake-v1";
@@ -277,10 +279,31 @@ function initialBackendStatus(): SupabaseBackendStatus {
 
   return {
     configured,
-    connectionState: configured ? "connecting" : "not-configured",
-    storageState: configured ? "connecting" : "not-configured",
+    connectionState: configured ? "checking" : "misconfigured",
+    storageState: configured ? "checking" : "misconfigured",
     mode: configured ? "Supabase" : "Local Fallback",
-    message: configured ? "Supabase connection pending." : "Supabase env vars missing. ACV is using local fallback."
+    message: configured ? "Supabase connection pending." : "Supabase configuration missing."
+  };
+}
+
+function backendStatusFromHealth(health: SupabaseHealthResult, current?: SupabaseBackendStatus): SupabaseBackendStatus {
+  const configured = health.database.status !== "misconfigured" && health.storage.status !== "misconfigured";
+  const storageState: SupabaseStorageRuntimeStatus = current?.storageState === "fallback" && health.storage.status !== "connected" ? "fallback" : health.storage.status;
+  const hasLiveService = health.database.status === "connected" || health.storage.status === "connected";
+  const message = `Database: ${health.database.message} Storage: ${health.storage.message}`;
+
+  return {
+    configured,
+    connectionState: health.database.status,
+    storageState,
+    mode: hasLiveService ? "Supabase" : "Local Fallback",
+    lastSyncAt: current?.lastSyncAt,
+    lastHealthCheckAt: new Date().toISOString(),
+    databaseMessage: health.database.message,
+    storageMessage: health.storage.message,
+    databaseLatencyMs: health.database.latencyMs,
+    storageLatencyMs: health.storage.latencyMs,
+    message
   };
 }
 
@@ -379,6 +402,7 @@ function readFileAsDataUrl(file: File) {
 export function AcvLocalStateProvider({ children }: { children: React.ReactNode }) {
   const objectUrlsRef = useRef<string[]>([]);
   const skuCounterRef = useRef(1);
+  const healthRequestIdRef = useRef(0);
   const [hydrated, setHydrated] = useState(false);
   const [batchNumber, setBatchNumber] = useState(73);
   const [batchName, setBatchName] = useState("Untitled Batch");
@@ -400,6 +424,34 @@ export function AcvLocalStateProvider({ children }: { children: React.ReactNode 
   const [batchHistory, setBatchHistory] = useState<BatchHistoryEntry[]>([]);
   const [statusMessage, setStatusMessage] = useState("Upload photos to generate local intake groups.");
   const [backendStatus, setBackendStatus] = useState<SupabaseBackendStatus>(() => initialBackendStatus());
+
+  const refreshBackendHealth = useCallback(async () => {
+    const requestId = ++healthRequestIdRef.current;
+
+    setBackendStatus((current) => ({
+      ...current,
+      configured: isSupabaseConfigured(),
+      connectionState: isSupabaseConfigured() ? "checking" : "misconfigured",
+      storageState: isSupabaseConfigured() ? (current.storageState === "fallback" ? "fallback" : "checking") : "misconfigured",
+      mode: isSupabaseConfigured() ? current.mode : "Local Fallback",
+      message: isSupabaseConfigured() ? "Checking Supabase services." : "Supabase configuration missing."
+    }));
+
+    const health = await checkSupabaseHealth();
+    const nextStatus = backendStatusFromHealth(health);
+
+    setBackendStatus((current) => {
+      if (requestId !== healthRequestIdRef.current) {
+        if (process.env.NODE_ENV !== "production") {
+          console.info("[ACV Supabase Health] stale response ignored", { requestId, latest: healthRequestIdRef.current });
+        }
+        return current;
+      }
+      return backendStatusFromHealth(health, current);
+    });
+
+    return nextStatus;
+  }, []);
 
   useEffect(() => {
     let parsedState: PersistedState | null = null;
@@ -450,16 +502,12 @@ export function AcvLocalStateProvider({ children }: { children: React.ReactNode 
     }
 
     void (async () => {
-      setBackendStatus({
-        configured: true,
-        connectionState: "connecting",
-        storageState: "connecting",
-        mode: "Supabase",
-        message: "Connecting to Supabase."
-      });
-
       try {
-        await testSupabaseConnection();
+        const healthStatus = await refreshBackendHealth();
+        if (healthStatus.connectionState !== "connected") {
+          return;
+        }
+
         const alreadyMigrated = safeGetStorageItem("local", migrationMarkerKey) === "true";
         if (parsedState && !alreadyMigrated) {
           await migrateLocalStateToSupabase(parsedState);
@@ -484,22 +532,28 @@ export function AcvLocalStateProvider({ children }: { children: React.ReactNode 
         setBackendStatus({
           configured: true,
           connectionState: "connected",
-          storageState: "connected",
+          storageState: healthStatus.storageState,
           mode: "Supabase",
           lastSyncAt: new Date().toLocaleString(),
+          lastHealthCheckAt: healthStatus.lastHealthCheckAt,
+          databaseMessage: "Database sync succeeded.",
+          storageMessage: healthStatus.storageMessage,
+          databaseLatencyMs: healthStatus.databaseLatencyMs,
+          storageLatencyMs: healthStatus.storageLatencyMs,
           message: alreadyMigrated ? "Supabase connected." : "Supabase connected. Local cache migrated once."
         });
       } catch (error) {
-        setBackendStatus({
+        setBackendStatus((current) => ({
+          ...current,
           configured: true,
           connectionState: "offline",
-          storageState: "offline",
-          mode: "Local Fallback",
-          message: error instanceof Error ? error.message : "Supabase unavailable. ACV is using local fallback."
-        });
+          mode: current.storageState === "connected" ? "Supabase" : "Local Fallback",
+          databaseMessage: error instanceof Error ? error.message : "Supabase state sync failed.",
+          message: error instanceof Error ? error.message : "Supabase state sync failed."
+        }));
       }
     })();
-  }, []);
+  }, [refreshBackendHealth]);
 
   useEffect(() => {
     return () => {
@@ -575,7 +629,8 @@ export function AcvLocalStateProvider({ children }: { children: React.ReactNode 
       setUploadedImages((current) => [...current, ...nextImages]);
       imageFiles.forEach((file, index) => {
         const uploadId = nextImages[index].id;
-        if (isSupabaseConfigured()) {
+        const storageUploadAllowed = isSupabaseConfigured() && backendStatus.storageState !== "fallback" && backendStatus.storageState !== "offline" && backendStatus.storageState !== "misconfigured";
+        if (storageUploadAllowed) {
           uploadTempIntakeFile({
             file,
             batchId: `B-${String(batchNumber).padStart(3, "0")}`,
@@ -615,21 +670,24 @@ export function AcvLocalStateProvider({ children }: { children: React.ReactNode 
               );
               setBackendStatus((current) => ({
                 ...current,
-                connectionState: "connected",
                 storageState: "connected",
                 mode: "Supabase",
                 lastSyncAt: new Date().toLocaleString(),
+                storageMessage: "Image uploaded to Supabase temp-intake.",
                 message: "Image uploaded to Supabase temp-intake."
               }));
             })
             .catch((error) => {
               setBackendStatus((current) => ({
                 ...current,
-                storageState: "offline",
-                mode: "Local Fallback",
+                storageState: "fallback",
+                mode: current.connectionState === "connected" ? "Supabase" : "Local Fallback",
+                storageMessage: error instanceof Error ? error.message : "Image storage unavailable. Using local fallback.",
                 message: error instanceof Error ? error.message : "Image storage unavailable. Using local fallback."
               }));
             });
+        } else if (isSupabaseConfigured()) {
+          setStatusMessage("Supabase Storage is unavailable right now. Images are using local previews until Storage reconnects.");
         }
         readFileAsDataUrl(file)
           .then((dataUrl) => {
@@ -655,7 +713,7 @@ export function AcvLocalStateProvider({ children }: { children: React.ReactNode 
       });
       return [...uploadedImages, ...nextImages];
     },
-    [batchNumber, uploadedImages, setGroups]
+    [backendStatus.storageState, batchNumber, uploadedImages, setGroups]
   );
 
   const clearIntakeState = useCallback(() => {
@@ -673,7 +731,7 @@ export function AcvLocalStateProvider({ children }: { children: React.ReactNode 
     setBatchNumber((current) => current + 1);
     setBatchName("Untitled Batch");
     setBatchCreatedAt(new Date().toISOString());
-    setStatusMessage("Batch cleared. Approved mock inventory remains available in Inventory.");
+    setStatusMessage("Batch cleared. Approved Supabase inventory remains available in Inventory.");
   }, []);
 
   const restoreBatch = useCallback((entry: BatchHistoryEntry) => {
@@ -700,17 +758,18 @@ export function AcvLocalStateProvider({ children }: { children: React.ReactNode 
       setBackendStatus((current) => ({
         ...current,
         connectionState: "connected",
-        storageState: "connected",
         mode: "Supabase",
         lastSyncAt: new Date().toLocaleString(),
+        databaseMessage: "Batch snapshot saved to Supabase.",
         message: "Batch snapshot saved to Supabase."
       }));
     } catch (error) {
       setBackendStatus((current) => ({
         ...current,
         connectionState: "offline",
-        mode: "Local Fallback",
-        message: error instanceof Error ? error.message : "Could not save batch to Supabase. Local fallback retained."
+        mode: current.storageState === "connected" ? "Supabase" : "Local Fallback",
+        databaseMessage: error instanceof Error ? error.message : "Could not save batch to Supabase. Local state retained.",
+        message: error instanceof Error ? error.message : "Could not save batch to Supabase. Local state retained."
       }));
     }
   }, []);
@@ -724,9 +783,9 @@ export function AcvLocalStateProvider({ children }: { children: React.ReactNode 
       setBackendStatus((current) => ({
         ...current,
         connectionState: "connected",
-        storageState: "connected",
         mode: "Supabase",
         lastSyncAt: new Date().toLocaleString(),
+        databaseMessage: `${approvedItem.sku} saved to Supabase.`,
         message: `${approvedItem.sku} saved to Supabase.`
       }));
       return remote.approvedInventory.find((item) => approvedInventoryIdentity(item) === approvedInventoryIdentity(savedItem)) || savedItem;
@@ -734,8 +793,9 @@ export function AcvLocalStateProvider({ children }: { children: React.ReactNode 
       setBackendStatus((current) => ({
         ...current,
         connectionState: "offline",
-        mode: "Local Fallback",
-        message: error instanceof Error ? error.message : "Could not approve to Supabase. Local fallback retained."
+        mode: current.storageState === "connected" ? "Supabase" : "Local Fallback",
+        databaseMessage: error instanceof Error ? error.message : "Could not approve to Supabase. Local state retained.",
+        message: error instanceof Error ? error.message : "Could not approve to Supabase. Local state retained."
       }));
       return undefined;
     }
@@ -748,17 +808,18 @@ export function AcvLocalStateProvider({ children }: { children: React.ReactNode 
       setBackendStatus((current) => ({
         ...current,
         connectionState: "connected",
-        storageState: current.storageState === "not-configured" ? "not-configured" : "connected",
         mode: "Supabase",
         lastSyncAt: new Date().toLocaleString(),
+        databaseMessage: `${group.batch} / ${group.id} saved as ${status} in Supabase.`,
         message: `${group.batch} / ${group.id} saved as ${status} in Supabase.`
       }));
     } catch (error) {
       setBackendStatus((current) => ({
         ...current,
         connectionState: "offline",
-        mode: "Local Fallback",
-        message: error instanceof Error ? error.message : "Could not update Supabase group status. Local fallback retained."
+        mode: current.storageState === "connected" ? "Supabase" : "Local Fallback",
+        databaseMessage: error instanceof Error ? error.message : "Could not update Supabase group status. Local state retained.",
+        message: error instanceof Error ? error.message : "Could not update Supabase group status. Local state retained."
       }));
     }
   }, []);
@@ -811,7 +872,8 @@ export function AcvLocalStateProvider({ children }: { children: React.ReactNode 
         restoreBatch,
         saveBatchSnapshotToBackend,
         approveGroupToBackend,
-        updateGroupStatusInBackend
+        updateGroupStatusInBackend,
+        refreshBackendHealth
       }}
     >
       {children}

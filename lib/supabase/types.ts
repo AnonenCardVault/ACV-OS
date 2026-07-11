@@ -1,13 +1,33 @@
 import type { ApprovedInventoryItem, BatchHistoryEntry, IntakeGroup, IntakeImage, UploadedImage } from "@/lib/acv-local-state";
 
-export type SupabaseConnectionState = "not-configured" | "connecting" | "connected" | "offline";
+export type SupabaseServiceStatus = "checking" | "connected" | "degraded" | "offline" | "misconfigured";
+export type SupabaseStorageRuntimeStatus = SupabaseServiceStatus | "fallback";
+export type SupabaseConnectionState = SupabaseServiceStatus;
+
+export type SupabaseServiceHealth = {
+  status: SupabaseServiceStatus;
+  message: string;
+  checkedAt: string;
+  latencyMs?: number;
+  category?: "missing-config" | "network" | "authorization" | "query" | "timeout" | "service" | "ok";
+};
+
+export type SupabaseHealthResult = {
+  database: SupabaseServiceHealth;
+  storage: SupabaseServiceHealth;
+};
 
 export type SupabaseBackendStatus = {
   configured: boolean;
   connectionState: SupabaseConnectionState;
-  storageState: SupabaseConnectionState;
+  storageState: SupabaseStorageRuntimeStatus;
   mode: "Supabase" | "Local Fallback";
   lastSyncAt?: string;
+  lastHealthCheckAt?: string;
+  databaseMessage?: string;
+  storageMessage?: string;
+  databaseLatencyMs?: number;
+  storageLatencyMs?: number;
   message: string;
 };
 

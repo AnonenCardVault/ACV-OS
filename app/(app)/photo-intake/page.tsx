@@ -1792,7 +1792,7 @@ export default function PhotoIntakePage() {
   }
 
   function clearBatch() {
-    if (!window.confirm("Clear the current local intake batch? Uploaded groups, approval state, and mock inventory from this batch will be removed.")) return;
+    if (!window.confirm("Clear the current local intake batch? Uploaded groups and local approval state from this batch will be removed.")) return;
     clearIntakeState();
   }
 
