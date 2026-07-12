@@ -9,6 +9,7 @@ import { navItems } from "@/data/mock";
 import { cn } from "@/lib/utils";
 import { StatusPill } from "@/components/status-pill";
 import { useAcvLocalState } from "@/lib/acv-local-state";
+import { getSupabaseBrowserAuthClient } from "@/lib/supabase/browser-auth";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -48,7 +49,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   async function signOut() {
     setSigningOut(true);
     try {
-      await fetch("/api/auth/sign-out", { method: "POST" });
+      await getSupabaseBrowserAuthClient().auth.signOut();
     } finally {
       router.replace("/sign-in");
       router.refresh();
