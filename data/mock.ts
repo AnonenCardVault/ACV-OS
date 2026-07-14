@@ -6,6 +6,7 @@ import {
   ChartNoAxesCombined,
   CircleDollarSign,
   Layers3,
+  PlugZap,
   ReceiptText,
   Settings,
   ShoppingBag,
@@ -23,6 +24,7 @@ export const navItems = [
   { label: "Expenses", href: "/expenses", icon: ReceiptText },
   { label: "Reports", href: "/reports", icon: Layers3 },
   { label: "AI Staff", href: "/ai-staff", icon: BrainCircuit },
+  { label: "Integrations", href: "/integrations", icon: PlugZap },
   { label: "Settings", href: "/settings", icon: Settings }
 ];
 
