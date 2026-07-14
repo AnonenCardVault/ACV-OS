@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { authCookieBaseOptions, authCookieNames, getSupabaseAuthUser, isAccessTokenFresh, refreshSupabaseSession, sessionExpiresAt, type SupabasePasswordSession } from "@/lib/supabase/auth";
 
-const publicPathPrefixes = ["/sign-in", "/api/auth"];
+const publicPathPrefixes = ["/sign-in", "/api/auth", "/api/ebay/marketplace-account-deletion"];
 const publicAssetPattern = /\.(?:ico|png|jpg|jpeg|gif|webp|svg|css|js|map|txt|xml)$/i;
 
 function isPublicPath(pathname: string) {
@@ -94,4 +94,3 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: ["/((?!_next/static|_next/image).*)"]
 };
-

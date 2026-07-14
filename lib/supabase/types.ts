@@ -237,6 +237,27 @@ export type ParallelRecognitionEventRow = {
   deleted_at: string | null;
 };
 
+export type EbayDeletionNotificationRow = {
+  id: string;
+  user_id: string | null;
+  notification_id: string;
+  topic: string;
+  ebay_user_id: string | null;
+  ebay_username: string | null;
+  eias_token_hash: string | null;
+  event_date: string | null;
+  publish_date: string | null;
+  publish_attempt_count: number | null;
+  signature_verified: boolean;
+  status: string;
+  received_at: string;
+  processed_at: string | null;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+};
+
 export type SupabaseLoadedState = {
   approvedInventory: ApprovedInventoryItem[];
   batchHistory: BatchHistoryEntry[];

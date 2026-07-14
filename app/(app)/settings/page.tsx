@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/page-header";
 import { SectionCard } from "@/components/section-card";
 import { StatusPill } from "@/components/status-pill";
 import { getCatalogHealthSummary, type CatalogCount, type CatalogDiagnosticsSummary, type CatalogHealthSummary, type CatalogHealthStatus } from "@/lib/catalog/catalog-health";
+import { getEbayDeletionComplianceSummary } from "@/lib/ebay/notifications/notification-store";
 
 export const dynamic = "force-dynamic";
 
@@ -219,6 +220,45 @@ function CatalogHealthPanel({ health }: { health: CatalogHealthSummary }) {
   );
 }
 
+async function EbayCompliancePanel() {
+  const summary = await getEbayDeletionComplianceSummary();
+  const tone = summary.status === "Misconfigured" || summary.status === "Error" ? "pink" : summary.status === "Ready" ? "teal" : "gold";
+
+  return (
+    <SectionCard
+      title="eBay Account Deletion"
+      eyebrow="Marketplace compliance"
+      action={<StatusPill tone={tone}>{summary.status}</StatusPill>}
+    >
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        <div className="min-w-0 rounded-md border border-acv-border bg-acv-panel2 p-3">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-acv-muted">Endpoint configured</p>
+          <p className="mt-2 text-sm font-semibold text-acv-text">{summary.configured ? "Yes" : "No"}</p>
+        </div>
+        <div className="min-w-0 rounded-md border border-acv-border bg-acv-panel2 p-3 md:col-span-2">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-acv-muted">Endpoint URL</p>
+          <p className="mt-2 break-all text-xs font-semibold text-acv-text">{summary.endpointUrl}</p>
+        </div>
+        <div className="min-w-0 rounded-md border border-acv-border bg-acv-panel2 p-3">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-acv-muted">Last notification</p>
+          <p className="mt-2 text-sm font-semibold text-acv-text">{formatDate(summary.lastNotificationAt || undefined)}</p>
+        </div>
+        <div className="min-w-0 rounded-md border border-acv-border bg-acv-panel2 p-3">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-acv-muted">Last processed</p>
+          <p className="mt-2 text-sm font-semibold text-acv-text">{formatDate(summary.lastSuccessfulProcessingAt || undefined)}</p>
+        </div>
+        <div className="min-w-0 rounded-md border border-acv-border bg-acv-panel2 p-3">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-acv-muted">Last challenge</p>
+          <p className="mt-2 text-sm font-semibold text-acv-text">{formatDate(summary.lastChallengeAt || undefined)}</p>
+        </div>
+      </div>
+      <p className="mt-3 rounded-md border border-acv-border bg-black/20 px-3 py-2 text-xs text-acv-muted">
+        {summary.message}
+      </p>
+    </SectionCard>
+  );
+}
+
 export default async function SettingsPage() {
   const catalogHealth = await getCatalogHealthSummary();
 
@@ -316,6 +356,9 @@ export default async function SettingsPage() {
             </div>
           </SectionCard>
         </div>
+      </div>
+      <div className="px-4 pb-4 md:px-6 md:pb-6">
+        <EbayCompliancePanel />
       </div>
       <div className="px-4 pb-4 md:px-6 md:pb-6">
         <CatalogHealthPanel health={catalogHealth} />

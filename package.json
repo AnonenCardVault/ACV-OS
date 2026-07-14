@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit",
     "discover:sports-checklists": "node --experimental-strip-types scripts/discover-sports-checklist-urls.ts",
     "import:sports-checklists": "node --experimental-strip-types scripts/import-sports-checklists.ts",
-    "build:sports-catalog-index": "node --experimental-strip-types scripts/build-sports-catalog-index.ts"
+    "build:sports-catalog-index": "node --experimental-strip-types scripts/build-sports-catalog-index.ts",
+    "test:ebay-deletion-challenge": "node --experimental-strip-types scripts/test-ebay-deletion-challenge.ts"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",
