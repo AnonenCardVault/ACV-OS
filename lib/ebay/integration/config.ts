@@ -7,6 +7,18 @@ export function getEbayOAuthScope() {
   return oauthScope;
 }
 
+export const ebaySandboxUserScopes = [
+  "https://api.ebay.com/oauth/api_scope",
+  "https://api.ebay.com/oauth/api_scope/sell.inventory.readonly",
+  "https://api.ebay.com/oauth/api_scope/sell.account.readonly",
+  "https://api.ebay.com/oauth/api_scope/sell.fulfillment.readonly"
+];
+
+export function getEbayUserScopes(environment: EbayEnvironment) {
+  void environment;
+  return ebaySandboxUserScopes;
+}
+
 export function getEbayMarketplaceId() {
   return process.env.EBAY_MARKETPLACE_ID || defaultMarketplaceId;
 }
@@ -29,7 +41,13 @@ export function getEbayEnvironmentConfig(environment: EbayEnvironment): EbayEnvi
       clientSecret,
       marketplaceId,
       oauthUrl: "https://api.ebay.com/identity/v1/oauth2/token",
+      authUrl: "https://auth.ebay.com/oauth2/authorize",
       browseBaseUrl: "https://api.ebay.com/buy/browse/v1",
+      sellInventoryBaseUrl: "https://api.ebay.com/sell/inventory/v1",
+      sellFulfillmentBaseUrl: "https://api.ebay.com/sell/fulfillment/v1",
+      identityBaseUrl: "https://apiz.ebay.com/commerce/identity/v1",
+      ruName: process.env.EBAY_RUNAME || "",
+      redirectUri: process.env.EBAY_REDIRECT_URI || "",
       missing,
       configured: missing.length === 0,
       productionCallsAllowed
@@ -49,7 +67,13 @@ export function getEbayEnvironmentConfig(environment: EbayEnvironment): EbayEnvi
     clientSecret,
     marketplaceId,
     oauthUrl: "https://api.sandbox.ebay.com/identity/v1/oauth2/token",
+    authUrl: "https://auth.sandbox.ebay.com/oauth2/authorize",
     browseBaseUrl: "https://api.sandbox.ebay.com/buy/browse/v1",
+    sellInventoryBaseUrl: "https://api.sandbox.ebay.com/sell/inventory/v1",
+    sellFulfillmentBaseUrl: "https://api.sandbox.ebay.com/sell/fulfillment/v1",
+    identityBaseUrl: "https://apiz.sandbox.ebay.com/commerce/identity/v1",
+    ruName: process.env.EBAY_SANDBOX_RUNAME || "",
+    redirectUri: process.env.EBAY_SANDBOX_REDIRECT_URI || "",
     missing,
     configured: missing.length === 0,
     productionCallsAllowed
@@ -59,4 +83,3 @@ export function getEbayEnvironmentConfig(environment: EbayEnvironment): EbayEnvi
 export function parseEbayEnvironment(value: unknown): EbayEnvironment {
   return value === "production" ? "production" : "sandbox";
 }
-

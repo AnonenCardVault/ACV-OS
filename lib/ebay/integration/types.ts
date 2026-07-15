@@ -13,7 +13,13 @@ export type EbayEnvironmentConfig = {
   clientSecret?: string;
   marketplaceId: string;
   oauthUrl: string;
+  authUrl: string;
   browseBaseUrl: string;
+  sellInventoryBaseUrl: string;
+  sellFulfillmentBaseUrl: string;
+  identityBaseUrl: string;
+  ruName: string;
+  redirectUri: string;
   missing: string[];
   configured: boolean;
   productionCallsAllowed: boolean;
@@ -65,3 +71,78 @@ export type EbayEnvironmentSummary = {
   productionCallsAllowed: boolean;
 };
 
+export type EbayConnectionRow = {
+  id: string;
+  acv_user_id: string;
+  environment: EbayEnvironment;
+  marketplace_id: string;
+  ebay_user_id: string | null;
+  ebay_username: string | null;
+  access_token_encrypted: string | null;
+  refresh_token_encrypted: string | null;
+  access_token_expires_at: string | null;
+  refresh_token_expires_at: string | null;
+  scopes: string[] | null;
+  connection_status: "connected" | "disconnected" | "reauthorization_required" | "failed";
+  last_connected_at: string | null;
+  last_refreshed_at: string | null;
+  last_error: string | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+};
+
+export type EbaySyncRunRow = {
+  id: string;
+  acv_user_id: string;
+  ebay_connection_id: string;
+  environment: EbayEnvironment;
+  sync_type: "inventory_items" | "offers" | "orders" | "everything";
+  status: "running" | "completed" | "partial_success" | "failed";
+  started_at: string;
+  completed_at: string | null;
+  pages_fetched: number;
+  records_received: number;
+  records_inserted: number;
+  records_updated: number;
+  records_unchanged: number;
+  records_failed: number;
+  warning_count: number;
+  warnings: unknown[];
+  error_summary: string | null;
+};
+
+export type EbaySyncSummary = {
+  connected: boolean;
+  connection?: {
+    id: string;
+    environment: EbayEnvironment;
+    marketplaceId: string;
+    ebayUserId?: string | null;
+    ebayUsername?: string | null;
+    status: string;
+    oauthStatus: EbayOAuthStatus | "reauthorization_required";
+    accessTokenExpiresAt?: string | null;
+    refreshTokenExpiresAt?: string | null;
+    lastConnectedAt?: string | null;
+    lastRefreshedAt?: string | null;
+    lastError?: string | null;
+  };
+  counts: {
+    inventoryItems: number;
+    offers: number;
+    unpublishedOffers: number;
+    publishedOffers: number;
+    activeListings: number;
+    orders: number;
+    orderLines: number;
+  };
+  lastSync: {
+    inventoryItems?: string | null;
+    offers?: string | null;
+    orders?: string | null;
+    everything?: string | null;
+  };
+  latestRun?: EbaySyncRunRow;
+  coverageNote: string;
+};

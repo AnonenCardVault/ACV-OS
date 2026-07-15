@@ -2,6 +2,7 @@ import { BrainCircuit, Database, KeyRound, PlugZap, ShieldCheck } from "lucide-r
 import { PageHeader } from "@/components/page-header";
 import { SectionCard } from "@/components/section-card";
 import { StatusPill } from "@/components/status-pill";
+import { getEbaySyncSummary } from "@/lib/ebay/integration/connection-store";
 import { getEbayIntegrationSummaries } from "@/lib/ebay/integration/connection-test";
 import { getSupabaseConfig } from "@/lib/supabase/client";
 import { IntegrationsClient } from "@/app/(app)/integrations/integrations-client";
@@ -41,9 +42,10 @@ function ServiceCard({
   );
 }
 
-export default function IntegrationsPage() {
+export default async function IntegrationsPage() {
   const supabaseConfig = getSupabaseConfig();
   const ebayEnvironments = getEbayIntegrationSummaries();
+  const ebaySyncSummary = await getEbaySyncSummary("sandbox");
   const openAiConfigured = secretConfigured("OPENAI_API_KEY");
   const cardSightConfigured = secretConfigured("CARDSIGHT_API_KEY");
 
@@ -56,7 +58,7 @@ export default function IntegrationsPage() {
       />
 
       <div className="space-y-4 p-4 md:p-6">
-        <IntegrationsClient initialEbayEnvironments={ebayEnvironments} />
+        <IntegrationsClient initialEbayEnvironments={ebayEnvironments} initialEbaySyncSummary={ebaySyncSummary} />
 
         <SectionCard title="Provider Status" eyebrow="Integration registry" action={<StatusPill tone="purple">Read only</StatusPill>}>
           <div className="grid min-w-0 gap-3 lg:grid-cols-3">
@@ -109,4 +111,3 @@ export default function IntegrationsPage() {
     </>
   );
 }
-
