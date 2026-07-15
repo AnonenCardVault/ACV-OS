@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useState } from "react";
 import { LockKeyhole, LogIn } from "lucide-react";
+import { LegalLinks } from "@/components/legal-links";
 import { getSupabaseBrowserAuthClient } from "@/lib/supabase/browser-auth";
 
 function nextUrl() {
@@ -109,9 +110,10 @@ export function SignInForm() {
           <p className="mt-4 rounded-md border border-acv-border bg-black/20 px-3 py-2 text-[11px] leading-5 text-acv-muted">
             Access is restricted to the configured ACV OS Supabase user. No public registration is available.
           </p>
+
+          <LegalLinks className="mt-4" />
         </div>
       </section>
     </main>
   );
 }
-

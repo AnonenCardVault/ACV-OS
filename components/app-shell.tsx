@@ -8,6 +8,7 @@ import { useState } from "react";
 import { navItems } from "@/data/mock";
 import { cn } from "@/lib/utils";
 import { StatusPill } from "@/components/status-pill";
+import { LegalLinks } from "@/components/legal-links";
 import { useAcvLocalState } from "@/lib/acv-local-state";
 import { getSupabaseBrowserAuthClient } from "@/lib/supabase/browser-auth";
 
@@ -124,6 +125,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </div>
               </div>
             </div>
+            <LegalLinks className="mt-3 justify-start px-1" />
           </div>
         </div>
       </aside>
@@ -189,6 +191,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </nav>
         </header>
         <main className="min-w-0 overflow-x-hidden">{children}</main>
+        <footer className="border-t border-acv-border bg-acv-black px-4 py-3 sm:hidden">
+          <LegalLinks />
+        </footer>
       </div>
     </div>
   );
