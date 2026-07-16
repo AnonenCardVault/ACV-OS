@@ -1,4 +1,4 @@
-import type { EbayEnvironment, EbayEnvironmentConfig } from "@/lib/ebay/integration/types";
+import type { EbayEnvCheckItem, EbayEnvironment, EbayEnvironmentConfig, EbaySandboxEnvPresence } from "@/lib/ebay/integration/types";
 
 const oauthScope = "https://api.ebay.com/oauth/api_scope";
 const defaultMarketplaceId = "EBAY_US";
@@ -21,6 +21,36 @@ export function getEbayUserScopes(environment: EbayEnvironment) {
 
 export function getEbayMarketplaceId() {
   return process.env.EBAY_MARKETPLACE_ID || defaultMarketplaceId;
+}
+
+export function getEbaySandboxEnvPresence(): EbaySandboxEnvPresence {
+  const tokenEncryption = Boolean(process.env.EBAY_TOKEN_ENCRYPTION_SECRET || process.env.ACV_TOKEN_ENCRYPTION_SECRET);
+  return {
+    EBAY_SANDBOX_CLIENT_ID: Boolean(process.env.EBAY_SANDBOX_CLIENT_ID),
+    EBAY_SANDBOX_CLIENT_SECRET: Boolean(process.env.EBAY_SANDBOX_CLIENT_SECRET),
+    EBAY_SANDBOX_RUNAME: Boolean(process.env.EBAY_SANDBOX_RUNAME),
+    EBAY_SANDBOX_REDIRECT_URI: Boolean(process.env.EBAY_SANDBOX_REDIRECT_URI),
+    EBAY_MARKETPLACE_ID: Boolean(process.env.EBAY_MARKETPLACE_ID),
+    EBAY_TOKEN_ENCRYPTION_SECRET: Boolean(process.env.EBAY_TOKEN_ENCRYPTION_SECRET),
+    ACV_TOKEN_ENCRYPTION_SECRET: Boolean(process.env.ACV_TOKEN_ENCRYPTION_SECRET),
+    TOKEN_ENCRYPTION_CONFIGURED: tokenEncryption
+  };
+}
+
+export function getEbaySandboxEnvChecks(): EbayEnvCheckItem[] {
+  const presence = getEbaySandboxEnvPresence();
+  return [
+    { name: "EBAY_SANDBOX_CLIENT_ID", present: presence.EBAY_SANDBOX_CLIENT_ID, note: "Sandbox OAuth client ID" },
+    { name: "EBAY_SANDBOX_CLIENT_SECRET", present: presence.EBAY_SANDBOX_CLIENT_SECRET, note: "Sandbox OAuth client secret" },
+    { name: "EBAY_SANDBOX_RUNAME", present: presence.EBAY_SANDBOX_RUNAME, note: "eBay RuName used as OAuth redirect_uri" },
+    { name: "EBAY_SANDBOX_REDIRECT_URI", present: presence.EBAY_SANDBOX_REDIRECT_URI, note: "ACV callback URL registered in eBay" },
+    { name: "EBAY_MARKETPLACE_ID", present: presence.EBAY_MARKETPLACE_ID, note: "Marketplace header; defaults to EBAY_US if absent" },
+    {
+      name: "EBAY_TOKEN_ENCRYPTION_SECRET or ACV_TOKEN_ENCRYPTION_SECRET",
+      present: presence.TOKEN_ENCRYPTION_CONFIGURED,
+      note: "Server-only secret used to encrypt stored eBay user tokens"
+    }
+  ];
 }
 
 export function getEbayEnvironmentConfig(environment: EbayEnvironment): EbayEnvironmentConfig {

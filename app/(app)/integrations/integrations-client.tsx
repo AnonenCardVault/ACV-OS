@@ -88,6 +88,37 @@ function syncTypeLabel(type: EbaySyncType) {
   return "Everything";
 }
 
+function EnvChecklist({ checks }: { checks: EbayEnvironmentSummary["envChecks"] }) {
+  if (!checks.length) return null;
+  const missing = checks.filter((check) => !check.present);
+  return (
+    <div className="rounded-md border border-acv-border bg-black/20 p-3">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-acv-gold">Sandbox Environment Checklist</p>
+          <p className="mt-1 text-xs text-acv-muted">
+            {missing.length ? "Missing Sandbox credentials" : "Sandbox OAuth environment looks complete"}
+          </p>
+        </div>
+        <StatusPill tone={missing.length ? "pink" : "teal"}>{missing.length ? `${missing.length} Missing` : "Ready"}</StatusPill>
+      </div>
+      <div className="space-y-2">
+        {checks.map((check) => (
+          <div key={check.name} className="grid min-w-0 gap-2 rounded-md border border-acv-border bg-acv-panel2 px-3 py-2 text-xs md:grid-cols-[minmax(0,1fr)_92px]">
+            <div className="min-w-0">
+              <p className="break-words font-semibold text-acv-text">{check.name}</p>
+              <p className="mt-1 text-acv-muted">{check.note}</p>
+            </div>
+            <StatusPill tone={check.present ? "teal" : "pink"} className="justify-center">
+              {check.present ? "Present" : "Missing"}
+            </StatusPill>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function ActionButton({
   children,
   onClick,
@@ -137,6 +168,8 @@ export function IntegrationsClient({ initialEbayEnvironments, initialEbaySyncSum
   const productionLocked = selectedEnvironment === "production" && !selected?.productionCallsAllowed;
   const actionDisabled = Boolean(loadingAction || !selected?.configured || productionLocked);
   const sandboxConnected = syncSummary.connected && syncSummary.connection?.status === "connected";
+  const sandboxOAuthReady = Boolean(sandbox?.oauthConfigured);
+  const oauthConnectDisabled = Boolean(syncAction || !sandboxOAuthReady);
   const syncDisabled = Boolean(syncAction || !sandboxConnected);
 
   async function runConnectionTest(forceRefresh: boolean) {
@@ -349,6 +382,8 @@ export function IntegrationsClient({ initialEbayEnvironments, initialEbaySyncSum
             {productionLocked ? "Production is wired in the service layer but guarded so this phase cannot accidentally touch live eBay APIs." : selected.message}
           </div>
 
+          {selectedEnvironment === "sandbox" ? <EnvChecklist checks={selected.envChecks} /> : null}
+
           {testResult ? (
             <div className={cn("rounded-md border px-3 py-2 text-xs leading-5", testResult.connectionStatus === "connected" ? "border-acv-teal/40 bg-acv-teal/10 text-acv-teal" : "border-acv-pink/40 bg-acv-pink/10 text-acv-pink")}>
               <p className="font-semibold">{testResult.message}</p>
@@ -420,8 +455,10 @@ export function IntegrationsClient({ initialEbayEnvironments, initialEbaySyncSum
                 href="/api/ebay/oauth/connect?environment=sandbox"
                 className={cn(
                   "inline-flex h-9 items-center justify-center gap-2 rounded-md border border-acv-teal/40 bg-acv-teal px-3 text-xs font-semibold text-black transition hover:bg-cyan-200",
-                  syncAction ? "pointer-events-none opacity-50" : ""
+                  oauthConnectDisabled ? "pointer-events-none opacity-50" : ""
                 )}
+                aria-disabled={oauthConnectDisabled}
+                title={sandboxOAuthReady ? "Connect Sandbox eBay account" : "Complete the Sandbox environment checklist first"}
               >
                 <PlugZap className="h-4 w-4" />
                 {sandboxConnected ? "Reauthorize Sandbox" : "Connect Sandbox Account"}

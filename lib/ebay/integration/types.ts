@@ -6,6 +6,23 @@ export type EbayOAuthStatus = "valid" | "expired" | "missing";
 
 export type EbayHealthBadgeTone = "teal" | "gold" | "pink" | "purple" | "neutral";
 
+export type EbaySandboxEnvPresence = {
+  EBAY_SANDBOX_CLIENT_ID: boolean;
+  EBAY_SANDBOX_CLIENT_SECRET: boolean;
+  EBAY_SANDBOX_RUNAME: boolean;
+  EBAY_SANDBOX_REDIRECT_URI: boolean;
+  EBAY_MARKETPLACE_ID: boolean;
+  EBAY_TOKEN_ENCRYPTION_SECRET: boolean;
+  ACV_TOKEN_ENCRYPTION_SECRET: boolean;
+  TOKEN_ENCRYPTION_CONFIGURED: boolean;
+};
+
+export type EbayEnvCheckItem = {
+  name: string;
+  present: boolean;
+  note: string;
+};
+
 export type EbayEnvironmentConfig = {
   environment: EbayEnvironment;
   label: "Sandbox" | "Production";
@@ -62,6 +79,8 @@ export type EbayEnvironmentSummary = {
   environment: EbayEnvironment;
   label: string;
   configured: boolean;
+  oauthConfigured: boolean;
+  envChecks: EbayEnvCheckItem[];
   marketplaceId: string;
   connectionStatus: EbayConnectionStatus;
   oauth: EbayOAuthTokenSummary;

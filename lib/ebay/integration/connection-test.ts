@@ -1,4 +1,4 @@
-import { getEbayEnvironmentConfig } from "@/lib/ebay/integration/config";
+import { getEbayEnvironmentConfig, getEbaySandboxEnvChecks } from "@/lib/ebay/integration/config";
 import { getEbayApplicationToken, getEbayOAuthTokenSummary } from "@/lib/ebay/integration/oauth-manager";
 import type { EbayConnectionTestResult, EbayEnvironment, EbayEnvironmentSummary } from "@/lib/ebay/integration/types";
 
@@ -36,6 +36,8 @@ export function getEbayIntegrationSummaries(): EbayEnvironmentSummary[] {
     const oauth = getEbayOAuthTokenSummary(environment);
     const memory = connectionTestMemory.get(environment);
     const productionDisabled = environment === "production" && !config.productionCallsAllowed;
+    const envChecks = environment === "sandbox" ? getEbaySandboxEnvChecks() : [];
+    const oauthConfigured = environment === "sandbox" ? envChecks.every((check) => check.present || check.name === "EBAY_MARKETPLACE_ID") : config.configured;
     const connectionStatus = memory?.connectionStatus || (config.configured && !productionDisabled ? "not_configured" : "not_configured");
     const message =
       memory?.message ||
@@ -43,12 +45,16 @@ export function getEbayIntegrationSummaries(): EbayEnvironmentSummary[] {
         ? productionDisabled
           ? "Production credentials can be configured, but production connection tests are disabled for this Sandbox phase."
           : `${config.label} credentials are configured. Run a connection test when ready.`
-        : `Missing ${config.label} credentials: ${config.missing.join(", ") || "unknown"}.`);
+        : environment === "sandbox"
+          ? "Missing Sandbox credentials. See the Sandbox environment checklist."
+          : `Missing ${config.label} credentials: ${config.missing.join(", ") || "unknown"}.`);
 
     return {
       environment,
       label: config.label,
       configured: config.configured,
+      oauthConfigured,
+      envChecks,
       marketplaceId: config.marketplaceId,
       connectionStatus,
       oauth,
@@ -147,4 +153,3 @@ export async function testEbayConnection(environment: EbayEnvironment, options: 
     return result;
   }
 }
-
